@@ -21,9 +21,14 @@
       "type": "string",
       "description": "Etiqueta del tama\u00f1o (ej. Peque\u00f1a, Grande, Tina 1/2L)"
     },
+    "flavor_count": {
+      "type": "number",
+      "description": "Cantidad de sabores que incluye este producto (1, 2 o 3). Solo para helados.",
+      "default": 1
+    },
     "grams_per_serving": {
       "type": "number",
-      "description": "Gramos que descuenta de la bandeja (para helados)"
+      "description": "Gramos totales que descuenta de las bandejas (para helados)"
     },
     "recipe_id": {
       "type": "string",

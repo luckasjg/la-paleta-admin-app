@@ -45,8 +45,10 @@ export default function POS() {
 
   const addToCart = (product) => {
     if (product.category === 'helado') {
+      const count = product.flavor_count || 1;
+      const gramsEach = Math.round((product.grams_per_serving || 80) / count);
       setFlavorDialog(product);
-      setSelectedFlavors([{ tray_id: '', grams: product.grams_per_serving || 80 }]);
+      setSelectedFlavors(Array.from({ length: count }, () => ({ tray_id: '', grams: gramsEach })));
     } else {
       setCart(prev => {
         const existing = prev.find(i => i.product_id === product.id && !i.tray_id);
