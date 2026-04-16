@@ -21,7 +21,7 @@ const CATS = [
   { value: 'otro', label: 'Otro' },
 ];
 
-const emptyProduct = { name: '', category: 'helado', size_label: '', grams_per_serving: 0, recipe_id: '', price: 0, is_active: true };
+const emptyProduct = { name: '', category: 'helado', size_label: '', flavor_count: 1, grams_per_serving: 0, recipe_id: '', price: 0, is_active: true };
 
 export default function Products() {
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -56,7 +56,7 @@ export default function Products() {
 
   const openEdit = (p) => {
     setEditing(p);
-    setForm({ name: p.name, category: p.category, size_label: p.size_label || '', grams_per_serving: p.grams_per_serving || 0, recipe_id: p.recipe_id || '', price: p.price, is_active: p.is_active !== false });
+    setForm({ name: p.name, category: p.category, size_label: p.size_label || '', flavor_count: p.flavor_count || 1, grams_per_serving: p.grams_per_serving || 0, recipe_id: p.recipe_id || '', price: p.price, is_active: p.is_active !== false });
     setDialogOpen(true);
   };
 
@@ -102,9 +102,10 @@ export default function Products() {
                   </div>
                   <div className="mt-2 flex items-center justify-between">
                     <span className="text-lg font-bold text-primary">${p.price?.toFixed(2)}</span>
-                    {p.grams_per_serving > 0 && (
-                      <Badge variant="secondary" className="text-xs">{p.grams_per_serving}g</Badge>
-                    )}
+                    <div className="flex gap-1 flex-wrap justify-end">
+                      {p.grams_per_serving > 0 && <Badge variant="secondary" className="text-xs">{p.grams_per_serving}g</Badge>}
+                      {p.category === 'helado' && p.flavor_count > 1 && <Badge variant="outline" className="text-xs">{p.flavor_count} sabores</Badge>}
+                    </div>
                   </div>
                   {!p.is_active && <Badge className="mt-2 bg-yellow-100 text-yellow-700">Inactivo</Badge>}
                 </CardContent>
@@ -140,8 +141,25 @@ export default function Products() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div><Label>Precio ($)</Label><Input type="number" step="0.01" value={form.price} onChange={e => setForm({ ...form, price: parseFloat(e.target.value) || 0 })} /></div>
-              <div><Label>Gramos/Porción</Label><Input type="number" value={form.grams_per_serving} onChange={e => setForm({ ...form, grams_per_serving: parseFloat(e.target.value) || 0 })} /></div>
+              <div><Label>Gramos totales</Label><Input type="number" value={form.grams_per_serving} onChange={e => setForm({ ...form, grams_per_serving: parseFloat(e.target.value) || 0 })} /></div>
             </div>
+            {form.category === 'helado' && (
+              <div>
+                <Label>Nº de sabores incluidos</Label>
+                <Select value={String(form.flavor_count || 1)} onValueChange={v => setForm({ ...form, flavor_count: parseInt(v) })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1">1 sabor</SelectItem>
+                    <SelectItem value="2">2 sabores</SelectItem>
+                    <SelectItem value="3">3 sabores</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground mt-1">
+                  El POS pedirá elegir {form.flavor_count || 1} {(form.flavor_count || 1) === 1 ? 'sabor' : 'sabores'} al vender este producto
+                  {form.grams_per_serving > 0 && ` · ${Math.round(form.grams_per_serving / (form.flavor_count || 1))}g por sabor`}
+                </p>
+              </div>
+            )}
             {(form.category === 'cafe' || form.category === 'merengada') && (
               <div>
                 <Label>Receta Asociada</Label>
