@@ -1,0 +1,50 @@
+{
+  "name": "Product",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Nombre del producto en el POS"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "helado",
+        "cafe",
+        "merengada",
+        "adicional",
+        "otro"
+      ],
+      "description": "Categor\u00eda del producto"
+    },
+    "size_label": {
+      "type": "string",
+      "description": "Etiqueta del tama\u00f1o (ej. Peque\u00f1a, Grande, Tina 1/2L)"
+    },
+    "grams_per_serving": {
+      "type": "number",
+      "description": "Gramos que descuenta de la bandeja (para helados)"
+    },
+    "recipe_id": {
+      "type": "string",
+      "description": "Receta asociada (para caf\u00e9/merengadas)"
+    },
+    "price": {
+      "type": "number",
+      "description": "Precio de venta"
+    },
+    "image_url": {
+      "type": "string",
+      "description": "Imagen del producto"
+    },
+    "is_active": {
+      "type": "boolean",
+      "description": "Producto activo"
+    }
+  },
+  "required": [
+    "name",
+    "category",
+    "price"
+  ]
+}

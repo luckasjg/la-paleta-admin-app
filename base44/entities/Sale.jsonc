@@ -1,0 +1,82 @@
+{
+  "name": "Sale",
+  "type": "object",
+  "properties": {
+    "items": {
+      "type": "array",
+      "description": "\u00cdtems vendidos",
+      "items": {
+        "type": "object",
+        "properties": {
+          "product_name": {
+            "type": "string"
+          },
+          "product_id": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          },
+          "flavor": {
+            "type": "string"
+          },
+          "tray_id": {
+            "type": "string"
+          },
+          "grams": {
+            "type": "number"
+          },
+          "quantity": {
+            "type": "number"
+          },
+          "unit_price": {
+            "type": "number"
+          },
+          "subtotal": {
+            "type": "number"
+          }
+        }
+      }
+    },
+    "total": {
+      "type": "number",
+      "description": "Total de la venta"
+    },
+    "payment_method": {
+      "type": "string",
+      "enum": [
+        "efectivo",
+        "pago_movil",
+        "punto_venta",
+        "mixto"
+      ],
+      "description": "M\u00e9todo de pago"
+    },
+    "cash_amount": {
+      "type": "number",
+      "description": "Monto pagado en efectivo"
+    },
+    "digital_amount": {
+      "type": "number",
+      "description": "Monto pagado digitalmente"
+    },
+    "sale_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Fecha y hora de la venta"
+    },
+    "shift": {
+      "type": "string",
+      "enum": [
+        "manana",
+        "tarde",
+        "noche"
+      ],
+      "description": "Turno"
+    }
+  },
+  "required": [
+    "total",
+    "payment_method"
+  ]
+}

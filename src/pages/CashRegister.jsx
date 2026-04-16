@@ -1,0 +1,225 @@
+import React, { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { base44 } from '@/api/base44Client';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Badge } from '@/components/ui/badge';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { DollarSign, AlertTriangle, CheckCircle } from 'lucide-react';
+import PageHeader from '@/components/shared/PageHeader';
+import StatCard from '@/components/shared/StatCard';
+import { toast } from 'sonner';
+import moment from 'moment';
+
+export default function CashRegister() {
+  const [closeDialog, setCloseDialog] = useState(false);
+  const [declaredCash, setDeclaredCash] = useState(0);
+  const [shift, setShift] = useState('manana');
+  const [notes, setNotes] = useState('');
+  const qc = useQueryClient();
+
+  const { data: sales = [] } = useQuery({
+    queryKey: ['sales'],
+    queryFn: () => base44.entities.Sale.list('-sale_date', 500),
+  });
+
+  const { data: registers = [] } = useQuery({
+    queryKey: ['cash_registers'],
+    queryFn: () => base44.entities.CashRegister.list('-created_date', 30),
+  });
+
+  const today = moment().format('YYYY-MM-DD');
+  const todaySales = sales.filter(s => s.sale_date && moment(s.sale_date).format('YYYY-MM-DD') === today);
+
+  const systemCash = todaySales.reduce((sum, s) => sum + (s.cash_amount || 0), 0);
+  const systemDigital = todaySales.reduce((sum, s) => sum + (s.digital_amount || 0), 0);
+  const todayTotal = todaySales.reduce((sum, s) => sum + (s.total || 0), 0);
+
+  const closeMut = useMutation({
+    mutationFn: async () => {
+      await base44.entities.CashRegister.create({
+        date: today,
+        shift,
+        system_cash: systemCash,
+        system_digital: systemDigital,
+        declared_cash: declaredCash,
+        difference: declaredCash - systemCash,
+        total_sales: todayTotal,
+        sales_count: todaySales.length,
+        notes,
+        status: 'cerrada',
+        operator: '',
+      });
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['cash_registers'] });
+      setCloseDialog(false);
+      toast.success('Caja cerrada exitosamente');
+    },
+  });
+
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        title="Caja Registradora"
+        description={`Hoy: ${moment().format('DD/MM/YYYY')}`}
+        actions={
+          <Button onClick={() => setCloseDialog(true)}>
+            <DollarSign className="h-4 w-4 mr-2" /> Cerrar Caja
+          </Button>
+        }
+      />
+
+      {/* Today stats */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard title="Ventas Hoy" value={`$${todayTotal.toFixed(2)}`} icon={DollarSign} />
+        <StatCard title="Transacciones" value={todaySales.length} />
+        <StatCard title="Efectivo" value={`$${systemCash.toFixed(2)}`} />
+        <StatCard title="Digital" value={`$${systemDigital.toFixed(2)}`} />
+      </div>
+
+      {/* Today's sales */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-semibold">Ventas del Día</CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Hora</TableHead>
+                <TableHead>Ítems</TableHead>
+                <TableHead>Método</TableHead>
+                <TableHead className="text-right">Total</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {todaySales.length === 0 ? (
+                <TableRow><TableCell colSpan={4} className="text-center py-6 text-muted-foreground">Sin ventas hoy</TableCell></TableRow>
+              ) : (
+                todaySales.map(s => (
+                  <TableRow key={s.id}>
+                    <TableCell className="text-sm">{moment(s.sale_date).format('HH:mm')}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {(s.items || []).map(i => i.product_name).join(', ').slice(0, 40) || '—'}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="secondary" className="text-xs">
+                        {s.payment_method === 'efectivo' ? 'Efectivo' : s.payment_method === 'pago_movil' ? 'P. Móvil' : s.payment_method === 'punto_venta' ? 'Tarjeta' : 'Mixto'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right font-mono font-semibold">${s.total?.toFixed(2)}</TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      {/* Previous closings */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-semibold">Cierres Anteriores</CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Fecha</TableHead>
+                <TableHead>Turno</TableHead>
+                <TableHead className="text-right">Total Ventas</TableHead>
+                <TableHead className="text-right">Efectivo Sistema</TableHead>
+                <TableHead className="text-right">Efectivo Declarado</TableHead>
+                <TableHead className="text-right">Diferencia</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {registers.length === 0 ? (
+                <TableRow><TableCell colSpan={6} className="text-center py-6 text-muted-foreground">Sin cierres registrados</TableCell></TableRow>
+              ) : (
+                registers.map(r => (
+                  <TableRow key={r.id}>
+                    <TableCell>{moment(r.date).format('DD/MM/YY')}</TableCell>
+                    <TableCell className="capitalize">{r.shift === 'manana' ? 'Mañana' : r.shift === 'tarde' ? 'Tarde' : 'Noche'}</TableCell>
+                    <TableCell className="text-right font-mono">${r.total_sales?.toFixed(2)}</TableCell>
+                    <TableCell className="text-right font-mono">${r.system_cash?.toFixed(2)}</TableCell>
+                    <TableCell className="text-right font-mono">${r.declared_cash?.toFixed(2)}</TableCell>
+                    <TableCell className="text-right">
+                      {r.difference !== 0 && r.difference != null ? (
+                        <Badge className={r.difference < 0 ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}>
+                          {r.difference > 0 ? '+' : ''}{r.difference?.toFixed(2)}
+                        </Badge>
+                      ) : (
+                        <Badge className="bg-green-100 text-green-700">
+                          <CheckCircle className="h-3 w-3 mr-1" /> Cuadra
+                        </Badge>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      {/* Close dialog */}
+      <Dialog open={closeDialog} onOpenChange={setCloseDialog}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Arqueo y Cierre de Caja</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-2">
+            <Card className="p-4 bg-secondary/50">
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div><span className="text-muted-foreground">Ventas:</span> <span className="font-semibold">${todayTotal.toFixed(2)}</span></div>
+                <div><span className="text-muted-foreground">Transacciones:</span> <span className="font-semibold">{todaySales.length}</span></div>
+                <div><span className="text-muted-foreground">Efectivo (sistema):</span> <span className="font-semibold">${systemCash.toFixed(2)}</span></div>
+                <div><span className="text-muted-foreground">Digital:</span> <span className="font-semibold">${systemDigital.toFixed(2)}</span></div>
+              </div>
+            </Card>
+            <div>
+              <Label>Turno</Label>
+              <Select value={shift} onValueChange={setShift}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="manana">Mañana</SelectItem>
+                  <SelectItem value="tarde">Tarde</SelectItem>
+                  <SelectItem value="noche">Noche</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Efectivo Físico Contado ($)</Label>
+              <Input type="number" step="0.01" value={declaredCash} onChange={e => setDeclaredCash(parseFloat(e.target.value) || 0)} />
+              {declaredCash !== systemCash && declaredCash > 0 && (
+                <div className="mt-2 flex items-center gap-2 text-sm">
+                  <AlertTriangle className="h-4 w-4 text-destructive" />
+                  <span className={declaredCash - systemCash < 0 ? 'text-destructive' : 'text-yellow-600'}>
+                    Diferencia: {(declaredCash - systemCash) > 0 ? '+' : ''}{(declaredCash - systemCash).toFixed(2)}
+                  </span>
+                </div>
+              )}
+            </div>
+            <div>
+              <Label>Observaciones</Label>
+              <Textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Notas adicionales..." />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCloseDialog(false)}>Cancelar</Button>
+            <Button onClick={() => closeMut.mutate()} disabled={closeMut.isPending}>
+              {closeMut.isPending ? 'Cerrando...' : 'Cerrar Caja'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}

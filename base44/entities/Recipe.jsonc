@@ -1,0 +1,69 @@
+{
+  "name": "Recipe",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Nombre del producto/sabor"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "helado",
+        "cafe",
+        "merengada",
+        "otro"
+      ],
+      "description": "Tipo de receta"
+    },
+    "yield_amount": {
+      "type": "number",
+      "description": "Cantidad que produce la receta (en ml para helado, unidades para caf\u00e9)"
+    },
+    "yield_unit": {
+      "type": "string",
+      "enum": [
+        "ml",
+        "unidad"
+      ],
+      "description": "Unidad de rendimiento"
+    },
+    "ingredients": {
+      "type": "array",
+      "description": "Lista de ingredientes con cantidades",
+      "items": {
+        "type": "object",
+        "properties": {
+          "supply_id": {
+            "type": "string"
+          },
+          "supply_name": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "number"
+          },
+          "unit": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "image_url": {
+      "type": "string",
+      "description": "Foto del producto"
+    },
+    "sale_price": {
+      "type": "number",
+      "description": "Precio de venta sugerido"
+    },
+    "is_active": {
+      "type": "boolean",
+      "description": "Si la receta est\u00e1 activa"
+    }
+  },
+  "required": [
+    "name",
+    "type"
+  ]
+}

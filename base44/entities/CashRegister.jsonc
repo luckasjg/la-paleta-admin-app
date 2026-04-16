@@ -1,0 +1,65 @@
+{
+  "name": "CashRegister",
+  "type": "object",
+  "properties": {
+    "date": {
+      "type": "string",
+      "format": "date",
+      "description": "Fecha del cierre"
+    },
+    "shift": {
+      "type": "string",
+      "enum": [
+        "manana",
+        "tarde",
+        "noche"
+      ],
+      "description": "Turno"
+    },
+    "system_cash": {
+      "type": "number",
+      "description": "Efectivo seg\u00fan el sistema"
+    },
+    "system_digital": {
+      "type": "number",
+      "description": "Pagos digitales seg\u00fan el sistema"
+    },
+    "declared_cash": {
+      "type": "number",
+      "description": "Efectivo declarado por el operario"
+    },
+    "difference": {
+      "type": "number",
+      "description": "Diferencia (declarado - sistema)"
+    },
+    "total_sales": {
+      "type": "number",
+      "description": "Total de ventas del turno"
+    },
+    "sales_count": {
+      "type": "number",
+      "description": "Cantidad de ventas"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Observaciones del operario"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "abierta",
+        "cerrada"
+      ],
+      "description": "Estado de la caja"
+    },
+    "operator": {
+      "type": "string",
+      "description": "Operario del turno"
+    }
+  },
+  "required": [
+    "date",
+    "shift",
+    "status"
+  ]
+}

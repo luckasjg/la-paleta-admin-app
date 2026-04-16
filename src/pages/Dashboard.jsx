@@ -1,0 +1,206 @@
+import React from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { base44 } from '@/api/base44Client';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { DollarSign, ShoppingCart, IceCream, AlertTriangle, TrendingUp, Clock } from 'lucide-react';
+import PageHeader from '@/components/shared/PageHeader';
+import StatCard from '@/components/shared/StatCard';
+import moment from 'moment';
+
+const COLORS = ['hsl(152,35%,38%)', 'hsl(28,60%,65%)', 'hsl(200,40%,50%)', 'hsl(340,55%,55%)', 'hsl(45,80%,55%)', 'hsl(270,50%,60%)'];
+
+export default function Dashboard() {
+  const { data: sales = [] } = useQuery({
+    queryKey: ['sales'],
+    queryFn: () => base44.entities.Sale.list('-sale_date', 200),
+  });
+
+  const { data: supplies = [] } = useQuery({
+    queryKey: ['supplies'],
+    queryFn: () => base44.entities.Supply.list(),
+  });
+
+  const { data: trays = [] } = useQuery({
+    queryKey: ['trays'],
+    queryFn: () => base44.entities.Tray.filter({ status: 'activa' }),
+  });
+
+  const today = moment().format('YYYY-MM-DD');
+  const todaySales = sales.filter(s => s.sale_date && moment(s.sale_date).format('YYYY-MM-DD') === today);
+  const todayTotal = todaySales.reduce((sum, s) => sum + (s.total || 0), 0);
+  const weekTotal = sales.filter(s => s.sale_date && moment(s.sale_date).isAfter(moment().subtract(7, 'days'))).reduce((sum, s) => sum + (s.total || 0), 0);
+
+  const lowStockSupplies = supplies.filter(s => s.stock_minimum && s.stock_current <= s.stock_minimum);
+
+  // Top products chart
+  const productSales = {};
+  sales.forEach(sale => {
+    (sale.items || []).forEach(item => {
+      const name = item.flavor || item.product_name;
+      if (name) {
+        productSales[name] = (productSales[name] || 0) + (item.quantity || 1);
+      }
+    });
+  });
+  const topProducts = Object.entries(productSales)
+    .sort(([, a], [, b]) => b - a)
+    .slice(0, 6)
+    .map(([name, count]) => ({ name: name.length > 12 ? name.slice(0, 12) + '…' : name, ventas: count }));
+
+  // Sales by payment method
+  const paymentMethods = {};
+  sales.forEach(s => {
+    const method = s.payment_method || 'otro';
+    paymentMethods[method] = (paymentMethods[method] || 0) + (s.total || 0);
+  });
+  const paymentData = Object.entries(paymentMethods).map(([name, value]) => ({
+    name: name === 'efectivo' ? 'Efectivo' : name === 'pago_movil' ? 'Pago Móvil' : name === 'punto_venta' ? 'Tarjeta' : 'Mixto',
+    value
+  }));
+
+  // Sales by hour
+  const hourlyData = Array.from({ length: 14 }, (_, i) => ({ hora: `${i + 8}:00`, ventas: 0 }));
+  sales.forEach(s => {
+    if (s.sale_date) {
+      const hour = moment(s.sale_date).hour();
+      const idx = hour - 8;
+      if (idx >= 0 && idx < 14) {
+        hourlyData[idx].ventas += (s.total || 0);
+      }
+    }
+  });
+
+  // Sales by day of week
+  const dayNames = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+  const dailyData = dayNames.map(name => ({ name, ventas: 0 }));
+  sales.forEach(s => {
+    if (s.sale_date) {
+      const day = moment(s.sale_date).day();
+      dailyData[day].ventas += (s.total || 0);
+    }
+  });
+
+  return (
+    <div className="space-y-6">
+      <PageHeader title="Dashboard" description="Resumen general del negocio" />
+
+      {/* Stats */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard title="Ventas Hoy" value={`$${todayTotal.toFixed(2)}`} icon={DollarSign} subtitle={`${todaySales.length} transacciones`} />
+        <StatCard title="Ventas Semana" value={`$${weekTotal.toFixed(2)}`} icon={TrendingUp} />
+        <StatCard title="Bandejas Activas" value={trays.length} icon={IceCream} />
+        <StatCard title="Alertas Stock" value={lowStockSupplies.length} icon={AlertTriangle} subtitle={lowStockSupplies.length > 0 ? 'Insumos bajos' : 'Todo OK'} />
+      </div>
+
+      {/* Low stock alerts */}
+      {lowStockSupplies.length > 0 && (
+        <Card className="border-destructive/30 bg-destructive/5">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-4 w-4" />
+              Insumos con stock bajo
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap gap-2">
+              {lowStockSupplies.map(s => (
+                <Badge key={s.id} variant="secondary" className="bg-destructive/10 text-destructive border-destructive/20">
+                  {s.name}: {s.stock_current}{s.unit} (mín: {s.stock_minimum}{s.unit})
+                </Badge>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Charts Row 1 */}
+      <div className="grid md:grid-cols-2 gap-4">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <ShoppingCart className="h-4 w-4 text-primary" />
+              Productos más vendidos
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={240}>
+              <BarChart data={topProducts} margin={{ top: 5, right: 5, bottom: 5, left: -15 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(30,15%,88%)" />
+                <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                <YAxis tick={{ fontSize: 11 }} />
+                <Tooltip />
+                <Bar dataKey="ventas" fill="hsl(152,35%,38%)" radius={[6, 6, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <DollarSign className="h-4 w-4 text-primary" />
+              Métodos de Pago
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={240}>
+              <PieChart>
+                <Pie data={paymentData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
+                  {paymentData.map((_, i) => (
+                    <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip formatter={(v) => `$${v.toFixed(2)}`} />
+              </PieChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Charts Row 2 */}
+      <div className="grid md:grid-cols-2 gap-4">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <Clock className="h-4 w-4 text-primary" />
+              Ventas por Hora
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={220}>
+              <LineChart data={hourlyData} margin={{ top: 5, right: 5, bottom: 5, left: -15 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(30,15%,88%)" />
+                <XAxis dataKey="hora" tick={{ fontSize: 10 }} />
+                <YAxis tick={{ fontSize: 11 }} />
+                <Tooltip formatter={(v) => `$${v.toFixed(2)}`} />
+                <Line type="monotone" dataKey="ventas" stroke="hsl(152,35%,38%)" strokeWidth={2} dot={{ r: 3 }} />
+              </LineChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <TrendingUp className="h-4 w-4 text-primary" />
+              Ventas por Día
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={dailyData} margin={{ top: 5, right: 5, bottom: 5, left: -15 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(30,15%,88%)" />
+                <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                <YAxis tick={{ fontSize: 11 }} />
+                <Tooltip formatter={(v) => `$${v.toFixed(2)}`} />
+                <Bar dataKey="ventas" fill="hsl(28,60%,65%)" radius={[6, 6, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}

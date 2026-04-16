@@ -1,0 +1,52 @@
+{
+  "name": "Supply",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Nombre del insumo"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "lacteo",
+        "fruta",
+        "cafe",
+        "endulzante",
+        "adicional",
+        "empaque",
+        "otro"
+      ],
+      "description": "Categor\u00eda del insumo"
+    },
+    "unit": {
+      "type": "string",
+      "enum": [
+        "g",
+        "ml",
+        "unidad"
+      ],
+      "description": "Unidad de medida"
+    },
+    "stock_current": {
+      "type": "number",
+      "description": "Stock actual en la unidad correspondiente"
+    },
+    "stock_minimum": {
+      "type": "number",
+      "description": "Stock m\u00ednimo para alertas"
+    },
+    "cost_per_unit": {
+      "type": "number",
+      "description": "Costo por unidad de medida"
+    },
+    "supplier": {
+      "type": "string",
+      "description": "Proveedor"
+    }
+  },
+  "required": [
+    "name",
+    "unit"
+  ]
+}
