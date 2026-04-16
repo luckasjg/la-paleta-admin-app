@@ -15,7 +15,7 @@ export default function POS() {
   const [cart, setCart] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState('helado');
   const [flavorDialog, setFlavorDialog] = useState(null); // product that needs flavor selection
-  const [selectedTray, setSelectedTray] = useState('');
+  const [selectedFlavors, setSelectedFlavors] = useState([]); // [{tray_id, grams}]
   const [payDialog, setPayDialog] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState('efectivo');
   const qc = useQueryClient();
@@ -46,7 +46,7 @@ export default function POS() {
   const addToCart = (product) => {
     if (product.category === 'helado') {
       setFlavorDialog(product);
-      setSelectedTray('');
+      setSelectedFlavors([{ tray_id: '', grams: product.grams_per_serving || 80 }]);
     } else {
       setCart(prev => {
         const existing = prev.find(i => i.product_id === product.id && !i.tray_id);
@@ -67,26 +67,62 @@ export default function POS() {
     }
   };
 
+  const totalFlavorGrams = selectedFlavors.reduce((s, f) => s + (parseFloat(f.grams) || 0), 0);
+  const targetGrams = flavorDialog?.grams_per_serving || 80;
+  const flavorGramsOk = Math.abs(totalFlavorGrams - targetGrams) <= 1;
+  const allFlavorsFilled = selectedFlavors.every(f => f.tray_id);
+
+  const addFlavorSlot = () => {
+    if (selectedFlavors.length >= 3) return;
+    const remaining = targetGrams - totalFlavorGrams;
+    setSelectedFlavors(prev => [...prev.slice(0, -1).map(f => ({ ...f })),
+      { ...prev[prev.length - 1], grams: Math.max(0, prev[prev.length - 1].grams - Math.ceil(remaining === 0 ? prev[prev.length - 1].grams / 2 : 0)) },
+      { tray_id: '', grams: Math.ceil(remaining > 0 ? remaining : prev[prev.length - 1].grams / 2) }
+    ]);
+  };
+
+  const removeFlavorSlot = (idx) => {
+    setSelectedFlavors(prev => {
+      const removed = prev[idx];
+      const next = prev.filter((_, i) => i !== idx);
+      // Give grams back to last remaining
+      if (next.length > 0) {
+        next[next.length - 1] = { ...next[next.length - 1], grams: next[next.length - 1].grams + (parseFloat(removed.grams) || 0) };
+      }
+      return next;
+    });
+  };
+
+  const updateFlavorSlot = (idx, field, value) => {
+    setSelectedFlavors(prev => prev.map((f, i) => i === idx ? { ...f, [field]: value } : f));
+  };
+
   const addIceCreamToCart = () => {
-    if (!flavorDialog || !selectedTray) return;
-    const tray = trays.find(t => t.id === selectedTray);
-    if (!tray) return;
+    if (!flavorDialog || !allFlavorsFilled) return;
     const product = flavorDialog;
+    const flavorLabel = selectedFlavors.map(f => {
+      const tray = trays.find(t => t.id === f.tray_id);
+      return tray ? tray.recipe_name : '';
+    }).join(' + ');
 
     setCart(prev => [...prev, {
       product_id: product.id,
       product_name: product.name,
       category: 'helado',
-      flavor: tray.recipe_name,
-      tray_id: tray.id,
-      grams: product.grams_per_serving || 80,
+      flavor: flavorLabel,
+      flavors: selectedFlavors.map(f => {
+        const tray = trays.find(t => t.id === f.tray_id);
+        return { tray_id: f.tray_id, recipe_name: tray?.recipe_name || '', grams: parseFloat(f.grams) || 0 };
+      }),
+      tray_id: selectedFlavors[0].tray_id, // primary for compat
+      grams: targetGrams,
       quantity: 1,
       unit_price: product.price,
       subtotal: product.price,
     }]);
 
     setFlavorDialog(null);
-    setSelectedTray('');
+    setSelectedFlavors([]);
   };
 
   const updateQty = (index, delta) => {
@@ -115,15 +151,20 @@ export default function POS() {
     mutationFn: async () => {
       // Deduct from trays (helado items)
       for (const item of cart) {
-        if (item.category === 'helado' && item.tray_id) {
-          const tray = trays.find(t => t.id === item.tray_id);
-          if (!tray) continue;
-          const gramsToDeduct = (item.grams || 80) * item.quantity;
-          const newRemaining = Math.max(0, (tray.remaining_grams || 0) - gramsToDeduct);
-          await base44.entities.Tray.update(tray.id, {
-            remaining_grams: newRemaining,
-            status: newRemaining <= 0 ? 'agotada' : 'activa',
-          });
+        if (item.category === 'helado') {
+          // multi-flavor support
+          const flavorList = item.flavors || [{ tray_id: item.tray_id, grams: item.grams || 80 }];
+          for (const fl of flavorList) {
+            if (!fl.tray_id) continue;
+            const tray = trays.find(t => t.id === fl.tray_id);
+            if (!tray) continue;
+            const gramsToDeduct = (fl.grams || 0) * item.quantity;
+            const newRemaining = Math.max(0, (tray.remaining_grams || 0) - gramsToDeduct);
+            await base44.entities.Tray.update(tray.id, {
+              remaining_grams: newRemaining,
+              status: newRemaining <= 0 ? 'agotada' : 'activa',
+            });
+          }
         }
         // Deduct supplies for café/merengada
         if ((item.category === 'cafe' || item.category === 'merengada') && item.recipe_id) {
@@ -265,23 +306,65 @@ export default function POS() {
       <Dialog open={!!flavorDialog} onOpenChange={() => setFlavorDialog(null)}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>Seleccionar Sabor</DialogTitle>
+            <DialogTitle>
+              Seleccionar Sabor — {flavorDialog?.name}
+              <p className="text-sm font-normal text-muted-foreground mt-0.5">{targetGrams}g en total</p>
+            </DialogTitle>
           </DialogHeader>
           <div className="space-y-3 py-2">
-            <Select value={selectedTray} onValueChange={setSelectedTray}>
-              <SelectTrigger><SelectValue placeholder="Elegir bandeja/sabor" /></SelectTrigger>
-              <SelectContent>
-                {trays.map(t => (
-                  <SelectItem key={t.id} value={t.id}>
-                    {t.recipe_name} ({t.remaining_grams?.toFixed(0)}g restantes)
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {selectedFlavors.map((fl, idx) => (
+              <div key={idx} className="flex items-center gap-2">
+                <div className="flex-1">
+                  <Select value={fl.tray_id} onValueChange={v => updateFlavorSlot(idx, 'tray_id', v)}>
+                    <SelectTrigger className="text-sm">
+                      <SelectValue placeholder={`Sabor ${idx + 1}`} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {trays.map(t => (
+                        <SelectItem key={t.id} value={t.id}>
+                          {t.recipe_name} ({t.remaining_grams?.toFixed(0)}g)
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-center gap-1 flex-shrink-0">
+                  <input
+                    type="number"
+                    min={1}
+                    max={targetGrams}
+                    value={fl.grams}
+                    onChange={e => updateFlavorSlot(idx, 'grams', e.target.value)}
+                    className="w-16 border border-input rounded-md px-2 py-1.5 text-sm text-center"
+                  />
+                  <span className="text-xs text-muted-foreground">g</span>
+                </div>
+                {selectedFlavors.length > 1 && (
+                  <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive flex-shrink-0" onClick={() => removeFlavorSlot(idx)}>
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                )}
+              </div>
+            ))}
+
+            <div className="flex items-center justify-between">
+              {selectedFlavors.length < 3 ? (
+                <Button variant="outline" size="sm" onClick={addFlavorSlot} className="text-xs">
+                  <Plus className="h-3 w-3 mr-1" /> Agregar sabor
+                </Button>
+              ) : <span />}
+              <span className={`text-sm font-semibold ${flavorGramsOk ? 'text-primary' : 'text-destructive'}`}>
+                {totalFlavorGrams}g / {targetGrams}g
+              </span>
+            </div>
+
+            {!flavorGramsOk && (
+              <p className="text-xs text-destructive">Los gramos deben sumar exactamente {targetGrams}g</p>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setFlavorDialog(null)}>Cancelar</Button>
-            <Button onClick={addIceCreamToCart} disabled={!selectedTray}>Agregar</Button>
+            <Button onClick={addIceCreamToCart} disabled={!allFlavorsFilled || !flavorGramsOk}>Agregar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
