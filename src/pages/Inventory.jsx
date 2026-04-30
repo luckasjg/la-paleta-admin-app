@@ -23,7 +23,7 @@ const CATEGORIES = [
   { value: 'otro', label: 'Otro' },
 ];
 
-const emptySupply = { name: '', category: 'otro', unit: 'g', stock_current: 0, stock_minimum: 0, cost_per_unit: 0, supplier: '' };
+const emptySupply = { name: '', category: 'otro', unit: 'g', stock_current: 0, stock_minimum: 0, cost_per_unit: 0, supplier: '', purchase_price: '', yield_amount: '' };
 
 export default function Inventory() {
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -56,16 +56,17 @@ export default function Inventory() {
 
   const openEdit = (s) => {
     setEditing(s);
-    setForm({ name: s.name, category: s.category, unit: s.unit, stock_current: s.stock_current, stock_minimum: s.stock_minimum, cost_per_unit: s.cost_per_unit, supplier: s.supplier || '' });
+    setForm({ name: s.name, category: s.category, unit: s.unit, stock_current: s.stock_current, stock_minimum: s.stock_minimum, cost_per_unit: s.cost_per_unit, supplier: s.supplier || '', purchase_price: '', yield_amount: '' });
     setDialogOpen(true);
   };
 
   const handleSave = () => {
     if (!form.name) return;
+    const { purchase_price, yield_amount, ...apiData } = form;
     if (editing) {
-      updateMut.mutate({ id: editing.id, data: form });
+      updateMut.mutate({ id: editing.id, data: apiData });
     } else {
-      createMut.mutate(form);
+      createMut.mutate(apiData);
     }
   };
 
@@ -126,7 +127,7 @@ export default function Inventory() {
                       {s.stock_current} {s.unit}
                     </TableCell>
                     <TableCell className="text-right font-mono text-muted-foreground">{s.stock_minimum} {s.unit}</TableCell>
-                    <TableCell className="text-right font-mono">${s.cost_per_unit?.toFixed(2)}</TableCell>
+                    <TableCell className="text-right font-mono">${s.cost_per_unit?.toFixed(4)}</TableCell>
                     <TableCell className="text-muted-foreground">{s.supplier || '—'}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
@@ -174,8 +175,44 @@ export default function Inventory() {
               <div><Label>Stock Mínimo</Label><Input type="number" value={form.stock_minimum} onChange={e => setForm({ ...form, stock_minimum: parseFloat(e.target.value) || 0 })} /></div>
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <div><Label>Costo por Unidad ($)</Label><Input type="number" step="0.01" value={form.cost_per_unit} onChange={e => setForm({ ...form, cost_per_unit: parseFloat(e.target.value) || 0 })} /></div>
+              <div><Label>Costo por Unidad ($)</Label><Input type="number" step="0.0001" value={form.cost_per_unit} onChange={e => setForm({ ...form, cost_per_unit: parseFloat(e.target.value) || 0 })} /></div>
               <div><Label>Proveedor</Label><Input value={form.supplier} onChange={e => setForm({ ...form, supplier: e.target.value })} /></div>
+            </div>
+
+            {/* Calculadora de costos */}
+            <div className="border rounded-lg p-3 bg-muted/30 space-y-3">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Calculadora de Costos (Opcional)</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs">Precio del empaque ($)</Label>
+                  <Input
+                    type="number" step="0.01" placeholder="ej. 180"
+                    value={form.purchase_price}
+                    onChange={e => {
+                      const price = parseFloat(e.target.value) || 0;
+                      const qty = parseFloat(form.yield_amount) || 0;
+                      setForm(f => ({ ...f, purchase_price: e.target.value, cost_per_unit: qty > 0 ? parseFloat((price / qty).toFixed(6)) : f.cost_per_unit }));
+                    }}
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">¿Cuántos {form.unit} trae?</Label>
+                  <Input
+                    type="number" step="1" placeholder="ej. 25000"
+                    value={form.yield_amount}
+                    onChange={e => {
+                      const qty = parseFloat(e.target.value) || 0;
+                      const price = parseFloat(form.purchase_price) || 0;
+                      setForm(f => ({ ...f, yield_amount: e.target.value, cost_per_unit: qty > 0 ? parseFloat((price / qty).toFixed(6)) : f.cost_per_unit }));
+                    }}
+                  />
+                </div>
+              </div>
+              {parseFloat(form.purchase_price) > 0 && parseFloat(form.yield_amount) > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  → Costo calculado: <strong className="text-foreground">${(parseFloat(form.purchase_price) / parseFloat(form.yield_amount)).toFixed(4)}</strong> por {form.unit}
+                </p>
+              )}
             </div>
           </div>
           <DialogFooter>
