@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Plus, Trash2, Pencil, BookOpen } from 'lucide-react';
 import PageHeader from '@/components/shared/PageHeader';
 import { toast } from 'sonner';
+import RecipeDetailCard from '@/components/recipes/RecipeDetailCard';
 
 const TYPES = [
   { value: 'helado', label: 'Helado' },
@@ -93,13 +94,6 @@ export default function Recipes() {
     else createMut.mutate(form);
   };
 
-  const calculateCost = (recipe) => {
-    return (recipe.ingredients || []).reduce((sum, ing) => {
-      const supply = supplies.find(s => s.id === ing.supply_id);
-      return sum + (supply?.cost_per_unit || 0) * (ing.quantity || 0);
-    }, 0);
-  };
-
   return (
     <div className="space-y-6">
       <PageHeader
@@ -113,47 +107,15 @@ export default function Recipes() {
       />
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {recipes.map(r => {
-          const cost = calculateCost(r);
-          return (
-            <Card key={r.id} className="group hover:shadow-md transition-shadow">
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <CardTitle className="text-base">{r.name}</CardTitle>
-                    <div className="flex items-center gap-2 mt-1">
-                      <Badge variant="secondary">{TYPES.find(t => t.value === r.type)?.label}</Badge>
-                      <span className="text-xs text-muted-foreground">
-                        Rinde: {r.yield_amount}{r.yield_unit}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(r)}><Pencil className="h-3.5 w-3.5" /></Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => deleteMut.mutate(r.id)}><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-1">
-                  {(r.ingredients || []).map((ing, i) => (
-                    <div key={i} className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">{ing.supply_name}</span>
-                      <span className="font-mono">{ing.quantity} {ing.unit}</span>
-                    </div>
-                  ))}
-                  {(!r.ingredients || r.ingredients.length === 0) && (
-                    <p className="text-xs text-muted-foreground italic">Sin ingredientes definidos</p>
-                  )}
-                </div>
-                <div className="flex justify-between items-center mt-3 pt-3 border-t">
-                  <span className="text-xs text-muted-foreground">Costo: ${cost.toFixed(2)}</span>
-                  <span className="text-sm font-semibold text-primary">Precio: ${r.sale_price?.toFixed(2)}</span>
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
+        {recipes.map(r => (
+          <RecipeDetailCard
+            key={r.id}
+            recipe={r}
+            supplies={supplies}
+            onEdit={openEdit}
+            onDelete={(id) => deleteMut.mutate(id)}
+          />
+        ))}
         {recipes.length === 0 && (
           <Card className="col-span-full p-12 flex flex-col items-center justify-center text-center">
             <BookOpen className="h-10 w-10 text-muted-foreground/50 mb-3" />
