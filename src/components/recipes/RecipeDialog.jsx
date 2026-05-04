@@ -1,11 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, FlaskConical } from 'lucide-react';
 
 const TYPES = [
   { value: 'helado', label: 'Helado' },
@@ -17,6 +17,7 @@ const TYPES = [
 const emptyIng = { supply_id: '', supply_name: '', quantity: 0, unit: 'g', percentage: 0, sugars: 0, fats: 0, slngo: 0, other_solids: 0, calories: 0 };
 
 export default function RecipeDialog({ open, onOpenChange, form, setForm, editing, supplies, onSave, onClose }) {
+  const [mixDeseado, setMixDeseado] = useState('');
   const totalGrams = form.ingredients.reduce((s, i) => s + (parseFloat(i.quantity) || 0), 0);
   const totalSugars = form.ingredients.reduce((s, i) => s + (parseFloat(i.sugars) || 0), 0);
   const totalFats = form.ingredients.reduce((s, i) => s + (parseFloat(i.fats) || 0), 0);
@@ -112,6 +113,33 @@ export default function RecipeDialog({ open, onOpenChange, form, setForm, editin
             </div>
           )}
 
+          {/* Calculadora de Producción */}
+          {form.ingredients.length > 0 && totalGrams > 0 && (
+            <div className="border rounded-lg p-3 bg-blue-50/50 dark:bg-blue-950/20 space-y-2">
+              <div className="flex items-center gap-2">
+                <FlaskConical className="h-4 w-4 text-blue-600" />
+                <span className="text-sm font-semibold text-blue-700 dark:text-blue-400">Calculadora de Producción</span>
+              </div>
+              <div className="flex items-end gap-3">
+                <div className="w-52">
+                  <Label className="text-xs">Mix Deseado (gramos)</Label>
+                  <Input
+                    type="number" step="1" placeholder={`Base: ${totalGrams}g`}
+                    value={mixDeseado}
+                    onChange={e => setMixDeseado(e.target.value)}
+                    className="h-8 text-sm"
+                  />
+                </div>
+                {mixDeseado && (
+                  <Button variant="ghost" size="sm" className="text-xs text-muted-foreground h-8" onClick={() => setMixDeseado('')}>
+                    Limpiar
+                  </Button>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground italic">* Solo visual — no modifica la receta original.</p>
+            </div>
+          )}
+
           {/* Ingredients table */}
           <div>
             <div className="flex items-center justify-between mb-2">
@@ -127,7 +155,8 @@ export default function RecipeDialog({ open, onOpenChange, form, setForm, editin
                   <tr>
                     <th className="text-left p-2 font-semibold min-w-[160px]">Ingrediente</th>
                     <th className="text-right p-2 font-semibold w-20">Cant. (g)</th>
-                    <th className="text-right p-2 font-semibold w-16">% Mix</th>
+                    <th className="text-right p-2 font-semibold w-20">% en Receta</th>
+                    {mixDeseado && <th className="text-right p-2 font-semibold w-24 text-blue-600">Gramos a Pesar</th>}
                     <th className="text-right p-2 font-semibold w-20">Azúcares</th>
                     <th className="text-right p-2 font-semibold w-16">Grasas</th>
                     <th className="text-right p-2 font-semibold w-20">S.L.N.G.O.</th>
@@ -155,6 +184,11 @@ export default function RecipeDialog({ open, onOpenChange, form, setForm, editin
                             onChange={e => updateIngredient(idx, 'quantity', parseFloat(e.target.value) || 0)} />
                         </td>
                         <td className="p-1 text-right text-muted-foreground font-mono pr-2">{pct}%</td>
+                        {mixDeseado && (
+                          <td className="p-1 text-right font-mono font-semibold text-blue-700 dark:text-blue-400 pr-2">
+                            {((parseFloat(mixDeseado) / totalGrams) * (parseFloat(ing.quantity) || 0)).toFixed(1)}g
+                          </td>
+                        )}
                         <td className="p-1">
                           <Input type="number" className="h-7 text-xs text-right px-2 w-full"
                             value={ing.sugars || ''} placeholder="0"
@@ -201,6 +235,7 @@ export default function RecipeDialog({ open, onOpenChange, form, setForm, editin
                       <td className="p-2 text-xs uppercase tracking-wide">TOTAL MIX</td>
                       <td className="p-2 text-right font-mono text-sm">{totalGrams}</td>
                       <td className="p-2 text-right text-muted-foreground">100%</td>
+                      {mixDeseado && <td className="p-2 text-right font-mono font-bold text-blue-700 dark:text-blue-400">{parseFloat(mixDeseado).toFixed(1)}g</td>}
                       <td className="p-2 text-right font-mono">{totalSugars.toFixed(0)}</td>
                       <td className="p-2 text-right font-mono">{totalFats.toFixed(0)}</td>
                       <td className="p-2 text-right font-mono">{totalSlngo.toFixed(0)}</td>
