@@ -2,13 +2,9 @@
   "name": "Recipe",
   "type": "object",
   "properties": {
-    "recipe_number": {
-      "type": "number",
-      "description": "N\u00famero de receta"
-    },
     "name": {
       "type": "string",
-      "description": "Nombre del sabor/producto"
+      "description": "Nombre del producto/sabor"
     },
     "type": {
       "type": "string",
@@ -22,7 +18,7 @@
     },
     "yield_amount": {
       "type": "number",
-      "description": "Mix deseado en gramos"
+      "description": "Cantidad que produce la receta (en ml para helado, unidades para caf\u00e9)"
     },
     "yield_unit": {
       "type": "string",
@@ -32,17 +28,9 @@
       ],
       "description": "Unidad de rendimiento"
     },
-    "overrun": {
-      "type": "number",
-      "description": "Overrun en % (expansi\u00f3n del helado)"
-    },
-    "service_temperature": {
-      "type": "number",
-      "description": "Temperatura de servicio en \u00b0C"
-    },
     "ingredients": {
       "type": "array",
-      "description": "Ingredientes con datos t\u00e9cnicos",
+      "description": "Lista de ingredientes con cantidades",
       "items": {
         "type": "object",
         "properties": {
@@ -53,35 +41,10 @@
             "type": "string"
           },
           "quantity": {
-            "type": "number",
-            "description": "Cantidad en gramos"
+            "type": "number"
           },
           "unit": {
             "type": "string"
-          },
-          "percentage": {
-            "type": "number",
-            "description": "% sobre el total del mix"
-          },
-          "sugars": {
-            "type": "number",
-            "description": "Az\u00facares en g"
-          },
-          "fats": {
-            "type": "number",
-            "description": "Grasas en g"
-          },
-          "slngo": {
-            "type": "number",
-            "description": "S.L.N.G.O. en g (s\u00f3lidos l\u00e1cteos no grasos)"
-          },
-          "other_solids": {
-            "type": "number",
-            "description": "Otros s\u00f3lidos en g"
-          },
-          "calories": {
-            "type": "number",
-            "description": "Calor\u00edas"
           }
         }
       }
@@ -97,10 +60,6 @@
     "is_active": {
       "type": "boolean",
       "description": "Si la receta est\u00e1 activa"
-    },
-    "notes": {
-      "type": "string",
-      "description": "Observaciones"
     }
   },
   "required": [
