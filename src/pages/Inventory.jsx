@@ -325,20 +325,34 @@ export default function Inventory() {
             </div>
 
             {/* Calculadora de Costos */}
-            <div className="rounded-lg border border-dashed border-border bg-muted/30 p-3 space-y-2">
-              <p className="text-xs font-semibold text-foreground">🧮 Calculadora de Costos <span className="font-normal text-muted-foreground">(Opcional)</span></p>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label className="text-xs">Precio del empaque ($)</Label>
-                  <Input type="number" step="0.01" placeholder="ej. 180" value={calc.purchase_price} onChange={e => handleCalcChange('purchase_price', e.target.value)} />
+            {(() => {
+              const isVentaDirecta = form.sector === 'venta_directa';
+              const isUtensilio = form.sector === 'utensilio';
+              const labelPrecio = isVentaDirecta || isUtensilio ? 'Precio del lote/caja ($)' : 'Precio del empaque ($)';
+              const labelCantidad = isVentaDirecta || isUtensilio
+                ? '¿Cuántas unidades trae?'
+                : `¿Cuántos ${form.unit} trae?`;
+              const placeholderCantidad = isVentaDirecta ? 'ej. 24 (caja de 24)' : isUtensilio ? 'ej. 85 (caja de barquillas)' : 'ej. 25000';
+              const nota = isVentaDirecta || isUtensilio
+                ? 'Divide el costo del lote entre las unidades para obtener el costo por pieza.'
+                : 'Al completar ambos campos, el costo por unidad se calcula automáticamente.';
+              return (
+                <div className="rounded-lg border border-dashed border-border bg-muted/30 p-3 space-y-2">
+                  <p className="text-xs font-semibold text-foreground">🧮 Calculadora de Costos <span className="font-normal text-muted-foreground">(Opcional)</span></p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label className="text-xs">{labelPrecio}</Label>
+                      <Input type="number" step="0.01" placeholder="ej. 180" value={calc.purchase_price} onChange={e => handleCalcChange('purchase_price', e.target.value)} />
+                    </div>
+                    <div>
+                      <Label className="text-xs">{labelCantidad}</Label>
+                      <Input type="number" step="1" placeholder={placeholderCantidad} value={calc.yield_amount} onChange={e => handleCalcChange('yield_amount', e.target.value)} />
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">{nota} Solo visual, no se guarda en la base de datos.</p>
                 </div>
-                <div>
-                  <Label className="text-xs">¿Cuántos {form.unit} trae?</Label>
-                  <Input type="number" step="0.01" placeholder="ej. 25000" value={calc.yield_amount} onChange={e => handleCalcChange('yield_amount', e.target.value)} />
-                </div>
-              </div>
-              <p className="text-[10px] text-muted-foreground">Al completar ambos campos, el costo por unidad se calcula automáticamente. Solo visual, no se guarda en la base de datos.</p>
-            </div>
+              );
+            })()}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={close}>Cancelar</Button>
