@@ -10,7 +10,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Plus, Pencil, Trash2, AlertTriangle, Search, Tag, X } from 'lucide-react';
+import { Plus, Pencil, Trash2, AlertTriangle, Search, Tag, X, Infinity } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
 import PageHeader from '@/components/shared/PageHeader';
 import { toast } from 'sonner';
 
@@ -27,7 +28,7 @@ const DEFAULT_CATEGORIES = {
   utensilio: ['Vaso', 'Cubierto', 'Empaque', 'Limpieza', 'Otro'],
 };
 
-const emptySupply = { name: '', sector: 'materia_prima', category: '', unit: 'g', stock_current: 0, stock_minimum: 0, cost_per_unit: 0, supplier: '' };
+const emptySupply = { name: '', sector: 'materia_prima', category: '', unit: 'g', stock_current: 0, stock_minimum: 0, cost_per_unit: 0, supplier: '', is_infinite: false };
 const emptyCalc = { purchase_price: '', yield_amount: '' };
 
 export default function Inventory() {
@@ -84,7 +85,7 @@ export default function Inventory() {
     setForm({
       name: s.name, sector: s.sector || 'materia_prima', category: s.category || '',
       unit: s.unit, stock_current: s.stock_current, stock_minimum: s.stock_minimum,
-      cost_per_unit: s.cost_per_unit, supplier: s.supplier || ''
+      cost_per_unit: s.cost_per_unit, supplier: s.supplier || '', is_infinite: s.is_infinite || false
     });
     setCalc(emptyCalc);
     setCustomCategoryInput('');
@@ -104,8 +105,8 @@ export default function Inventory() {
 
   const handleSave = () => {
     if (!form.name) return;
-    const { name, sector, category, unit, stock_current, stock_minimum, cost_per_unit, supplier } = form;
-    const payload = { name, sector, category, unit, stock_current, stock_minimum, cost_per_unit, supplier };
+    const { name, sector, category, unit, stock_current, stock_minimum, cost_per_unit, supplier, is_infinite } = form;
+    const payload = { name, sector, category, unit, stock_current, stock_minimum, cost_per_unit, supplier, is_infinite };
     if (editing) {
       updateMut.mutate({ id: editing.id, data: payload });
     } else {
@@ -215,6 +216,7 @@ export default function Inventory() {
                                 <div className="flex items-center gap-2">
                                   {isLow && <AlertTriangle className="h-4 w-4 text-destructive flex-shrink-0" />}
                                   {s.name}
+                                  {s.is_infinite && <Infinity className="h-3.5 w-3.5 text-primary" title="Stock infinito" />}
                                 </div>
                               </TableCell>
                               <TableCell className={`text-right font-mono ${isLow ? 'text-destructive font-bold' : ''}`}>
@@ -323,6 +325,19 @@ export default function Inventory() {
               <Label>Costo por Unidad ($)</Label>
               <Input type="number" step="0.0001" value={form.cost_per_unit} onChange={e => setForm({ ...form, cost_per_unit: parseFloat(e.target.value) || 0 })} />
             </div>
+
+            {/* Stock infinito (solo materia prima) */}
+            {form.sector === 'materia_prima' && (
+              <div className="flex items-center justify-between rounded-lg border border-border bg-muted/20 p-3">
+                <div>
+                  <p className="text-sm font-medium flex items-center gap-1.5">
+                    <Infinity className="h-4 w-4 text-primary" /> Abastecimiento propio (stock infinito)
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">No descuenta del inventario al producir (ej. agua)</p>
+                </div>
+                <Switch checked={form.is_infinite} onCheckedChange={v => setForm(f => ({ ...f, is_infinite: v }))} />
+              </div>
+            )}
 
             {/* Calculadora de Costos */}
             {(() => {

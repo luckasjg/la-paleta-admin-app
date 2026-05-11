@@ -44,6 +44,11 @@
     "supplier": {
       "type": "string",
       "description": "Proveedor"
+    },
+    "is_infinite": {
+      "type": "boolean",
+      "description": "Si es true, no se descuenta del inventario (ej. agua con abastecimiento propio)",
+      "default": false
     }
   },
   "required": [

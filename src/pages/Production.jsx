@@ -48,20 +48,20 @@ export default function Production() {
       const multiplier = (liters * 1000) / (recipe.yield_amount || 1000);
       const ingredients = recipe.ingredients || [];
 
-      // Check and deduct supplies
+      // Check and deduct supplies (skip infinite ones)
       for (const ing of ingredients) {
         const supply = supplies.find(s => s.id === ing.supply_id);
-        if (!supply) continue;
+        if (!supply || supply.is_infinite) continue;
         const needed = (ing.quantity || 0) * multiplier;
         if (supply.stock_current < needed) {
           throw new Error(`Insuficiente ${supply.name}: necesita ${needed.toFixed(0)}${supply.unit}, tiene ${supply.stock_current}${supply.unit}`);
         }
       }
 
-      // Deduct supplies
+      // Deduct supplies (skip infinite ones)
       for (const ing of ingredients) {
         const supply = supplies.find(s => s.id === ing.supply_id);
-        if (!supply) continue;
+        if (!supply || supply.is_infinite) continue;
         const needed = (ing.quantity || 0) * multiplier;
         await base44.entities.Supply.update(supply.id, {
           stock_current: supply.stock_current - needed
