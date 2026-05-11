@@ -6,18 +6,19 @@
       "type": "string",
       "description": "Nombre del insumo"
     },
-    "category": {
+    "sector": {
       "type": "string",
       "enum": [
-        "lacteo",
-        "fruta",
-        "cafe",
-        "endulzante",
-        "adicional",
-        "empaque",
-        "otro"
+        "materia_prima",
+        "venta_directa",
+        "utensilio"
       ],
-      "description": "Categor\u00eda del insumo"
+      "description": "Sector del inventario",
+      "default": "materia_prima"
+    },
+    "category": {
+      "type": "string",
+      "description": "Categor\u00eda del insumo (libre)"
     },
     "unit": {
       "type": "string",

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Card } from '@/components/ui/card';
@@ -9,21 +9,25 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Pencil, Trash2, AlertTriangle, Search } from 'lucide-react';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Plus, Pencil, Trash2, AlertTriangle, Search, Tag, X } from 'lucide-react';
 import PageHeader from '@/components/shared/PageHeader';
 import { toast } from 'sonner';
 
-const CATEGORIES = [
-  { value: 'lacteo', label: 'Lácteo' },
-  { value: 'fruta', label: 'Fruta' },
-  { value: 'cafe', label: 'Café' },
-  { value: 'endulzante', label: 'Endulzante' },
-  { value: 'adicional', label: 'Adicional' },
-  { value: 'empaque', label: 'Empaque' },
-  { value: 'otro', label: 'Otro' },
+const SECTORS = [
+  { value: 'materia_prima', label: 'Materia Prima', description: 'Ingredientes para producción de helados' },
+  { value: 'venta_directa', label: 'Venta Directa', description: 'Productos listos para vender (brownies, bebidas, etc.)' },
+  { value: 'utensilio', label: 'Utensilios', description: 'Vasos, cucharas, barquillas, tinitas, etc.' },
 ];
 
-const emptySupply = { name: '', category: 'otro', unit: 'g', stock_current: 0, stock_minimum: 0, cost_per_unit: 0, supplier: '' };
+// Default categories per sector (suggestions only)
+const DEFAULT_CATEGORIES = {
+  materia_prima: ['Lácteo', 'Fruta', 'Café', 'Endulzante', 'Adicional', 'Empaque', 'Otro'],
+  venta_directa: ['Bebida', 'Snack', 'Postre', 'Otro'],
+  utensilio: ['Vaso', 'Cubierto', 'Empaque', 'Limpieza', 'Otro'],
+};
+
+const emptySupply = { name: '', sector: 'materia_prima', category: '', unit: 'g', stock_current: 0, stock_minimum: 0, cost_per_unit: 0, supplier: '' };
 const emptyCalc = { purchase_price: '', yield_amount: '' };
 
 export default function Inventory() {
@@ -32,6 +36,9 @@ export default function Inventory() {
   const [form, setForm] = useState(emptySupply);
   const [calc, setCalc] = useState(emptyCalc);
   const [search, setSearch] = useState('');
+  const [activeSector, setActiveSector] = useState('materia_prima');
+  const [customCategoryInput, setCustomCategoryInput] = useState('');
+  const [showCustomInput, setShowCustomInput] = useState(false);
   const qc = useQueryClient();
 
   const { data: supplies = [], isLoading } = useQuery({
@@ -54,12 +61,34 @@ export default function Inventory() {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['supplies'] }); toast.success('Insumo eliminado'); },
   });
 
-  const close = () => { setDialogOpen(false); setEditing(null); setForm(emptySupply); setCalc(emptyCalc); };
+  const close = () => {
+    setDialogOpen(false);
+    setEditing(null);
+    setForm(emptySupply);
+    setCalc(emptyCalc);
+    setCustomCategoryInput('');
+    setShowCustomInput(false);
+  };
+
+  const openNew = () => {
+    setForm({ ...emptySupply, sector: activeSector });
+    setEditing(null);
+    setCalc(emptyCalc);
+    setCustomCategoryInput('');
+    setShowCustomInput(false);
+    setDialogOpen(true);
+  };
 
   const openEdit = (s) => {
     setEditing(s);
-    setForm({ name: s.name, category: s.category, unit: s.unit, stock_current: s.stock_current, stock_minimum: s.stock_minimum, cost_per_unit: s.cost_per_unit, supplier: s.supplier || '' });
+    setForm({
+      name: s.name, sector: s.sector || 'materia_prima', category: s.category || '',
+      unit: s.unit, stock_current: s.stock_current, stock_minimum: s.stock_minimum,
+      cost_per_unit: s.cost_per_unit, supplier: s.supplier || ''
+    });
     setCalc(emptyCalc);
+    setCustomCategoryInput('');
+    setShowCustomInput(false);
     setDialogOpen(true);
   };
 
@@ -75,8 +104,8 @@ export default function Inventory() {
 
   const handleSave = () => {
     if (!form.name) return;
-    const { name, category, unit, stock_current, stock_minimum, cost_per_unit, supplier } = form;
-    const payload = { name, category, unit, stock_current, stock_minimum, cost_per_unit, supplier };
+    const { name, sector, category, unit, stock_current, stock_minimum, cost_per_unit, supplier } = form;
+    const payload = { name, sector, category, unit, stock_current, stock_minimum, cost_per_unit, supplier };
     if (editing) {
       updateMut.mutate({ id: editing.id, data: payload });
     } else {
@@ -84,94 +113,193 @@ export default function Inventory() {
     }
   };
 
-  const filtered = supplies.filter(s =>
-    s.name?.toLowerCase().includes(search.toLowerCase())
-  );
+  // Dynamic categories: merge defaults + any used in DB for current sector
+  const categoriesForSector = useMemo(() => {
+    const defaults = DEFAULT_CATEGORIES[form.sector] || ['Otro'];
+    const fromDB = supplies
+      .filter(s => (s.sector || 'materia_prima') === form.sector && s.category)
+      .map(s => s.category);
+    return [...new Set([...defaults, ...fromDB])];
+  }, [form.sector, supplies]);
+
+  const filtered = useMemo(() =>
+    supplies.filter(s =>
+      (s.sector || 'materia_prima') === activeSector &&
+      (s.name?.toLowerCase().includes(search.toLowerCase()) ||
+        s.category?.toLowerCase().includes(search.toLowerCase()))
+    ), [supplies, activeSector, search]);
+
+  // Group by category within sector
+  const grouped = useMemo(() => {
+    const groups = {};
+    filtered.forEach(s => {
+      const cat = s.category || 'Sin categoría';
+      if (!groups[cat]) groups[cat] = [];
+      groups[cat].push(s);
+    });
+    return groups;
+  }, [filtered]);
+
+  const sectorCounts = useMemo(() => {
+    const counts = {};
+    SECTORS.forEach(sec => {
+      counts[sec.value] = supplies.filter(s => (s.sector || 'materia_prima') === sec.value).length;
+    });
+    return counts;
+  }, [supplies]);
 
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Inventario de Insumos"
-        description="Gestión de materia prima"
+        title="Inventario"
+        description="Gestión de insumos, productos de venta directa y utensilios"
         actions={
-          <Button onClick={() => { setForm(emptySupply); setEditing(null); setDialogOpen(true); }}>
-            <Plus className="h-4 w-4 mr-2" /> Agregar Insumo
+          <Button onClick={openNew}>
+            <Plus className="h-4 w-4 mr-2" /> Agregar Item
           </Button>
         }
       />
 
-      <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input placeholder="Buscar insumo..." value={search} onChange={e => setSearch(e.target.value)} className="pl-10" />
-      </div>
+      <Tabs value={activeSector} onValueChange={setActiveSector}>
+        <TabsList className="w-full sm:w-auto">
+          {SECTORS.map(sec => (
+            <TabsTrigger key={sec.value} value={sec.value} className="flex items-center gap-1.5">
+              {sec.label}
+              <Badge variant="secondary" className="text-xs px-1.5 py-0 ml-1">{sectorCounts[sec.value] || 0}</Badge>
+            </TabsTrigger>
+          ))}
+        </TabsList>
 
-      <Card className="overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Insumo</TableHead>
-              <TableHead>Categoría</TableHead>
-              <TableHead className="text-right">Stock</TableHead>
-              <TableHead className="text-right">Mínimo</TableHead>
-              <TableHead className="text-right">Costo/Ud</TableHead>
-              <TableHead>Proveedor</TableHead>
-              <TableHead className="text-right">Acciones</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
+        {SECTORS.map(sec => (
+          <TabsContent key={sec.value} value={sec.value} className="space-y-4 mt-4">
+            <p className="text-sm text-muted-foreground">{sec.description}</p>
+
+            <div className="relative max-w-sm">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input placeholder="Buscar..." value={search} onChange={e => setSearch(e.target.value)} className="pl-10" />
+            </div>
+
             {isLoading ? (
-              <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Cargando...</TableCell></TableRow>
-            ) : filtered.length === 0 ? (
-              <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">No hay insumos registrados</TableCell></TableRow>
+              <p className="text-sm text-muted-foreground py-4">Cargando...</p>
+            ) : Object.keys(grouped).length === 0 ? (
+              <Card className="p-10 text-center text-muted-foreground text-sm">
+                No hay items en este sector aún.{' '}
+                <button className="text-primary underline" onClick={openNew}>Agregar uno</button>
+              </Card>
             ) : (
-              filtered.map(s => {
-                const isLow = s.stock_minimum && s.stock_current <= s.stock_minimum;
-                return (
-                  <TableRow key={s.id}>
-                    <TableCell className="font-medium">
-                      <div className="flex items-center gap-2">
-                        {isLow && <AlertTriangle className="h-4 w-4 text-destructive" />}
-                        {s.name}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="secondary">{CATEGORIES.find(c => c.value === s.category)?.label || s.category}</Badge>
-                    </TableCell>
-                    <TableCell className={`text-right font-mono ${isLow ? 'text-destructive font-bold' : ''}`}>
-                      {s.stock_current} {s.unit}
-                    </TableCell>
-                    <TableCell className="text-right font-mono text-muted-foreground">{s.stock_minimum} {s.unit}</TableCell>
-                    <TableCell className="text-right font-mono">${s.cost_per_unit?.toFixed(4)}</TableCell>
-                    <TableCell className="text-muted-foreground">{s.supplier || '—'}</TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <Button variant="ghost" size="icon" onClick={() => openEdit(s)}><Pencil className="h-4 w-4" /></Button>
-                        <Button variant="ghost" size="icon" onClick={() => deleteMut.mutate(s.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                );
-              })
+              Object.entries(grouped).sort(([a], [b]) => a.localeCompare(b)).map(([cat, items]) => (
+                <div key={cat}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Tag className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{cat}</span>
+                    <span className="text-xs text-muted-foreground">({items.length})</span>
+                  </div>
+                  <Card className="overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Nombre</TableHead>
+                          <TableHead className="text-right">Stock</TableHead>
+                          <TableHead className="text-right">Mínimo</TableHead>
+                          <TableHead className="text-right">Costo/Ud</TableHead>
+                          <TableHead>Proveedor</TableHead>
+                          <TableHead className="text-right">Acciones</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {items.map(s => {
+                          const isLow = s.stock_minimum && s.stock_current <= s.stock_minimum;
+                          return (
+                            <TableRow key={s.id}>
+                              <TableCell className="font-medium">
+                                <div className="flex items-center gap-2">
+                                  {isLow && <AlertTriangle className="h-4 w-4 text-destructive flex-shrink-0" />}
+                                  {s.name}
+                                </div>
+                              </TableCell>
+                              <TableCell className={`text-right font-mono ${isLow ? 'text-destructive font-bold' : ''}`}>
+                                {s.stock_current} {s.unit}
+                              </TableCell>
+                              <TableCell className="text-right font-mono text-muted-foreground">{s.stock_minimum} {s.unit}</TableCell>
+                              <TableCell className="text-right font-mono">${s.cost_per_unit?.toFixed(4)}</TableCell>
+                              <TableCell className="text-muted-foreground">{s.supplier || '—'}</TableCell>
+                              <TableCell className="text-right">
+                                <div className="flex items-center justify-end gap-1">
+                                  <Button variant="ghost" size="icon" onClick={() => openEdit(s)}><Pencil className="h-4 w-4" /></Button>
+                                  <Button variant="ghost" size="icon" onClick={() => deleteMut.mutate(s.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </Card>
+                </div>
+              ))
             )}
-          </TableBody>
-        </Table>
-      </Card>
+          </TabsContent>
+        ))}
+      </Tabs>
 
+      {/* Create / Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{editing ? 'Editar Insumo' : 'Nuevo Insumo'}</DialogTitle>
+            <DialogTitle>{editing ? 'Editar Item' : 'Nuevo Item'}</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-2">
             <div><Label>Nombre</Label><Input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} /></div>
+
+            {/* Sector */}
+            <div>
+              <Label>Sector</Label>
+              <Select value={form.sector} onValueChange={v => setForm({ ...form, sector: v, category: '' })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {SECTORS.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Category: select from list or add custom */}
+            <div>
+              <Label>Categoría</Label>
+              {showCustomInput ? (
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Nueva categoría..."
+                    value={customCategoryInput}
+                    onChange={e => setCustomCategoryInput(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter' && customCategoryInput.trim()) {
+                        setForm(f => ({ ...f, category: customCategoryInput.trim() }));
+                        setShowCustomInput(false);
+                      }
+                    }}
+                  />
+                  <Button variant="outline" size="icon" onClick={() => {
+                    if (customCategoryInput.trim()) setForm(f => ({ ...f, category: customCategoryInput.trim() }));
+                    setShowCustomInput(false);
+                  }}><Plus className="h-4 w-4" /></Button>
+                  <Button variant="ghost" size="icon" onClick={() => setShowCustomInput(false)}><X className="h-4 w-4" /></Button>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <Select value={form.category} onValueChange={v => setForm({ ...form, category: v })}>
+                    <SelectTrigger className="flex-1"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
+                    <SelectContent>
+                      {categoriesForSector.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  <Button variant="outline" size="sm" onClick={() => { setCustomCategoryInput(''); setShowCustomInput(true); }}>
+                    <Plus className="h-3.5 w-3.5 mr-1" /> Nueva
+                  </Button>
+                </div>
+              )}
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Categoría</Label>
-                <Select value={form.category} onValueChange={v => setForm({ ...form, category: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>{CATEGORIES.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
               <div>
                 <Label>Unidad</Label>
                 <Select value={form.unit} onValueChange={v => setForm({ ...form, unit: v })}>
@@ -183,14 +311,17 @@ export default function Inventory() {
                   </SelectContent>
                 </Select>
               </div>
+              <div><Label>Proveedor</Label><Input value={form.supplier} onChange={e => setForm({ ...form, supplier: e.target.value })} /></div>
             </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div><Label>Stock Actual</Label><Input type="number" value={form.stock_current} onChange={e => setForm({ ...form, stock_current: parseFloat(e.target.value) || 0 })} /></div>
               <div><Label>Stock Mínimo</Label><Input type="number" value={form.stock_minimum} onChange={e => setForm({ ...form, stock_minimum: parseFloat(e.target.value) || 0 })} /></div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div><Label>Costo por Unidad ($)</Label><Input type="number" step="0.0001" value={form.cost_per_unit} onChange={e => setForm({ ...form, cost_per_unit: parseFloat(e.target.value) || 0 })} /></div>
-              <div><Label>Proveedor</Label><Input value={form.supplier} onChange={e => setForm({ ...form, supplier: e.target.value })} /></div>
+
+            <div>
+              <Label>Costo por Unidad ($)</Label>
+              <Input type="number" step="0.0001" value={form.cost_per_unit} onChange={e => setForm({ ...form, cost_per_unit: parseFloat(e.target.value) || 0 })} />
             </div>
 
             {/* Calculadora de Costos */}
@@ -199,23 +330,11 @@ export default function Inventory() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label className="text-xs">Precio del empaque ($)</Label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    placeholder="ej. 180"
-                    value={calc.purchase_price}
-                    onChange={e => handleCalcChange('purchase_price', e.target.value)}
-                  />
+                  <Input type="number" step="0.01" placeholder="ej. 180" value={calc.purchase_price} onChange={e => handleCalcChange('purchase_price', e.target.value)} />
                 </div>
                 <div>
                   <Label className="text-xs">¿Cuántos {form.unit} trae?</Label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    placeholder="ej. 25000"
-                    value={calc.yield_amount}
-                    onChange={e => handleCalcChange('yield_amount', e.target.value)}
-                  />
+                  <Input type="number" step="0.01" placeholder="ej. 25000" value={calc.yield_amount} onChange={e => handleCalcChange('yield_amount', e.target.value)} />
                 </div>
               </div>
               <p className="text-[10px] text-muted-foreground">Al completar ambos campos, el costo por unidad se calcula automáticamente. Solo visual, no se guarda en la base de datos.</p>
