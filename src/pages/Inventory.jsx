@@ -114,13 +114,20 @@ export default function Inventory() {
     }
   };
 
-  // Dynamic categories: merge defaults + any used in DB for current sector
+  // Dynamic categories: merge defaults + any used in DB for current sector (deduped, case-insensitive)
   const categoriesForSector = useMemo(() => {
     const defaults = DEFAULT_CATEGORIES[form.sector] || ['Otro'];
     const fromDB = supplies
       .filter(s => (s.sector || 'materia_prima') === form.sector && s.category)
-      .map(s => s.category);
-    return [...new Set([...defaults, ...fromDB])];
+      .map(s => s.category.trim());
+    const all = [...defaults, ...fromDB];
+    const seen = new Set();
+    return all.filter(c => {
+      const key = c.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
   }, [form.sector, supplies]);
 
   const filtered = useMemo(() =>
@@ -268,35 +275,68 @@ export default function Inventory() {
             <div>
               <Label>Categoría</Label>
               {showCustomInput ? (
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="Nueva categoría..."
-                    value={customCategoryInput}
-                    onChange={e => setCustomCategoryInput(e.target.value)}
-                    onKeyDown={e => {
-                      if (e.key === 'Enter' && customCategoryInput.trim()) {
-                        setForm(f => ({ ...f, category: customCategoryInput.trim() }));
-                        setShowCustomInput(false);
-                      }
-                    }}
-                  />
-                  <Button variant="outline" size="icon" onClick={() => {
-                    if (customCategoryInput.trim()) setForm(f => ({ ...f, category: customCategoryInput.trim() }));
-                    setShowCustomInput(false);
-                  }}><Plus className="h-4 w-4" /></Button>
-                  <Button variant="ghost" size="icon" onClick={() => setShowCustomInput(false)}><X className="h-4 w-4" /></Button>
+                <div className="space-y-2">
+                  <div className="flex gap-2">
+                    <Input
+                      autoFocus
+                      placeholder="Nueva categoría..."
+                      value={customCategoryInput}
+                      onChange={e => setCustomCategoryInput(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          const val = customCategoryInput.trim();
+                          if (val) {
+                            setForm(f => ({ ...f, category: val }));
+                            setShowCustomInput(false);
+                            setCustomCategoryInput('');
+                            toast.success(`Categoría "${val}" añadida`);
+                          }
+                        }
+                        if (e.key === 'Escape') setShowCustomInput(false);
+                      }}
+                    />
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onClick={() => {
+                        const val = customCategoryInput.trim();
+                        if (val) {
+                          setForm(f => ({ ...f, category: val }));
+                          setShowCustomInput(false);
+                          setCustomCategoryInput('');
+                          toast.success(`Categoría "${val}" añadida`);
+                        }
+                      }}
+                    >
+                      Confirmar
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={() => { setShowCustomInput(false); setCustomCategoryInput(''); }}>
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">Presiona Enter o "Confirmar" para añadir la categoría.</p>
                 </div>
               ) : (
-                <div className="flex gap-2">
-                  <Select value={form.category} onValueChange={v => setForm({ ...form, category: v })}>
-                    <SelectTrigger className="flex-1"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
-                    <SelectContent>
-                      {categoriesForSector.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                  <Button variant="outline" size="sm" onClick={() => { setCustomCategoryInput(''); setShowCustomInput(true); }}>
-                    <Plus className="h-3.5 w-3.5 mr-1" /> Nueva
-                  </Button>
+                <div className="space-y-2">
+                  <div className="flex gap-2">
+                    <Select value={form.category} onValueChange={v => setForm({ ...form, category: v })}>
+                      <SelectTrigger className="flex-1"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
+                      <SelectContent>
+                        {categoriesForSector.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                    <Button variant="outline" size="sm" onClick={() => { setCustomCategoryInput(''); setShowCustomInput(true); }}>
+                      <Plus className="h-3.5 w-3.5 mr-1" /> Nueva
+                    </Button>
+                  </div>
+                  {form.category && (
+                    <div className="flex items-center gap-1.5">
+                      <Tag className="h-3.5 w-3.5 text-primary" />
+                      <span className="text-xs text-muted-foreground">Seleccionada:</span>
+                      <Badge variant="secondary" className="text-xs">{form.category}</Badge>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
