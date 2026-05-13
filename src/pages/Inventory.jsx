@@ -10,10 +10,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Plus, Pencil, Trash2, AlertTriangle, Search, Tag, X, Infinity } from 'lucide-react';
+import { Plus, Pencil, Trash2, AlertTriangle, Search, Tag, X, Infinity, Settings } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import PageHeader from '@/components/shared/PageHeader';
 import { toast } from 'sonner';
+import CategoryManager from '@/components/inventory/CategoryManager';
 
 const SECTORS = [
   { value: 'materia_prima', label: 'Materia Prima', description: 'Ingredientes para producción de helados' },
@@ -40,6 +41,8 @@ export default function Inventory() {
   const [activeSector, setActiveSector] = useState('materia_prima');
   const [customCategoryInput, setCustomCategoryInput] = useState('');
   const [showCustomInput, setShowCustomInput] = useState(false);
+  const [catManagerOpen, setCatManagerOpen] = useState(false);
+  const [customCategories, setCustomCategories] = useState(DEFAULT_CATEGORIES);
   const qc = useQueryClient();
 
   const { data: supplies = [], isLoading } = useQuery({
@@ -114,13 +117,13 @@ export default function Inventory() {
     }
   };
 
-  // Dynamic categories: merge defaults + any used in DB for current sector (deduped, case-insensitive)
+  // Dynamic categories: use customCategories state (deduped, case-insensitive)
   const categoriesForSector = useMemo(() => {
-    const defaults = DEFAULT_CATEGORIES[form.sector] || ['Otro'];
+    const managed = customCategories[form.sector] || [];
     const fromDB = supplies
       .filter(s => (s.sector || 'materia_prima') === form.sector && s.category)
       .map(s => s.category.trim());
-    const all = [...defaults, ...fromDB];
+    const all = [...managed, ...fromDB];
     const seen = new Set();
     return all.filter(c => {
       const key = c.toLowerCase();
@@ -128,7 +131,7 @@ export default function Inventory() {
       seen.add(key);
       return true;
     });
-  }, [form.sector, supplies]);
+  }, [form.sector, supplies, customCategories]);
 
   const filtered = useMemo(() =>
     supplies.filter(s =>
@@ -169,14 +172,19 @@ export default function Inventory() {
       />
 
       <Tabs value={activeSector} onValueChange={setActiveSector}>
-        <TabsList className="w-full sm:w-auto">
-          {SECTORS.map(sec => (
-            <TabsTrigger key={sec.value} value={sec.value} className="flex items-center gap-1.5">
-              {sec.label}
-              <Badge variant="secondary" className="text-xs px-1.5 py-0 ml-1">{sectorCounts[sec.value] || 0}</Badge>
-            </TabsTrigger>
-          ))}
-        </TabsList>
+        <div className="flex flex-wrap items-center gap-2">
+          <TabsList className="w-full sm:w-auto">
+            {SECTORS.map(sec => (
+              <TabsTrigger key={sec.value} value={sec.value} className="flex items-center gap-1.5">
+                {sec.label}
+                <Badge variant="secondary" className="text-xs px-1.5 py-0 ml-1">{sectorCounts[sec.value] || 0}</Badge>
+              </TabsTrigger>
+            ))}
+          </TabsList>
+          <Button variant="outline" size="sm" onClick={() => setCatManagerOpen(true)}>
+            <Settings className="h-3.5 w-3.5 mr-1.5" /> Gestionar Categorías
+          </Button>
+        </div>
 
         {SECTORS.map(sec => (
           <TabsContent key={sec.value} value={sec.value} className="space-y-4 mt-4">
@@ -250,6 +258,16 @@ export default function Inventory() {
           </TabsContent>
         ))}
       </Tabs>
+
+      {/* Category Manager */}
+      <CategoryManager
+        open={catManagerOpen}
+        onOpenChange={setCatManagerOpen}
+        customCategories={customCategories}
+        setCustomCategories={setCustomCategories}
+        supplies={supplies}
+        onSuppliesRefresh={() => qc.invalidateQueries({ queryKey: ['supplies'] })}
+      />
 
       {/* Create / Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
