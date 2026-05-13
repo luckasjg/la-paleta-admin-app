@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Plus, Pencil, Trash2, AlertTriangle, Search, Tag, X, Infinity, Settings } from 'lucide-react';
+import { Plus, Pencil, Trash2, AlertTriangle, Search, Tag, Infinity, Settings } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import PageHeader from '@/components/shared/PageHeader';
 import { toast } from 'sonner';
@@ -39,8 +39,6 @@ export default function Inventory() {
   const [calc, setCalc] = useState(emptyCalc);
   const [search, setSearch] = useState('');
   const [activeSector, setActiveSector] = useState('materia_prima');
-  const [customCategoryInput, setCustomCategoryInput] = useState('');
-  const [showCustomInput, setShowCustomInput] = useState(false);
   const [catManagerOpen, setCatManagerOpen] = useState(false);
   const [customCategories, setCustomCategories] = useState(DEFAULT_CATEGORIES);
   const qc = useQueryClient();
@@ -70,16 +68,12 @@ export default function Inventory() {
     setEditing(null);
     setForm(emptySupply);
     setCalc(emptyCalc);
-    setCustomCategoryInput('');
-    setShowCustomInput(false);
   };
 
   const openNew = () => {
     setForm({ ...emptySupply, sector: activeSector });
     setEditing(null);
     setCalc(emptyCalc);
-    setCustomCategoryInput('');
-    setShowCustomInput(false);
     setDialogOpen(true);
   };
 
@@ -91,8 +85,6 @@ export default function Inventory() {
       cost_per_unit: s.cost_per_unit, supplier: s.supplier || '', is_infinite: s.is_infinite || false
     });
     setCalc(emptyCalc);
-    setCustomCategoryInput('');
-    setShowCustomInput(false);
     setDialogOpen(true);
   };
 
@@ -289,74 +281,16 @@ export default function Inventory() {
               </Select>
             </div>
 
-            {/* Category: select from list or add custom */}
+            {/* Category: strict select from managed list */}
             <div>
               <Label>Categoría</Label>
-              {showCustomInput ? (
-                <div className="space-y-2">
-                  <div className="flex gap-2">
-                    <Input
-                      autoFocus
-                      placeholder="Nueva categoría..."
-                      value={customCategoryInput}
-                      onChange={e => setCustomCategoryInput(e.target.value)}
-                      onKeyDown={e => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault();
-                          const val = customCategoryInput.trim();
-                          if (val) {
-                            setForm(f => ({ ...f, category: val }));
-                            setShowCustomInput(false);
-                            setCustomCategoryInput('');
-                            toast.success(`Categoría "${val}" añadida`);
-                          }
-                        }
-                        if (e.key === 'Escape') setShowCustomInput(false);
-                      }}
-                    />
-                    <Button
-                      variant="default"
-                      size="sm"
-                      onClick={() => {
-                        const val = customCategoryInput.trim();
-                        if (val) {
-                          setForm(f => ({ ...f, category: val }));
-                          setShowCustomInput(false);
-                          setCustomCategoryInput('');
-                          toast.success(`Categoría "${val}" añadida`);
-                        }
-                      }}
-                    >
-                      Confirmar
-                    </Button>
-                    <Button variant="ghost" size="icon" onClick={() => { setShowCustomInput(false); setCustomCategoryInput(''); }}>
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </div>
-                  <p className="text-xs text-muted-foreground">Presiona Enter o "Confirmar" para añadir la categoría.</p>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  <div className="flex gap-2">
-                    <Select value={form.category} onValueChange={v => setForm({ ...form, category: v })}>
-                      <SelectTrigger className="flex-1"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
-                      <SelectContent>
-                        {categoriesForSector.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                    <Button variant="outline" size="sm" onClick={() => { setCustomCategoryInput(''); setShowCustomInput(true); }}>
-                      <Plus className="h-3.5 w-3.5 mr-1" /> Nueva
-                    </Button>
-                  </div>
-                  {form.category && (
-                    <div className="flex items-center gap-1.5">
-                      <Tag className="h-3.5 w-3.5 text-primary" />
-                      <span className="text-xs text-muted-foreground">Seleccionada:</span>
-                      <Badge variant="secondary" className="text-xs">{form.category}</Badge>
-                    </div>
-                  )}
-                </div>
-              )}
+              <Select value={form.category} onValueChange={v => setForm({ ...form, category: v })}>
+                <SelectTrigger><SelectValue placeholder="Seleccionar categoría..." /></SelectTrigger>
+                <SelectContent>
+                  {categoriesForSector.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground mt-1">Para agregar categorías usa "Gestionar Categorías".</p>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
