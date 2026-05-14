@@ -166,7 +166,7 @@ export default function Recipes() {
                   <div key={idx} className="flex items-center gap-2">
                     <Select value={ing.supply_id} onValueChange={v => updateIngredient(idx, 'supply_id', v)}>
                       <SelectTrigger className="flex-1"><SelectValue placeholder="Insumo" /></SelectTrigger>
-                      <SelectContent>{supplies.map(s => <SelectItem key={s.id} value={s.id}>{s.name} ({s.unit})</SelectItem>)}</SelectContent>
+                      <SelectContent>{supplies.filter(s => s.sector === 'materia_prima').map(s => <SelectItem key={s.id} value={s.id}>{s.name} ({s.unit})</SelectItem>)}</SelectContent>
                     </Select>
                     <Input type="number" className="w-24" placeholder="Cant." value={ing.quantity || ''} onChange={e => updateIngredient(idx, 'quantity', parseFloat(e.target.value) || 0)} />
                     <span className="text-xs text-muted-foreground w-8">{ing.unit}</span>
