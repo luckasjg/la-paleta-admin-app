@@ -8,13 +8,6 @@
     },
     "category": {
       "type": "string",
-      "enum": [
-        "helado",
-        "cafe",
-        "merengada",
-        "adicional",
-        "otro"
-      ],
       "description": "Categor\u00eda del producto"
     },
     "size_label": {
@@ -33,6 +26,10 @@
     "recipe_id": {
       "type": "string",
       "description": "Receta asociada (para caf\u00e9/merengadas)"
+    },
+    "utensil_supply_id": {
+      "type": "string",
+      "description": "ID del insumo utensilio vinculado (se descuenta 1 unidad por venta)"
     },
     "price": {
       "type": "number",

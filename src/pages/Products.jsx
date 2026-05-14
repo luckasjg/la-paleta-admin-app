@@ -9,24 +9,21 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
-import { Plus, Pencil, Trash2, Package } from 'lucide-react';
+import { Plus, Pencil, Trash2, Package, Settings } from 'lucide-react';
 import PageHeader from '@/components/shared/PageHeader';
 import { toast } from 'sonner';
+import POSCategoryManager from '@/components/products/POSCategoryManager';
 
-const CATS = [
-  { value: 'helado', label: 'Helado' },
-  { value: 'cafe', label: 'Café' },
-  { value: 'merengada', label: 'Merengada' },
-  { value: 'adicional', label: 'Adicional' },
-  { value: 'otro', label: 'Otro' },
-];
+const DEFAULT_CATEGORIES = ['helado', 'cafe', 'merengada', 'adicional', 'otro'];
 
-const emptyProduct = { name: '', category: 'helado', size_label: '', grams_per_serving: 0, recipe_id: '', price: 0, is_active: true };
+const emptyProduct = { name: '', category: '', size_label: '', grams_per_serving: 0, recipe_id: '', utensil_supply_id: '', price: 0, is_active: true };
 
 export default function Products() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(emptyProduct);
+  const [catManagerOpen, setCatManagerOpen] = useState(false);
+  const [categories, setCategories] = useState(DEFAULT_CATEGORIES);
   const qc = useQueryClient();
 
   const { data: products = [] } = useQuery({
@@ -38,6 +35,13 @@ export default function Products() {
     queryKey: ['recipes'],
     queryFn: () => base44.entities.Recipe.list(),
   });
+
+  const { data: supplies = [] } = useQuery({
+    queryKey: ['supplies'],
+    queryFn: () => base44.entities.Supply.list(),
+  });
+
+  const utensilios = supplies.filter(s => s.sector === 'utensilio');
 
   const createMut = useMutation({
     mutationFn: (d) => base44.entities.Product.create(d),
@@ -56,7 +60,12 @@ export default function Products() {
 
   const openEdit = (p) => {
     setEditing(p);
-    setForm({ name: p.name, category: p.category, size_label: p.size_label || '', grams_per_serving: p.grams_per_serving || 0, recipe_id: p.recipe_id || '', price: p.price, is_active: p.is_active !== false });
+    setForm({
+      name: p.name, category: p.category, size_label: p.size_label || '',
+      grams_per_serving: p.grams_per_serving || 0, recipe_id: p.recipe_id || '',
+      utensil_supply_id: p.utensil_supply_id || '',
+      price: p.price, is_active: p.is_active !== false,
+    });
     setDialogOpen(true);
   };
 
@@ -66,10 +75,14 @@ export default function Products() {
     else createMut.mutate(form);
   };
 
-  const grouped = CATS.map(cat => ({
-    ...cat,
-    products: products.filter(p => p.category === cat.value),
-  })).filter(g => g.products.length > 0);
+  // Group by categories in order
+  const grouped = categories
+    .map(cat => ({ cat, products: products.filter(p => p.category === cat) }))
+    .filter(g => g.products.length > 0);
+
+  // Products with unknown/missing categories
+  const knownCats = new Set(categories);
+  const orphaned = products.filter(p => p.category && !knownCats.has(p.category));
 
   return (
     <div className="space-y-6">
@@ -77,17 +90,22 @@ export default function Products() {
         title="Productos"
         description="Catálogo del punto de venta"
         actions={
-          <Button onClick={() => { setForm(emptyProduct); setEditing(null); setDialogOpen(true); }}>
-            <Plus className="h-4 w-4 mr-2" /> Nuevo Producto
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setCatManagerOpen(true)}>
+              <Settings className="h-4 w-4 mr-2" /> Categorías
+            </Button>
+            <Button onClick={() => { setForm(emptyProduct); setEditing(null); setDialogOpen(true); }}>
+              <Plus className="h-4 w-4 mr-2" /> Nuevo Producto
+            </Button>
+          </div>
         }
       />
 
-      {grouped.map(group => (
-        <div key={group.value}>
-          <h2 className="text-lg font-semibold mb-3">{group.label}</h2>
+      {grouped.map(({ cat, products: ps }) => (
+        <div key={cat}>
+          <h2 className="text-lg font-semibold mb-3 capitalize">{cat}</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-            {group.products.map(p => (
+            {ps.map(p => (
               <Card key={p.id} className="group hover:shadow-md transition-all overflow-hidden">
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between">
@@ -106,6 +124,11 @@ export default function Products() {
                       <Badge variant="secondary" className="text-xs">{p.grams_per_serving}g</Badge>
                     )}
                   </div>
+                  {p.utensil_supply_id && (
+                    <p className="text-xs text-muted-foreground mt-1 truncate">
+                      📦 {supplies.find(s => s.id === p.utensil_supply_id)?.name || 'Utensilio'}
+                    </p>
+                  )}
                   {!p.is_active && <Badge className="mt-2 bg-yellow-100 text-yellow-700">Inactivo</Badge>}
                 </CardContent>
               </Card>
@@ -121,8 +144,17 @@ export default function Products() {
         </Card>
       )}
 
+      <POSCategoryManager
+        open={catManagerOpen}
+        onOpenChange={setCatManagerOpen}
+        categories={categories}
+        setCategories={setCategories}
+        products={products}
+        onProductsRefresh={() => qc.invalidateQueries({ queryKey: ['products'] })}
+      />
+
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editing ? 'Editar Producto' : 'Nuevo Producto'}</DialogTitle>
           </DialogHeader>
@@ -132,9 +164,12 @@ export default function Products() {
               <div>
                 <Label>Categoría</Label>
                 <Select value={form.category} onValueChange={v => setForm({ ...form, category: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>{CATS.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent>
+                  <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
+                  <SelectContent>
+                    {categories.map(c => <SelectItem key={c} value={c} className="capitalize">{c}</SelectItem>)}
+                  </SelectContent>
                 </Select>
+                <p className="text-xs text-muted-foreground mt-1">Gestiona categorías con el botón "Categorías".</p>
               </div>
               <div><Label>Tamaño</Label><Input value={form.size_label} onChange={e => setForm({ ...form, size_label: e.target.value })} placeholder="Ej: Pequeña, Grande" /></div>
             </div>
@@ -142,6 +177,20 @@ export default function Products() {
               <div><Label>Precio ($)</Label><Input type="number" step="0.01" value={form.price} onChange={e => setForm({ ...form, price: parseFloat(e.target.value) || 0 })} /></div>
               <div><Label>Gramos/Porción</Label><Input type="number" value={form.grams_per_serving} onChange={e => setForm({ ...form, grams_per_serving: parseFloat(e.target.value) || 0 })} /></div>
             </div>
+
+            {/* Envase / Utensilio vinculado */}
+            <div>
+              <Label>Envase / Utensilio Vinculado <span className="font-normal text-muted-foreground">(opcional)</span></Label>
+              <Select value={form.utensil_supply_id || '__none__'} onValueChange={v => setForm({ ...form, utensil_supply_id: v === '__none__' ? '' : v })}>
+                <SelectTrigger><SelectValue placeholder="Ninguno" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">Ninguno</SelectItem>
+                  {utensilios.map(s => <SelectItem key={s.id} value={s.id}>{s.name} (stock: {s.stock_current} {s.unit})</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground mt-1">Se descuenta 1 unidad por cada venta de este producto.</p>
+            </div>
+
             {(form.category === 'cafe' || form.category === 'merengada') && (
               <div>
                 <Label>Receta Asociada</Label>

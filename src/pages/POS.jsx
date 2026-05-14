@@ -7,15 +7,15 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ShoppingCart, Plus, Minus, Trash2, CreditCard, Banknote, Smartphone, IceCream } from 'lucide-react';
+import { ShoppingCart, Plus, Minus, Trash2, CreditCard, Banknote, Smartphone, IceCream, Gift } from 'lucide-react';
 import { toast } from 'sonner';
 import moment from 'moment';
 
 export default function POS() {
   const [cart, setCart] = useState([]);
-  const [selectedCategory, setSelectedCategory] = useState('helado');
-  const [flavorDialog, setFlavorDialog] = useState(null); // product that needs flavor selection
-  const [selectedFlavors, setSelectedFlavors] = useState([]); // [{tray_id, grams}]
+  const [selectedCategory, setSelectedCategory] = useState(null);
+  const [flavorDialog, setFlavorDialog] = useState(null);
+  const [selectedFlavors, setSelectedFlavors] = useState([]);
   const [payDialog, setPayDialog] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState('efectivo');
   const qc = useQueryClient();
@@ -41,7 +41,17 @@ export default function POS() {
   });
 
   const activeProducts = products.filter(p => p.is_active !== false);
-  const filteredProducts = activeProducts.filter(p => p.category === selectedCategory);
+
+  // Build dynamic categories from active products
+  const categoryOrder = ['helado', 'cafe', 'merengada', 'adicional', 'otro'];
+  const allCats = [...new Set(activeProducts.map(p => p.category).filter(Boolean))];
+  const categories = [
+    ...categoryOrder.filter(c => allCats.includes(c)),
+    ...allCats.filter(c => !categoryOrder.includes(c)),
+  ];
+
+  const activeCat = selectedCategory || categories[0] || 'helado';
+  const filteredProducts = activeProducts.filter(p => p.category === activeCat);
 
   const addToCart = (product) => {
     if (product.category === 'helado') {
@@ -51,7 +61,7 @@ export default function POS() {
       setSelectedFlavors(Array.from({ length: count }, () => ({ tray_id: '', grams: gramsEach })));
     } else {
       setCart(prev => {
-        const existing = prev.find(i => i.product_id === product.id && !i.tray_id);
+        const existing = prev.find(i => i.product_id === product.id && !i.tray_id && !i.is_courtesy);
         if (existing) {
           return prev.map(i => i === existing ? { ...i, quantity: i.quantity + 1, subtotal: (i.quantity + 1) * i.unit_price } : i);
         }
@@ -60,10 +70,12 @@ export default function POS() {
           product_name: product.name,
           category: product.category,
           recipe_id: product.recipe_id,
+          utensil_supply_id: product.utensil_supply_id || '',
           grams: product.grams_per_serving || 0,
           quantity: 1,
           unit_price: product.price,
           subtotal: product.price,
+          is_courtesy: false,
         }];
       });
     }
@@ -87,7 +99,6 @@ export default function POS() {
     setSelectedFlavors(prev => {
       const removed = prev[idx];
       const next = prev.filter((_, i) => i !== idx);
-      // Give grams back to last remaining
       if (next.length > 0) {
         next[next.length - 1] = { ...next[next.length - 1], grams: next[next.length - 1].grams + (parseFloat(removed.grams) || 0) };
       }
@@ -116,11 +127,13 @@ export default function POS() {
         const tray = trays.find(t => t.id === f.tray_id);
         return { tray_id: f.tray_id, recipe_name: tray?.recipe_name || '', grams: parseFloat(f.grams) || 0 };
       }),
-      tray_id: selectedFlavors[0].tray_id, // primary for compat
+      tray_id: selectedFlavors[0].tray_id,
+      utensil_supply_id: product.utensil_supply_id || '',
       grams: targetGrams,
       quantity: 1,
       unit_price: product.price,
       subtotal: product.price,
+      is_courtesy: false,
     }]);
 
     setFlavorDialog(null);
@@ -132,12 +145,25 @@ export default function POS() {
       if (i !== index) return item;
       const newQty = Math.max(0, item.quantity + delta);
       if (newQty === 0) return null;
-      return { ...item, quantity: newQty, subtotal: newQty * item.unit_price };
+      const price = item.is_courtesy ? 0 : item.unit_price;
+      return { ...item, quantity: newQty, subtotal: newQty * price };
     }).filter(Boolean));
   };
 
   const removeItem = (index) => {
     setCart(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const toggleCourtesy = (index) => {
+    setCart(prev => prev.map((item, i) => {
+      if (i !== index) return item;
+      const newIsCourtesy = !item.is_courtesy;
+      return {
+        ...item,
+        is_courtesy: newIsCourtesy,
+        subtotal: newIsCourtesy ? 0 : item.quantity * item.unit_price,
+      };
+    }));
   };
 
   const total = cart.reduce((sum, i) => sum + i.subtotal, 0);
@@ -154,7 +180,6 @@ export default function POS() {
       // Deduct from trays (helado items)
       for (const item of cart) {
         if (item.category === 'helado') {
-          // multi-flavor support
           const flavorList = item.flavors || [{ tray_id: item.tray_id, grams: item.grams || 80 }];
           for (const fl of flavorList) {
             if (!fl.tray_id) continue;
@@ -174,13 +199,22 @@ export default function POS() {
           if (recipe) {
             for (const ing of (recipe.ingredients || [])) {
               const supply = supplies.find(s => s.id === ing.supply_id);
-              if (supply) {
+              if (supply && !supply.is_infinite) {
                 const needed = (ing.quantity || 0) * item.quantity;
                 await base44.entities.Supply.update(supply.id, {
                   stock_current: Math.max(0, supply.stock_current - needed),
                 });
               }
             }
+          }
+        }
+        // Deduct utensilio vinculado (always, even if courtesy)
+        if (item.utensil_supply_id) {
+          const utensil = supplies.find(s => s.id === item.utensil_supply_id);
+          if (utensil && !utensil.is_infinite) {
+            await base44.entities.Supply.update(utensil.id, {
+              stock_current: Math.max(0, (utensil.stock_current || 0) - item.quantity),
+            });
           }
         }
       }
@@ -207,22 +241,15 @@ export default function POS() {
     onError: (err) => toast.error(err.message),
   });
 
-  const categories = [
-    { value: 'helado', label: 'Helados', icon: IceCream },
-    { value: 'cafe', label: 'Café', icon: null },
-    { value: 'merengada', label: 'Merengadas', icon: null },
-    { value: 'adicional', label: 'Extras', icon: null },
-  ];
-
   return (
     <div className="flex flex-col lg:flex-row gap-4 h-[calc(100vh-5rem)]">
       {/* Product Grid */}
       <div className="flex-1 flex flex-col min-h-0">
-        <Tabs value={selectedCategory} onValueChange={setSelectedCategory} className="mb-4">
-          <TabsList className="w-full justify-start">
+        <Tabs value={activeCat} onValueChange={setSelectedCategory} className="mb-4">
+          <TabsList className="w-full justify-start overflow-x-auto">
             {categories.map(c => (
-              <TabsTrigger key={c.value} value={c.value} className="text-sm px-4 py-2">
-                {c.label}
+              <TabsTrigger key={c} value={c} className="text-sm px-4 py-2 capitalize">
+                {c}
               </TabsTrigger>
             ))}
           </TabsList>
@@ -265,10 +292,14 @@ export default function POS() {
 
         <div className="flex-1 overflow-y-auto p-3 space-y-2 min-h-0">
           {cart.map((item, idx) => (
-            <div key={idx} className="flex items-center gap-2 p-2 rounded-lg bg-secondary/50">
+            <div key={idx} className={`flex items-center gap-2 p-2 rounded-lg transition-colors ${item.is_courtesy ? 'bg-amber-50 border border-amber-200' : 'bg-secondary/50'}`}>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">{item.product_name}</p>
+                <div className="flex items-center gap-1.5">
+                  <p className="text-sm font-medium truncate">{item.product_name}</p>
+                  {item.is_courtesy && <Gift className="h-3.5 w-3.5 text-amber-500 flex-shrink-0" />}
+                </div>
                 {item.flavor && <p className="text-xs text-muted-foreground">{item.flavor} · {item.grams}g</p>}
+                {item.is_courtesy && <p className="text-xs text-amber-600 font-medium">Cortesía</p>}
               </div>
               <div className="flex items-center gap-1">
                 <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => updateQty(idx, -1)}>
@@ -279,10 +310,21 @@ export default function POS() {
                   <Plus className="h-3 w-3" />
                 </Button>
               </div>
-              <span className="text-sm font-semibold w-16 text-right">${item.subtotal.toFixed(2)}</span>
-              <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => removeItem(idx)}>
-                <Trash2 className="h-3 w-3" />
-              </Button>
+              <span className={`text-sm font-semibold w-14 text-right ${item.is_courtesy ? 'text-amber-600' : ''}`}>
+                ${item.subtotal.toFixed(2)}
+              </span>
+              <div className="flex flex-col gap-0.5">
+                <Button
+                  variant="ghost" size="icon" className={`h-6 w-6 ${item.is_courtesy ? 'text-amber-500' : 'text-muted-foreground'}`}
+                  title={item.is_courtesy ? 'Quitar cortesía' : 'Marcar como cortesía'}
+                  onClick={() => toggleCourtesy(idx)}
+                >
+                  <Gift className="h-3 w-3" />
+                </Button>
+                <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => removeItem(idx)}>
+                  <Trash2 className="h-3 w-3" />
+                </Button>
+              </div>
             </div>
           ))}
           {cart.length === 0 && (
@@ -294,6 +336,12 @@ export default function POS() {
         </div>
 
         <div className="p-4 border-t border-border space-y-3">
+          {cart.some(i => i.is_courtesy) && (
+            <div className="flex items-center justify-between text-xs text-amber-600">
+              <span className="flex items-center gap-1"><Gift className="h-3 w-3" /> Cortesías incluidas</span>
+              <span>Inventario se descuenta igual</span>
+            </div>
+          )}
           <div className="flex items-center justify-between">
             <span className="text-lg font-bold">Total</span>
             <span className="text-2xl font-bold text-primary">${total.toFixed(2)}</span>
