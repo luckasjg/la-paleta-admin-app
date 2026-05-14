@@ -13,7 +13,7 @@
     --card-foreground: 25 15% 12%;
     --popover: 30 20% 99%;
     --popover-foreground: 25 15% 12%;
-    --primary: 152 35% 38%;
+    --primary: 0 55% 30%;
     --primary-foreground: 0 0% 100%;
     --secondary: 30 30% 92%;
     --secondary-foreground: 25 15% 20%;
@@ -34,12 +34,12 @@
     --radius: 0.75rem;
     --sidebar-background: 30 20% 96%;
     --sidebar-foreground: 25 15% 20%;
-    --sidebar-primary: 152 35% 38%;
+    --sidebar-primary: 0 56% 30%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 30 25% 91%;
     --sidebar-accent-foreground: 25 15% 15%;
     --sidebar-border: 30 15% 88%;
-    --sidebar-ring: 152 35% 38%;
+    --sidebar-ring: 0 56% 30%;
   }
 
   .dark {
