@@ -109,21 +109,8 @@ export default function Inventory() {
     }
   };
 
-  // Dynamic categories: use customCategories state (deduped, case-insensitive)
-  const categoriesForSector = useMemo(() => {
-    const managed = customCategories[form.sector] || [];
-    const fromDB = supplies
-      .filter(s => (s.sector || 'materia_prima') === form.sector && s.category)
-      .map(s => s.category.trim());
-    const all = [...managed, ...fromDB];
-    const seen = new Set();
-    return all.filter(c => {
-      const key = c.toLowerCase();
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
-  }, [form.sector, supplies, customCategories]);
+  // Dynamic categories: read directly from customCategories state (live, no memoization issues)
+  const categoriesForSector = customCategories[form.sector] || [];
 
   const filtered = useMemo(() =>
     supplies.filter(s =>
