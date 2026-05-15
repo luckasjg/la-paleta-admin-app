@@ -11,6 +11,7 @@ import Dashboard from '@/pages/Dashboard.jsx';
 import POS from '@/pages/POS';
 import Inventory from '@/pages/Inventory';
 import Recipes from '@/pages/Recipes';
+import Preparations from '@/pages/Preparations.jsx';
 import Production from '@/pages/Production';
 import Products from '@/pages/Products';
 import CashRegister from '@/pages/CashRegister';
@@ -46,6 +47,7 @@ const AuthenticatedApp = () => {
         <Route path="/pos" element={<POS />} />
         <Route path="/inventario" element={<Inventory />} />
         <Route path="/recetas" element={<Recipes />} />
+        <Route path="/preparados" element={<Preparations />} />
         <Route path="/produccion" element={<Production />} />
         <Route path="/productos" element={<Products />} />
         <Route path="/caja" element={<CashRegister />} />

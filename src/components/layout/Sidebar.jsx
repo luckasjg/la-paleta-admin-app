@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, ShoppingCart, Package, BookOpen, Factory,
-  DollarSign, Warehouse, SlidersHorizontal, Menu, X, IceCream
+  DollarSign, Warehouse, SlidersHorizontal, Menu, X, IceCream, FlaskConical
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -12,6 +12,7 @@ const navItems = [
   { label: 'Punto de Venta', icon: ShoppingCart, path: '/pos' },
   { label: 'Inventario', icon: Warehouse, path: '/inventario' },
   { label: 'Recetas', icon: BookOpen, path: '/recetas' },
+  { label: 'Preparados', icon: FlaskConical, path: '/preparados' },
   { label: 'Producción', icon: Factory, path: '/produccion' },
   { label: 'Productos', icon: Package, path: '/productos' },
   { label: 'Caja', icon: DollarSign, path: '/caja' },
