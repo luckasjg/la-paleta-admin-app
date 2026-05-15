@@ -147,40 +147,54 @@ export default function Preparations() {
   // ===== Producir Lote =====
   const produceMut = useMutation({
     mutationFn: async (prep) => {
+      console.log('[Producir] Iniciando lote', prep);
+
+      if (!prep.ingredients || prep.ingredients.length === 0) {
+        throw new Error('Este preparado no tiene ingredientes definidos. Edítalo primero.');
+      }
+      if (!prep.linked_supply_id) {
+        throw new Error('Falta el insumo vinculado. Edita y guarda el preparado para regenerar el vínculo.');
+      }
+      const linked = supplies.find(s => s.id === prep.linked_supply_id);
+      if (!linked) {
+        throw new Error('El insumo vinculado no existe en inventario. Edita y guarda el preparado.');
+      }
+
       // Check stock
-      for (const ing of prep.ingredients || []) {
+      for (const ing of prep.ingredients) {
         const supply = supplies.find(s => s.id === ing.supply_id);
-        if (!supply) throw new Error(`Insumo no encontrado: ${ing.supply_name}`);
+        if (!supply) throw new Error(`Insumo no encontrado: ${ing.supply_name || ing.supply_id}`);
         if (!supply.is_infinite && (supply.stock_current || 0) < (ing.quantity || 0)) {
-          throw new Error(`Stock insuficiente de ${supply.name} (necesita ${ing.quantity}${supply.unit}, hay ${supply.stock_current})`);
+          throw new Error(`Stock insuficiente de ${supply.name} (necesita ${ing.quantity}${supply.unit}, hay ${supply.stock_current || 0})`);
         }
       }
 
       // Deduct raw materials
-      for (const ing of prep.ingredients || []) {
+      for (const ing of prep.ingredients) {
         const supply = supplies.find(s => s.id === ing.supply_id);
         if (supply && !supply.is_infinite) {
-          await base44.entities.Supply.update(supply.id, {
-            stock_current: (supply.stock_current || 0) - (ing.quantity || 0),
-          });
+          const newStock = (supply.stock_current || 0) - (ing.quantity || 0);
+          console.log(`[Producir] Descontando ${ing.quantity}${supply.unit} de ${supply.name} (${supply.stock_current} -> ${newStock})`);
+          await base44.entities.Supply.update(supply.id, { stock_current: newStock });
         }
       }
 
       // Add yield to linked supply
-      if (prep.linked_supply_id) {
-        const linked = supplies.find(s => s.id === prep.linked_supply_id);
-        if (linked) {
-          await base44.entities.Supply.update(linked.id, {
-            stock_current: (linked.stock_current || 0) + (prep.yield_amount || 0),
-          });
-        }
-      }
+      const newLinkedStock = (linked.stock_current || 0) + (parseFloat(prep.yield_amount) || 0);
+      console.log(`[Producir] Sumando ${prep.yield_amount}${linked.unit} a ${linked.name} (${linked.stock_current} -> ${newLinkedStock})`);
+      await base44.entities.Supply.update(linked.id, { stock_current: newLinkedStock });
+
+      return prep;
     },
-    onSuccess: (_, prep) => {
+    onSuccess: (prep) => {
       qc.invalidateQueries({ queryKey: ['supplies'] });
+      qc.invalidateQueries({ queryKey: ['preparations'] });
       toast.success(`Lote de ${prep.name} producido (+${prep.yield_amount}${prep.yield_unit})`);
     },
-    onError: (e) => toast.error(e.message),
+    onError: (e) => {
+      console.error('[Producir] Error:', e);
+      toast.error(e?.message || 'Error desconocido al producir lote');
+    },
   });
 
   // ===== Ingredient handlers (bidirectional %) =====
