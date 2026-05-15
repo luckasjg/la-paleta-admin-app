@@ -109,8 +109,32 @@ export default function Inventory() {
     }
   };
 
-  // Dynamic categories: read directly from customCategories state (live, no memoization issues)
-  const categoriesForSector = customCategories[form.sector] || [];
+  // Combined active categories per sector: defaults + custom + categories already in use in DB
+  const activeCategories = useMemo(() => {
+    const result = {};
+    SECTORS.forEach(sec => {
+      const seen = new Map(); // lowercase -> original label
+      const addAll = (list) => {
+        (list || []).forEach(c => {
+          if (!c) return;
+          const key = String(c).trim().toLowerCase();
+          if (!key) return;
+          if (!seen.has(key)) seen.set(key, String(c).trim());
+        });
+      };
+      addAll(DEFAULT_CATEGORIES[sec.value]);
+      addAll(customCategories[sec.value]);
+      addAll(
+        supplies
+          .filter(s => (s.sector || 'materia_prima') === sec.value)
+          .map(s => s.category)
+      );
+      result[sec.value] = Array.from(seen.values()).sort((a, b) => a.localeCompare(b));
+    });
+    return result;
+  }, [customCategories, supplies]);
+
+  const categoriesForSector = activeCategories[form.sector] || [];
 
   const filtered = useMemo(() =>
     supplies.filter(s =>
@@ -244,6 +268,7 @@ export default function Inventory() {
         onOpenChange={setCatManagerOpen}
         customCategories={customCategories}
         setCustomCategories={setCustomCategories}
+        activeCategories={activeCategories}
         supplies={supplies}
         onSuppliesRefresh={() => qc.invalidateQueries({ queryKey: ['supplies'] })}
       />
