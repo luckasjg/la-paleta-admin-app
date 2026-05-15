@@ -3,6 +3,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { FlaskConical, Trash2, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import moment from 'moment';
@@ -17,6 +19,7 @@ const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 export default function DataSimulator() {
   const qc = useQueryClient();
   const [running, setRunning] = useState(false);
+  const [salesCount, setSalesCount] = useState(2500);
 
   const { data: products = [] } = useQuery({
     queryKey: ['products'],
@@ -39,11 +42,11 @@ export default function DataSimulator() {
       toast.error('No hay productos para simular ventas');
       return;
     }
+    const numSales = Math.max(1, Math.min(10000, parseInt(salesCount) || 0));
     setRunning(true);
-    const toastId = toast.loading('Generando ventas de prueba...');
+    const toastId = toast.loading(`Generando ${numSales} ventas de prueba...`);
 
     try {
-      const numSales = randInt(50, 100);
       const sales = [];
 
       for (let i = 0; i < numSales; i++) {
@@ -105,9 +108,10 @@ export default function DataSimulator() {
       }
 
       // Bulk create in chunks to be safe
-      const chunkSize = 25;
+      const chunkSize = 50;
       for (let i = 0; i < sales.length; i += chunkSize) {
         await base44.entities.Sale.bulkCreate(sales.slice(i, i + chunkSize));
+        toast.loading(`Generando... ${Math.min(i + chunkSize, sales.length)} / ${sales.length}`, { id: toastId });
       }
 
       toast.success(`${sales.length} ventas de prueba generadas`, { id: toastId });
@@ -124,13 +128,25 @@ export default function DataSimulator() {
     const toastId = toast.loading('Buscando y eliminando datos de prueba...');
 
     try {
-      const allSales = await base44.entities.Sale.list('-sale_date', 1000);
+      // Page through all sales in case there are thousands
+      let allSales = [];
+      let page = 0;
+      while (true) {
+        const batch = await base44.entities.Sale.list('-sale_date', 500, page * 500);
+        if (!batch || batch.length === 0) break;
+        allSales = allSales.concat(batch);
+        if (batch.length < 500) break;
+        page++;
+      }
       const mockSales = allSales.filter(s =>
         (s.items || []).some(it => it.product_name?.startsWith(MOCK_PREFIX))
       );
 
-      for (const sale of mockSales) {
-        await base44.entities.Sale.delete(sale.id);
+      for (let i = 0; i < mockSales.length; i++) {
+        await base44.entities.Sale.delete(mockSales[i].id);
+        if (i % 25 === 0) {
+          toast.loading(`Eliminando... ${i + 1} / ${mockSales.length}`, { id: toastId });
+        }
       }
 
       toast.success(`${mockSales.length} ventas de prueba eliminadas`, { id: toastId });
@@ -152,13 +168,26 @@ export default function DataSimulator() {
       </CardHeader>
       <CardContent>
         <p className="text-xs text-muted-foreground mb-3">
-          Genera ventas ficticias de los últimos 30 días para verificar los cálculos del dashboard.
+          Genera ventas ficticias de los últimos 30 días para evaluar el punto de equilibrio según tus gastos fijos.
           Todos los registros llevan el prefijo <code className="bg-muted px-1 rounded">{MOCK_PREFIX}</code> para poder eliminarlos fácilmente.
         </p>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="flex-1 min-w-[140px]">
+            <Label className="text-xs">Cantidad de ventas</Label>
+            <Input
+              type="number"
+              min="1"
+              max="10000"
+              value={salesCount}
+              onChange={(e) => setSalesCount(e.target.value)}
+              disabled={running}
+              className="h-9"
+            />
+            <p className="text-[10px] text-muted-foreground mt-1">Sugerido: 2300–3000 para estresar el cálculo de break-even.</p>
+          </div>
           <Button onClick={handleGenerate} disabled={running} size="sm">
             {running ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <FlaskConical className="h-4 w-4 mr-2" />}
-            Generar Mes de Prueba
+            Generar Ventas
           </Button>
           <Button onClick={handleDelete} disabled={running} size="sm" variant="destructive">
             {running ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
