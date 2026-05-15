@@ -75,14 +75,24 @@ export default function Products() {
     else createMut.mutate(form);
   };
 
-  // Group by categories in order
-  const grouped = categories
-    .map(cat => ({ cat, products: products.filter(p => p.category === cat) }))
-    .filter(g => g.products.length > 0);
-
-  // Products with unknown/missing categories
-  const knownCats = new Set(categories);
-  const orphaned = products.filter(p => p.category && !knownCats.has(p.category));
+  // Build grouped from ALL products that exist — categories list only controls order
+  const grouped = (() => {
+    console.log('Productos cargados:', products);
+    const groups = {};
+    products.forEach(p => {
+      const cat = p.category || '(sin categoría)';
+      if (!groups[cat]) groups[cat] = [];
+      groups[cat].push(p);
+    });
+    // Sort: known categories first (in order), then the rest alphabetically
+    const knownSet = new Set(categories);
+    const knownGroups = categories.filter(c => groups[c]).map(c => ({ cat: c, products: groups[c] }));
+    const unknownGroups = Object.keys(groups)
+      .filter(c => !knownSet.has(c))
+      .sort()
+      .map(c => ({ cat: c, products: groups[c] }));
+    return [...knownGroups, ...unknownGroups];
+  })();
 
   return (
     <div className="space-y-6">
