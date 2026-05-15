@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Card, CardContent } from '@/components/ui/card';
@@ -23,7 +23,6 @@ export default function Products() {
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(emptyProduct);
   const [catManagerOpen, setCatManagerOpen] = useState(false);
-  const [categories, setCategories] = useState(DEFAULT_CATEGORIES);
   const qc = useQueryClient();
 
   const { data: products = [] } = useQuery({
@@ -42,6 +41,17 @@ export default function Products() {
   });
 
   const utensilios = supplies.filter(s => s.sector === 'utensilio');
+
+  // Dynamic categories: defaults + every unique category that exists in DB (case-insensitive de-dup)
+  const dynamicCategories = useMemo(() => {
+    const seen = new Map(); // lowercased -> original casing
+    DEFAULT_CATEGORIES.forEach(c => seen.set(c.toLowerCase(), c));
+    products.forEach(p => {
+      const c = (p.category || '').trim();
+      if (c && !seen.has(c.toLowerCase())) seen.set(c.toLowerCase(), c);
+    });
+    return Array.from(seen.values());
+  }, [products]);
 
   const createMut = useMutation({
     mutationFn: (d) => base44.entities.Product.create(d),
@@ -70,29 +80,24 @@ export default function Products() {
   };
 
   const handleSave = () => {
-    if (!form.name || !form.price) return;
+    if (!form.name || form.price === undefined || form.price === null) return;
     if (editing) updateMut.mutate({ id: editing.id, data: form });
     else createMut.mutate(form);
   };
 
-  // Build grouped from ALL products that exist — categories list only controls order
-  const grouped = (() => {
+  // Fail-safe grouping: every product in DB gets shown under its category (or "Sin categoría")
+  const grouped = useMemo(() => {
     console.log('Productos cargados:', products);
     const groups = {};
     products.forEach(p => {
-      const cat = p.category || '(sin categoría)';
+      const cat = (p.category || '').trim() || 'Sin categoría';
       if (!groups[cat]) groups[cat] = [];
       groups[cat].push(p);
     });
-    // Sort: known categories first (in order), then the rest alphabetically
-    const knownSet = new Set(categories);
-    const knownGroups = categories.filter(c => groups[c]).map(c => ({ cat: c, products: groups[c] }));
-    const unknownGroups = Object.keys(groups)
-      .filter(c => !knownSet.has(c))
-      .sort()
-      .map(c => ({ cat: c, products: groups[c] }));
-    return [...knownGroups, ...unknownGroups];
-  })();
+    return Object.entries(groups)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([cat, ps]) => ({ cat, products: ps }));
+  }, [products]);
 
   return (
     <div className="space-y-6">
@@ -157,8 +162,7 @@ export default function Products() {
       <POSCategoryManager
         open={catManagerOpen}
         onOpenChange={setCatManagerOpen}
-        categories={categories}
-        setCategories={setCategories}
+        categories={dynamicCategories}
         products={products}
         onProductsRefresh={() => qc.invalidateQueries({ queryKey: ['products'] })}
       />
@@ -176,7 +180,7 @@ export default function Products() {
                 <Select value={form.category} onValueChange={v => setForm({ ...form, category: v })}>
                   <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
                   <SelectContent>
-                    {categories.map(c => <SelectItem key={c} value={c} className="capitalize">{c}</SelectItem>)}
+                    {dynamicCategories.map(c => <SelectItem key={c} value={c} className="capitalize">{c}</SelectItem>)}
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-muted-foreground mt-1">Gestiona categorías con el botón "Categorías".</p>
