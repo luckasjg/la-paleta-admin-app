@@ -10,7 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, SlidersHorizontal } from 'lucide-react';
+import { Plus, SlidersHorizontal, Pencil } from 'lucide-react';
 import PageHeader from '@/components/shared/PageHeader';
 import { toast } from 'sonner';
 import moment from 'moment';
@@ -30,6 +30,13 @@ export default function Adjustments() {
   const [qtyChange, setQtyChange] = useState(0);
   const [reason, setReason] = useState('conteo_fisico');
   const [adjNotes, setAdjNotes] = useState('');
+
+  // Edit state
+  const [editAdj, setEditAdj] = useState(null); // adjustment being edited
+  const [editQty, setEditQty] = useState(0);
+  const [editReason, setEditReason] = useState('conteo_fisico');
+  const [editNotes, setEditNotes] = useState('');
+
   const qc = useQueryClient();
 
   const { data: adjustments = [] } = useQuery({
@@ -93,6 +100,59 @@ export default function Adjustments() {
     },
   });
 
+  const openEdit = (adj) => {
+    setEditAdj(adj);
+    setEditQty(adj.quantity_change);
+    setEditReason(adj.reason);
+    setEditNotes(adj.notes || '');
+  };
+
+  const editMut = useMutation({
+    mutationFn: async () => {
+      const oldQty = editAdj.quantity_change;
+      const newQty = editQty;
+      const diff = newQty - oldQty; // net change to apply to stock
+
+      if (diff !== 0) {
+        if (editAdj.type === 'supply') {
+          const supply = supplies.find(s => s.id === editAdj.reference_id);
+          if (supply) {
+            await base44.entities.Supply.update(supply.id, {
+              stock_current: Math.max(0, (supply.stock_current || 0) + diff),
+            });
+          }
+        } else {
+          const tray = trays.find(t => t.id === editAdj.reference_id);
+          if (tray) {
+            const newGrams = Math.max(0, (tray.remaining_grams || 0) + diff);
+            await base44.entities.Tray.update(tray.id, {
+              remaining_grams: newGrams,
+              status: newGrams <= 0 ? 'agotada' : 'activa',
+            });
+          }
+        }
+      }
+
+      await base44.entities.InventoryAdjustment.update(editAdj.id, {
+        quantity_change: newQty,
+        reason: editReason,
+        notes: editNotes,
+        is_edited: true,
+        original_quantity_change: editAdj.is_edited
+          ? editAdj.original_quantity_change
+          : oldQty,
+      });
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['adjustments'] });
+      qc.invalidateQueries({ queryKey: ['supplies'] });
+      qc.invalidateQueries({ queryKey: ['trays'] });
+      setEditAdj(null);
+      toast.success('Ajuste actualizado y stock recalculado');
+    },
+    onError: (err) => toast.error(err.message),
+  });
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -119,6 +179,7 @@ export default function Adjustments() {
                 <TableHead>Motivo</TableHead>
                 <TableHead className="text-right">Cambio</TableHead>
                 <TableHead>Notas</TableHead>
+                <TableHead></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -132,14 +193,29 @@ export default function Adjustments() {
               ) : (
                 adjustments.map(a => (
                   <TableRow key={a.id}>
-                    <TableCell className="text-sm">{moment(a.created_date).format('DD/MM/YY HH:mm')}</TableCell>
+                    <TableCell className="text-sm">
+                      <div>{moment(a.created_date).format('DD/MM/YY HH:mm')}</div>
+                      {a.is_edited && (
+                        <Badge className="bg-amber-100 text-amber-700 text-xs mt-0.5">Editado</Badge>
+                      )}
+                    </TableCell>
                     <TableCell><Badge variant="secondary">{a.type === 'supply' ? 'Insumo' : 'Bandeja'}</Badge></TableCell>
                     <TableCell className="font-medium">{a.reference_name}</TableCell>
                     <TableCell><Badge variant="secondary">{REASONS.find(r => r.value === a.reason)?.label || a.reason}</Badge></TableCell>
                     <TableCell className={`text-right font-mono font-semibold ${a.quantity_change > 0 ? 'text-green-600' : 'text-destructive'}`}>
                       {a.quantity_change > 0 ? '+' : ''}{a.quantity_change}
+                      {a.is_edited && a.original_quantity_change !== undefined && (
+                        <div className="text-xs text-muted-foreground font-normal line-through">
+                          {a.original_quantity_change > 0 ? '+' : ''}{a.original_quantity_change}
+                        </div>
+                      )}
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground max-w-32 truncate">{a.notes || '—'}</TableCell>
+                    <TableCell>
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(a)}>
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 ))
               )}
@@ -200,6 +276,56 @@ export default function Adjustments() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {/* Edit Dialog */}
+      <Dialog open={!!editAdj} onOpenChange={() => setEditAdj(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Editar Ajuste — {editAdj?.reference_name}</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-2">
+            <div className="text-sm text-muted-foreground bg-secondary/50 rounded-lg p-3">
+              Valor original: <span className="font-mono font-semibold text-foreground">
+                {editAdj?.original_quantity_change !== undefined && editAdj?.is_edited
+                  ? (editAdj.original_quantity_change > 0 ? '+' : '') + editAdj.original_quantity_change
+                  : (editAdj?.quantity_change > 0 ? '+' : '') + editAdj?.quantity_change}
+              </span>
+              <br />
+              La diferencia se aplicará automáticamente al stock.
+            </div>
+            <div>
+              <Label>Nueva Cantidad (+ agregar, - restar)</Label>
+              <Input
+                type="number"
+                value={editQty}
+                onChange={e => setEditQty(parseFloat(e.target.value) || 0)}
+              />
+              {editAdj && editQty !== editAdj.quantity_change && (
+                <p className="text-xs text-amber-600 mt-1">
+                  Diferencia neta a aplicar al stock: {editQty - editAdj.quantity_change > 0 ? '+' : ''}{(editQty - editAdj.quantity_change).toFixed(2)}
+                </p>
+              )}
+            </div>
+            <div>
+              <Label>Motivo</Label>
+              <Select value={editReason} onValueChange={setEditReason}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>{REASONS.map(r => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Notas</Label>
+              <Textarea value={editNotes} onChange={e => setEditNotes(e.target.value)} placeholder="Detalles del ajuste..." />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditAdj(null)}>Cancelar</Button>
+            <Button onClick={() => editMut.mutate()} disabled={editMut.isPending}>
+              {editMut.isPending ? 'Guardando...' : 'Guardar Cambios'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 }
