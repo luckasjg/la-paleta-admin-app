@@ -337,7 +337,7 @@ export default function Preparations() {
             <div className="grid grid-cols-3 gap-3">
               <div>
                 <Label>Mix Deseado</Label>
-                <Input type="number" value={form.yield_amount} onChange={e => updateYieldAmount(e.target.value)} />
+                <Input type="number" step="0.01" value={form.yield_amount} onChange={e => updateYieldAmount(e.target.value)} />
               </div>
               <div>
                 <Label>Unidad</Label>
