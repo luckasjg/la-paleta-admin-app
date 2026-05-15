@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
@@ -7,6 +7,9 @@ import { Badge } from '@/components/ui/badge';
 import { DollarSign, ShoppingCart, IceCream, AlertTriangle, TrendingUp, Clock } from 'lucide-react';
 import PageHeader from '@/components/shared/PageHeader';
 import StatCard from '@/components/shared/StatCard';
+import FinancialKPIs from '@/components/dashboard/FinancialKPIs';
+import BreakEvenPanel from '@/components/dashboard/BreakEvenPanel';
+import ProfitMarginChart from '@/components/dashboard/ProfitMarginChart';
 import moment from 'moment';
 
 const COLORS = ['hsl(152,35%,38%)', 'hsl(28,60%,65%)', 'hsl(200,40%,50%)', 'hsl(340,55%,55%)', 'hsl(45,80%,55%)', 'hsl(270,50%,60%)'];
@@ -14,7 +17,7 @@ const COLORS = ['hsl(152,35%,38%)', 'hsl(28,60%,65%)', 'hsl(200,40%,50%)', 'hsl(
 export default function Dashboard() {
   const { data: sales = [] } = useQuery({
     queryKey: ['sales'],
-    queryFn: () => base44.entities.Sale.list('-sale_date', 200),
+    queryFn: () => base44.entities.Sale.list('-sale_date', 500),
   });
 
   const { data: supplies = [] } = useQuery({
@@ -27,21 +30,78 @@ export default function Dashboard() {
     queryFn: () => base44.entities.Tray.filter({ status: 'activa' }),
   });
 
+  const { data: recipes = [] } = useQuery({
+    queryKey: ['recipes'],
+    queryFn: () => base44.entities.Recipe.list(),
+  });
+
+  const { data: products = [] } = useQuery({
+    queryKey: ['products'],
+    queryFn: () => base44.entities.Product.list(),
+  });
+
   const today = moment().format('YYYY-MM-DD');
+  const startOfMonth = moment().startOf('month');
+
   const todaySales = sales.filter(s => s.sale_date && moment(s.sale_date).format('YYYY-MM-DD') === today);
   const todayTotal = todaySales.reduce((sum, s) => sum + (s.total || 0), 0);
   const weekTotal = sales.filter(s => s.sale_date && moment(s.sale_date).isAfter(moment().subtract(7, 'days'))).reduce((sum, s) => sum + (s.total || 0), 0);
+  const monthSales = sales.filter(s => s.sale_date && moment(s.sale_date).isSameOrAfter(startOfMonth));
 
   const lowStockSupplies = supplies.filter(s => s.stock_minimum && s.stock_current <= s.stock_minimum);
 
-  // Top products chart
+  // ── Gross Revenue (month) ────────────────────────────────────────────
+  const grossRevenue = useMemo(() =>
+    monthSales.reduce((sum, s) => sum + (s.total || 0), 0),
+    [monthSales]
+  );
+
+  // ── COGS: sum cost of every gram of ice cream sold + utensils this month ──
+  const cogs = useMemo(() => {
+    let total = 0;
+    // Build supply cost lookup
+    const supplyCost = {};
+    supplies.forEach(s => { supplyCost[s.id] = s.cost_per_unit || 0; });
+
+    // Build recipe cost-per-gram lookup
+    const recipeCostPerGram = {};
+    recipes.forEach(recipe => {
+      if (!recipe.ingredients?.length) return;
+      const ingredientCost = recipe.ingredients.reduce((sum, ing) => {
+        return sum + (supplyCost[ing.supply_id] || 0) * (ing.quantity || 0);
+      }, 0);
+      const yieldAmt = recipe.yield_amount || 1000;
+      recipeCostPerGram[recipe.id] = ingredientCost / yieldAmt;
+    });
+
+    monthSales.forEach(sale => {
+      (sale.items || []).forEach(item => {
+        // Ice cream: cost by tray consumption (grams sold × cost per gram via recipe)
+        if (item.tray_id) {
+          // Find recipe for this tray from the trays list (best effort)
+          const tray = trays.find(t => t.id === item.tray_id);
+          const recipeId = tray?.recipe_id;
+          const costPerGram = recipeId ? (recipeCostPerGram[recipeId] || 0) : 0;
+          total += costPerGram * (item.grams || 0);
+        }
+        // Utensil: look up product's utensil_supply_id
+        if (item.product_id) {
+          const product = products.find(p => p.id === item.product_id);
+          if (product?.utensil_supply_id) {
+            total += (supplyCost[product.utensil_supply_id] || 0) * (item.quantity || 1);
+          }
+        }
+      });
+    });
+    return total;
+  }, [monthSales, supplies, recipes, trays, products]);
+
+  // ── Charts data ──────────────────────────────────────────────────────
   const productSales = {};
   sales.forEach(sale => {
     (sale.items || []).forEach(item => {
       const name = item.flavor || item.product_name;
-      if (name) {
-        productSales[name] = (productSales[name] || 0) + (item.quantity || 1);
-      }
+      if (name) productSales[name] = (productSales[name] || 0) + (item.quantity || 1);
     });
   });
   const topProducts = Object.entries(productSales)
@@ -49,7 +109,6 @@ export default function Dashboard() {
     .slice(0, 6)
     .map(([name, count]) => ({ name: name.length > 12 ? name.slice(0, 12) + '…' : name, ventas: count }));
 
-  // Sales by payment method
   const paymentMethods = {};
   sales.forEach(s => {
     const method = s.payment_method || 'otro';
@@ -57,42 +116,45 @@ export default function Dashboard() {
   });
   const paymentData = Object.entries(paymentMethods).map(([name, value]) => ({
     name: name === 'efectivo' ? 'Efectivo' : name === 'pago_movil' ? 'Pago Móvil' : name === 'punto_venta' ? 'Tarjeta' : 'Mixto',
-    value
+    value,
   }));
 
-  // Sales by hour
   const hourlyData = Array.from({ length: 14 }, (_, i) => ({ hora: `${i + 8}:00`, ventas: 0 }));
   sales.forEach(s => {
     if (s.sale_date) {
       const hour = moment(s.sale_date).hour();
       const idx = hour - 8;
-      if (idx >= 0 && idx < 14) {
-        hourlyData[idx].ventas += (s.total || 0);
-      }
+      if (idx >= 0 && idx < 14) hourlyData[idx].ventas += (s.total || 0);
     }
   });
 
-  // Sales by day of week
   const dayNames = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
   const dailyData = dayNames.map(name => ({ name, ventas: 0 }));
   sales.forEach(s => {
-    if (s.sale_date) {
-      const day = moment(s.sale_date).day();
-      dailyData[day].ventas += (s.total || 0);
-    }
+    if (s.sale_date) dailyData[moment(s.sale_date).day()].ventas += (s.total || 0);
   });
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Dashboard" description="Resumen general del negocio" />
+      <PageHeader title="Dashboard Financiero" description="Panel de análisis y rentabilidad" />
 
-      {/* Stats */}
+      {/* Basic KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard title="Ventas Hoy" value={`$${todayTotal.toFixed(2)}`} icon={DollarSign} subtitle={`${todaySales.length} transacciones`} />
         <StatCard title="Ventas Semana" value={`$${weekTotal.toFixed(2)}`} icon={TrendingUp} />
         <StatCard title="Bandejas Activas" value={trays.length} icon={IceCream} />
         <StatCard title="Alertas Stock" value={lowStockSupplies.length} icon={AlertTriangle} subtitle={lowStockSupplies.length > 0 ? 'Insumos bajos' : 'Todo OK'} />
       </div>
+
+      {/* Financial KPIs (month) */}
+      <FinancialKPIs
+        grossRevenue={grossRevenue}
+        cogs={cogs}
+        monthSalesCount={monthSales.length}
+      />
+
+      {/* Break-Even Panel */}
+      <BreakEvenPanel grossProfit={grossRevenue - cogs} />
 
       {/* Low stock alerts */}
       {lowStockSupplies.length > 0 && (
@@ -114,6 +176,9 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       )}
+
+      {/* Profit Margin Chart */}
+      <ProfitMarginChart products={products} recipes={recipes} supplies={supplies} />
 
       {/* Charts Row 1 */}
       <div className="grid md:grid-cols-2 gap-4">
@@ -148,9 +213,7 @@ export default function Dashboard() {
             <ResponsiveContainer width="100%" height={240}>
               <PieChart>
                 <Pie data={paymentData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
-                  {paymentData.map((_, i) => (
-                    <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                  ))}
+                  {paymentData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                 </Pie>
                 <Tooltip formatter={(v) => `$${v.toFixed(2)}`} />
               </PieChart>
