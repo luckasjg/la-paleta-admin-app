@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Card } from '@/components/ui/card';
@@ -29,6 +29,24 @@ const DEFAULT_CATEGORIES = {
   utensilio: ['Vaso', 'Cubierto', 'Empaque', 'Limpieza', 'Otro'],
 };
 
+const CATEGORIES_STORAGE_KEY = 'inventory_categories';
+
+const loadCategoriesFromStorage = () => {
+  try {
+    const raw = localStorage.getItem(CATEGORIES_STORAGE_KEY);
+    if (!raw) return DEFAULT_CATEGORIES;
+    const parsed = JSON.parse(raw);
+    // Merge with defaults to ensure all sector keys exist
+    return {
+      materia_prima: Array.isArray(parsed.materia_prima) ? parsed.materia_prima : DEFAULT_CATEGORIES.materia_prima,
+      venta_directa: Array.isArray(parsed.venta_directa) ? parsed.venta_directa : DEFAULT_CATEGORIES.venta_directa,
+      utensilio: Array.isArray(parsed.utensilio) ? parsed.utensilio : DEFAULT_CATEGORIES.utensilio,
+    };
+  } catch {
+    return DEFAULT_CATEGORIES;
+  }
+};
+
 const emptySupply = { name: '', sector: 'materia_prima', category: '', unit: 'g', stock_current: 0, stock_minimum: 0, cost_per_unit: 0, supplier: '', is_infinite: false };
 const emptyCalc = { purchase_price: '', yield_amount: '' };
 
@@ -40,8 +58,17 @@ export default function Inventory() {
   const [search, setSearch] = useState('');
   const [activeSector, setActiveSector] = useState('materia_prima');
   const [catManagerOpen, setCatManagerOpen] = useState(false);
-  const [customCategories, setCustomCategories] = useState(DEFAULT_CATEGORIES);
+  const [customCategories, setCustomCategories] = useState(loadCategoriesFromStorage);
   const qc = useQueryClient();
+
+  // Persist customCategories to localStorage whenever they change
+  useEffect(() => {
+    try {
+      localStorage.setItem(CATEGORIES_STORAGE_KEY, JSON.stringify(customCategories));
+    } catch (e) {
+      console.warn('No se pudo guardar categorías en localStorage:', e);
+    }
+  }, [customCategories]);
 
   const { data: supplies = [], isLoading } = useQuery({
     queryKey: ['supplies'],
