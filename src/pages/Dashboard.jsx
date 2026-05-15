@@ -10,6 +10,7 @@ import StatCard from '@/components/shared/StatCard';
 import FinancialKPIs from '@/components/dashboard/FinancialKPIs';
 import BreakEvenPanel from '@/components/dashboard/BreakEvenPanel';
 import ProfitMarginChart from '@/components/dashboard/ProfitMarginChart';
+import DataSimulator from '@/components/dashboard/DataSimulator';
 import moment from 'moment';
 
 const COLORS = ['hsl(152,35%,38%)', 'hsl(28,60%,65%)', 'hsl(200,40%,50%)', 'hsl(340,55%,55%)', 'hsl(45,80%,55%)', 'hsl(270,50%,60%)'];
@@ -264,6 +265,8 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+      <DataSimulator />
     </div>
   );
 }
