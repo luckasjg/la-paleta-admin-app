@@ -7,8 +7,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription,
+  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Pencil, Trash2, FlaskConical, Factory } from 'lucide-react';
+import { Plus, Pencil, Trash2, FlaskConical, Factory, AlertTriangle } from 'lucide-react';
 import PageHeader from '@/components/shared/PageHeader';
 import { toast } from 'sonner';
 
@@ -25,6 +29,7 @@ export default function Preparations() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(emptyPrep);
+  const [stockAlert, setStockAlert] = useState(null); // { prepName, missing: [{ name, needed, have, unit }] }
   const qc = useQueryClient();
 
   const { data: preparations = [] } = useQuery({
@@ -144,30 +149,47 @@ export default function Preparations() {
     },
   });
 
+  // ===== Validación de stock previa =====
+  const handleProduceClick = (prep) => {
+    if (!prep.ingredients || prep.ingredients.length === 0) {
+      toast.error('Este preparado no tiene ingredientes definidos. Edítalo primero.');
+      return;
+    }
+    if (!prep.linked_supply_id || !supplies.find(s => s.id === prep.linked_supply_id)) {
+      toast.error('Falta el insumo vinculado. Edita y guarda el preparado.');
+      return;
+    }
+
+    const missing = [];
+    for (const ing of prep.ingredients) {
+      const supply = supplies.find(s => s.id === ing.supply_id);
+      if (!supply) {
+        missing.push({ name: ing.supply_name || 'Insumo desconocido', needed: ing.quantity || 0, have: 0, unit: ing.unit || '', notFound: true });
+        continue;
+      }
+      if (!supply.is_infinite && (supply.stock_current || 0) < (ing.quantity || 0)) {
+        missing.push({
+          name: supply.name,
+          needed: ing.quantity || 0,
+          have: supply.stock_current || 0,
+          unit: supply.unit,
+        });
+      }
+    }
+
+    if (missing.length > 0) {
+      setStockAlert({ prepName: prep.name, missing });
+      return;
+    }
+
+    produceMut.mutate(prep);
+  };
+
   // ===== Producir Lote =====
   const produceMut = useMutation({
     mutationFn: async (prep) => {
       console.log('[Producir] Iniciando lote', prep);
-
-      if (!prep.ingredients || prep.ingredients.length === 0) {
-        throw new Error('Este preparado no tiene ingredientes definidos. Edítalo primero.');
-      }
-      if (!prep.linked_supply_id) {
-        throw new Error('Falta el insumo vinculado. Edita y guarda el preparado para regenerar el vínculo.');
-      }
       const linked = supplies.find(s => s.id === prep.linked_supply_id);
-      if (!linked) {
-        throw new Error('El insumo vinculado no existe en inventario. Edita y guarda el preparado.');
-      }
-
-      // Check stock
-      for (const ing of prep.ingredients) {
-        const supply = supplies.find(s => s.id === ing.supply_id);
-        if (!supply) throw new Error(`Insumo no encontrado: ${ing.supply_name || ing.supply_id}`);
-        if (!supply.is_infinite && (supply.stock_current || 0) < (ing.quantity || 0)) {
-          throw new Error(`Stock insuficiente de ${supply.name} (necesita ${ing.quantity}${supply.unit}, hay ${supply.stock_current || 0})`);
-        }
-      }
 
       // Deduct raw materials
       for (const ing of prep.ingredients) {
@@ -289,7 +311,7 @@ export default function Preparations() {
                     <TableCell className="text-right font-mono">{linked ? `${linked.stock_current} ${linked.unit}` : '—'}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
-                        <Button variant="outline" size="sm" onClick={() => produceMut.mutate(p)} disabled={produceMut.isPending}>
+                        <Button variant="outline" size="sm" onClick={() => handleProduceClick(p)} disabled={produceMut.isPending}>
                           <Factory className="h-3.5 w-3.5 mr-1" /> Producir
                         </Button>
                         <Button variant="ghost" size="icon" onClick={() => openEdit(p)}><Pencil className="h-4 w-4" /></Button>
@@ -403,6 +425,38 @@ export default function Preparations() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Alerta de stock insuficiente */}
+      <AlertDialog open={!!stockAlert} onOpenChange={(o) => !o && setStockAlert(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" />
+              Stock insuficiente
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              No se puede producir el lote de <strong>{stockAlert?.prepName}</strong> porque faltan los siguientes insumos:
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="rounded-lg border border-destructive/30 bg-destructive/5 divide-y divide-destructive/20">
+            {stockAlert?.missing.map((m, i) => (
+              <div key={i} className="flex items-center justify-between p-3 text-sm">
+                <div>
+                  <p className="font-medium text-foreground">{m.name}</p>
+                  {m.notFound && <p className="text-xs text-destructive">No existe en inventario</p>}
+                </div>
+                <div className="text-right font-mono text-xs">
+                  <p className="text-destructive">Falta: <strong>{(m.needed - m.have).toFixed(2)}{m.unit}</strong></p>
+                  <p className="text-muted-foreground">Necesita {m.needed}{m.unit} · Hay {m.have}{m.unit}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setStockAlert(null)}>Entendido</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
