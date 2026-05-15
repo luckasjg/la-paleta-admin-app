@@ -5,17 +5,26 @@ import {
 } from 'recharts';
 import { TrendingUp } from 'lucide-react';
 
-function calcRecipeCostPerServing(recipe, supplies, gramsPerServing) {
+const PER_SERVING_CATEGORIES = ['cafe', 'merengada', 'bebida'];
+
+function calcRecipeCostPerServing(recipe, supplies, gramsPerServing, category) {
   if (!recipe || !recipe.ingredients?.length) return 0;
-  // Cost per gram/ml of recipe output
   const totalIngredientCost = recipe.ingredients.reduce((sum, ing) => {
     const supply = supplies.find(s => s.id === ing.supply_id);
     if (!supply || !supply.cost_per_unit) return sum;
     return sum + (supply.cost_per_unit * (ing.quantity || 0));
   }, 0);
+
+  // For drinks (cafe/merengada/bebida) the recipe is formulated for 1 serving — return as-is
+  const cat = (category || recipe.type || '').toLowerCase();
+  if (PER_SERVING_CATEGORIES.includes(cat)) {
+    return totalIngredientCost;
+  }
+
+  // For ice cream (and others), scale by grams per serving
   const yieldAmt = recipe.yield_amount || 1000;
-  const costPerUnit = totalIngredientCost / yieldAmt; // cost per gram (or ml)
-  return costPerUnit * gramsPerServing;
+  const grams = gramsPerServing && gramsPerServing > 0 ? gramsPerServing : 150;
+  return (totalIngredientCost / yieldAmt) * grams;
 }
 
 const CustomTooltip = ({ active, payload }) => {
@@ -38,11 +47,11 @@ export default function ProfitMarginChart({ products, recipes, supplies }) {
       .map(product => {
         let cost = 0;
 
-        // Cost from ice cream recipe (if linked)
+        // Cost from recipe (if linked) — drinks vs ice cream handled inside helper
         if (product.recipe_id) {
           const recipe = recipes.find(r => r.id === product.recipe_id);
           if (recipe) {
-            cost += calcRecipeCostPerServing(recipe, supplies, product.grams_per_serving || 150);
+            cost += calcRecipeCostPerServing(recipe, supplies, product.grams_per_serving, product.category);
           }
         }
 
