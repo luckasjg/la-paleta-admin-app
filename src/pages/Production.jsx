@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Plus, Factory } from 'lucide-react';
+import { Plus, Factory, Pencil, Trash2, Package } from 'lucide-react';
 import PageHeader from '@/components/shared/PageHeader';
 import { toast } from 'sonner';
 import moment from 'moment';
@@ -20,6 +20,10 @@ export default function Production() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [recipeId, setRecipeId] = useState('');
   const [liters, setLiters] = useState(5);
+  const [editTray, setEditTray] = useState(null); // tray being edited
+  const [editForm, setEditForm] = useState({ recipe_id: '', recipe_name: '', remaining_grams: 0 });
+  const [consumableDialog, setConsumableDialog] = useState(false);
+  const [selectedUtensil, setSelectedUtensil] = useState('');
   const qc = useQueryClient();
 
   const { data: trays = [] } = useQuery({
@@ -91,6 +95,64 @@ export default function Production() {
     },
   });
 
+  const utensilios = supplies.filter(s => s.sector === 'utensilio');
+
+  const updateTray = useMutation({
+    mutationFn: async ({ id, data }) => {
+      await base44.entities.Tray.update(id, data);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['trays'] });
+      setEditTray(null);
+      toast.success('Bandeja actualizada');
+    },
+  });
+
+  const deleteTray = useMutation({
+    mutationFn: async (id) => {
+      await base44.entities.Tray.delete(id);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['trays'] });
+      toast.success('Bandeja eliminada');
+    },
+  });
+
+  const registerConsumable = useMutation({
+    mutationFn: async () => {
+      const utensil = supplies.find(s => s.id === selectedUtensil);
+      if (!utensil) throw new Error('Utensilio no encontrado');
+      if ((utensil.stock_current || 0) < 1) throw new Error(`Sin stock de ${utensil.name}`);
+      await base44.entities.Supply.update(utensil.id, {
+        stock_current: (utensil.stock_current || 0) - 1,
+      });
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['supplies'] });
+      setConsumableDialog(false);
+      setSelectedUtensil('');
+      toast.success('Paquete registrado como gastado');
+    },
+    onError: (err) => toast.error(err.message),
+  });
+
+  const openEditTray = (t) => {
+    setEditTray(t);
+    setEditForm({ recipe_id: t.recipe_id || '', recipe_name: t.recipe_name, remaining_grams: t.remaining_grams || 0 });
+  };
+
+  const handleEditSave = () => {
+    const recipe = recipes.find(r => r.id === editForm.recipe_id);
+    updateTray.mutate({
+      id: editTray.id,
+      data: {
+        recipe_id: editForm.recipe_id,
+        recipe_name: recipe ? recipe.name : editForm.recipe_name,
+        remaining_grams: parseFloat(editForm.remaining_grams) || 0,
+      },
+    });
+  };
+
   const activeTrays = trays.filter(t => t.status === 'activa');
   const exhaustedTrays = trays.filter(t => t.status === 'agotada');
 
@@ -100,9 +162,14 @@ export default function Production() {
         title="Producción"
         description="Registro de bandejas y control de producción"
         actions={
-          <Button onClick={() => setDialogOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" /> Producir Bandeja
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setConsumableDialog(true)}>
+              <Package className="h-4 w-4 mr-2" /> Registrar Paquete Gastado
+            </Button>
+            <Button onClick={() => setDialogOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" /> Producir Bandeja
+            </Button>
+          </div>
         }
       />
 
@@ -117,7 +184,15 @@ export default function Production() {
                 <CardHeader className="pb-2">
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-base">{t.recipe_name}</CardTitle>
-                    <Badge className="bg-green-100 text-green-700">Activa</Badge>
+                    <div className="flex items-center gap-1">
+                      <Badge className="bg-green-100 text-green-700">Activa</Badge>
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditTray(t)}>
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => deleteTray.mutate(t.id)}>
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent>
@@ -163,6 +238,70 @@ export default function Production() {
         </div>
       )}
 
+      {/* Edit Tray Dialog */}
+      <Dialog open={!!editTray} onOpenChange={() => setEditTray(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Editar Bandeja — {editTray?.recipe_name}</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-2">
+            <div>
+              <Label>Sabor (Receta)</Label>
+              <Select value={editForm.recipe_id} onValueChange={v => setEditForm(f => ({ ...f, recipe_id: v }))}>
+                <SelectTrigger><SelectValue placeholder="Seleccionar sabor" /></SelectTrigger>
+                <SelectContent>{iceRecipes.map(r => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Gramos restantes</Label>
+              <Input
+                type="number"
+                value={editForm.remaining_grams}
+                onChange={e => setEditForm(f => ({ ...f, remaining_grams: e.target.value }))}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditTray(null)}>Cancelar</Button>
+            <Button onClick={handleEditSave} disabled={updateTray.isPending}>
+              {updateTray.isPending ? 'Guardando...' : 'Guardar'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Consumable Dialog */}
+      <Dialog open={consumableDialog} onOpenChange={setConsumableDialog}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Registrar Paquete Gastado</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-2">
+            <p className="text-sm text-muted-foreground">Selecciona el utensilio consumido. Se descontará 1 unidad del stock.</p>
+            <div>
+              <Label>Utensilio</Label>
+              <Select value={selectedUtensil} onValueChange={setSelectedUtensil}>
+                <SelectTrigger><SelectValue placeholder="Seleccionar utensilio..." /></SelectTrigger>
+                <SelectContent>
+                  {utensilios.map(s => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.name} — stock: {s.stock_current} {s.unit}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConsumableDialog(false)}>Cancelar</Button>
+            <Button onClick={() => registerConsumable.mutate()} disabled={!selectedUtensil || registerConsumable.isPending}>
+              {registerConsumable.isPending ? 'Registrando...' : 'Registrar Salida'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Produce Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
