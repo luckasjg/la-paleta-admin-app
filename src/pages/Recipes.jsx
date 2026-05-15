@@ -57,9 +57,15 @@ export default function Recipes() {
 
   const openEdit = (r) => {
     setEditing(r);
+    const mix = r.yield_amount || 1000;
+    // Backfill percentage from stored absolute quantity so the bi-directional UI works on edit
+    const ingsWithPct = (r.ingredients || []).map(ing => ({
+      ...ing,
+      percentage: mix > 0 ? parseFloat((((ing.quantity || 0) / mix) * 100).toFixed(4)) : 0,
+    }));
     setForm({
-      name: r.name, type: r.type, yield_amount: r.yield_amount || 1000,
-      yield_unit: r.yield_unit || 'ml', ingredients: r.ingredients || [],
+      name: r.name, type: r.type, yield_amount: mix,
+      yield_unit: r.yield_unit || 'ml', ingredients: ingsWithPct,
       sale_price: r.sale_price || 0, is_active: r.is_active !== false,
     });
     setDialogOpen(true);
@@ -72,15 +78,47 @@ export default function Recipes() {
   const updateIngredient = (idx, field, value) => {
     setForm(f => {
       const newIngs = [...f.ingredients];
-      newIngs[idx] = { ...newIngs[idx], [field]: value };
+      const mix = parseFloat(f.yield_amount) || 0;
+      const current = { ...newIngs[idx] };
+
       if (field === 'supply_id') {
+        current.supply_id = value;
         const supply = supplies.find(s => s.id === value);
         if (supply) {
-          newIngs[idx].supply_name = supply.name;
-          newIngs[idx].unit = supply.unit;
+          current.supply_name = supply.name;
+          current.unit = supply.unit;
         }
+      } else if (field === 'percentage') {
+        // Logic A: editing % recalculates quantity from mix
+        const pct = parseFloat(value) || 0;
+        current.percentage = value === '' ? '' : pct;
+        current.quantity = mix > 0 ? parseFloat(((pct / 100) * mix).toFixed(4)) : 0;
+      } else if (field === 'quantity') {
+        // Logic B: editing quantity recalculates %
+        const qty = parseFloat(value) || 0;
+        current.quantity = value === '' ? 0 : qty;
+        current.percentage = mix > 0 ? parseFloat(((qty / mix) * 100).toFixed(4)) : 0;
+      } else {
+        current[field] = value;
       }
+
+      newIngs[idx] = current;
       return { ...f, ingredients: newIngs };
+    });
+  };
+
+  // Logic C: when the mix (yield_amount) changes, keep percentages fixed and rescale quantities
+  const updateYieldAmount = (value) => {
+    const newMix = parseFloat(value) || 0;
+    setForm(f => {
+      const rescaled = f.ingredients.map(ing => {
+        const pct = parseFloat(ing.percentage);
+        if (!isNaN(pct) && newMix > 0) {
+          return { ...ing, quantity: parseFloat(((pct / 100) * newMix).toFixed(4)) };
+        }
+        return ing;
+      });
+      return { ...f, yield_amount: newMix, ingredients: rescaled };
     });
   };
 
@@ -88,10 +126,22 @@ export default function Recipes() {
     setForm(f => ({ ...f, ingredients: f.ingredients.filter((_, i) => i !== idx) }));
   };
 
+  // Balance totalizer
+  const totalPercentage = form.ingredients.reduce((sum, ing) => {
+    const pct = parseFloat(ing.percentage);
+    return sum + (isNaN(pct) ? 0 : pct);
+  }, 0);
+  const isBalanced = Math.abs(totalPercentage - 100) < 0.01;
+
   const handleSave = () => {
     if (!form.name) return;
-    if (editing) updateMut.mutate({ id: editing.id, data: form });
-    else createMut.mutate(form);
+    // Strip the auxiliary "percentage" field; persist only absolute quantities for costing
+    const payload = {
+      ...form,
+      ingredients: form.ingredients.map(({ percentage, ...rest }) => rest),
+    };
+    if (editing) updateMut.mutate({ id: editing.id, data: payload });
+    else createMut.mutate(payload);
   };
 
   return (
@@ -142,7 +192,11 @@ export default function Recipes() {
               <div><Label>Precio Venta ($)</Label><Input type="number" step="0.01" value={form.sale_price} onChange={e => setForm({ ...form, sale_price: parseFloat(e.target.value) || 0 })} /></div>
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <div><Label>Rendimiento</Label><Input type="number" value={form.yield_amount} onChange={e => setForm({ ...form, yield_amount: parseFloat(e.target.value) || 0 })} /></div>
+              <div>
+                <Label>Mix Deseado (g/ml)</Label>
+                <Input type="number" value={form.yield_amount} onChange={e => updateYieldAmount(e.target.value)} />
+                <p className="text-[10px] text-muted-foreground mt-1">Cambiar el mix recalcula las cantidades manteniendo los %.</p>
+              </div>
               <div>
                 <Label>Unidad</Label>
                 <Select value={form.yield_unit} onValueChange={v => setForm({ ...form, yield_unit: v })}>
@@ -161,19 +215,60 @@ export default function Recipes() {
                 <Label className="text-sm font-semibold">Ingredientes</Label>
                 <Button variant="outline" size="sm" onClick={addIngredient}><Plus className="h-3 w-3 mr-1" />Agregar</Button>
               </div>
+
+              {form.ingredients.length > 0 && (
+                <div className="grid grid-cols-[1fr,72px,90px,32px] gap-2 px-1 mb-1 text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">
+                  <span>Insumo</span>
+                  <span className="text-right">%</span>
+                  <span className="text-right">Cantidad</span>
+                  <span></span>
+                </div>
+              )}
+
               <div className="space-y-2">
                 {form.ingredients.map((ing, idx) => (
-                  <div key={idx} className="flex items-center gap-2">
+                  <div key={idx} className="grid grid-cols-[1fr,72px,90px,32px] gap-2 items-center">
                     <Select value={ing.supply_id} onValueChange={v => updateIngredient(idx, 'supply_id', v)}>
-                      <SelectTrigger className="flex-1"><SelectValue placeholder="Insumo" /></SelectTrigger>
+                      <SelectTrigger><SelectValue placeholder="Insumo" /></SelectTrigger>
                       <SelectContent>{supplies.filter(s => s.sector === 'materia_prima').map(s => <SelectItem key={s.id} value={s.id}>{s.name} ({s.unit})</SelectItem>)}</SelectContent>
                     </Select>
-                    <Input type="number" className="w-24" placeholder="Cant." value={ing.quantity || ''} onChange={e => updateIngredient(idx, 'quantity', parseFloat(e.target.value) || 0)} />
-                    <span className="text-xs text-muted-foreground w-8">{ing.unit}</span>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      placeholder="%"
+                      value={ing.percentage ?? ''}
+                      onChange={e => updateIngredient(idx, 'percentage', e.target.value)}
+                      className="text-right"
+                    />
+                    <div className="relative">
+                      <Input
+                        type="number"
+                        step="0.01"
+                        placeholder="0"
+                        value={ing.quantity || ''}
+                        onChange={e => updateIngredient(idx, 'quantity', e.target.value)}
+                        className="text-right pr-7"
+                      />
+                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">{ing.unit}</span>
+                    </div>
                     <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0" onClick={() => removeIngredient(idx)}><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>
                   </div>
                 ))}
               </div>
+
+              {/* Balance totalizer */}
+              {form.ingredients.length > 0 && (
+                <div className={`mt-3 rounded-lg border p-2.5 flex items-center justify-between text-sm ${
+                  isBalanced
+                    ? 'bg-green-50 border-green-300 text-green-700'
+                    : 'bg-amber-50 border-amber-300 text-amber-700'
+                }`}>
+                  <span className="font-medium">
+                    {isBalanced ? '✓ Receta balanceada' : '⚠ La receta no suma 100%'}
+                  </span>
+                  <span className="font-mono font-bold">{totalPercentage.toFixed(2)}%</span>
+                </div>
+              )}
             </div>
           </div>
           <DialogFooter>
