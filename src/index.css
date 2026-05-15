@@ -86,3 +86,29 @@
     @apply bg-background text-foreground font-main;
   }
 }
+
+@media print {
+  /* Hide all app chrome */
+  nav, aside, header, [data-sidebar], .sidebar,
+  [class*="Sidebar"], [class*="AppLayout"],
+  button, [role="dialog"], [role="navigation"] {
+    display: none !important;
+  }
+
+  /* Show only the print report */
+  body > * {
+    display: none !important;
+  }
+
+  #print-report {
+    display: block !important;
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background: white;
+    color: black;
+    padding: 1.5rem;
+    font-family: monospace;
+    font-size: 12px;
+  }
+}

@@ -10,17 +10,20 @@ import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { DollarSign, AlertTriangle, CheckCircle } from 'lucide-react';
+import { DollarSign, AlertTriangle, CheckCircle, Printer } from 'lucide-react';
 import PageHeader from '@/components/shared/PageHeader';
 import StatCard from '@/components/shared/StatCard';
 import { toast } from 'sonner';
 import moment from 'moment';
+import SaleDetailDialog from '@/components/cashregister/SaleDetailDialog';
+import PrintReport from '@/components/cashregister/PrintReport';
 
 export default function CashRegister() {
   const [closeDialog, setCloseDialog] = useState(false);
   const [declaredCash, setDeclaredCash] = useState(0);
   const [shift, setShift] = useState('manana');
   const [notes, setNotes] = useState('');
+  const [selectedSale, setSelectedSale] = useState(null);
   const qc = useQueryClient();
 
   const { data: sales = [] } = useQuery({
@@ -31,6 +34,11 @@ export default function CashRegister() {
   const { data: registers = [] } = useQuery({
     queryKey: ['cash_registers'],
     queryFn: () => base44.entities.CashRegister.list('-created_date', 30),
+  });
+
+  const { data: supplies = [] } = useQuery({
+    queryKey: ['supplies'],
+    queryFn: () => base44.entities.Supply.list(),
   });
 
   const today = moment().format('YYYY-MM-DD');
@@ -69,9 +77,14 @@ export default function CashRegister() {
         title="Caja Registradora"
         description={`Hoy: ${moment().format('DD/MM/YYYY')}`}
         actions={
-          <Button onClick={() => setCloseDialog(true)}>
-            <DollarSign className="h-4 w-4 mr-2" /> Cerrar Caja
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => window.print()}>
+              <Printer className="h-4 w-4 mr-2" /> Imprimir Reporte
+            </Button>
+            <Button onClick={() => setCloseDialog(true)}>
+              <DollarSign className="h-4 w-4 mr-2" /> Cerrar Caja
+            </Button>
+          </div>
         }
       />
 
@@ -102,20 +115,30 @@ export default function CashRegister() {
               {todaySales.length === 0 ? (
                 <TableRow><TableCell colSpan={4} className="text-center py-6 text-muted-foreground">Sin ventas hoy</TableCell></TableRow>
               ) : (
-                todaySales.map(s => (
-                  <TableRow key={s.id}>
-                    <TableCell className="text-sm">{moment(s.sale_date).format('HH:mm')}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {(s.items || []).map(i => i.product_name).join(', ').slice(0, 40) || '—'}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="secondary" className="text-xs">
-                        {s.payment_method === 'efectivo' ? 'Efectivo' : s.payment_method === 'pago_movil' ? 'P. Móvil' : s.payment_method === 'punto_venta' ? 'Tarjeta' : 'Mixto'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right font-mono font-semibold">${s.total?.toFixed(2)}</TableCell>
-                  </TableRow>
-                ))
+                todaySales.map(s => {
+                  const hasCourtesy = (s.items || []).some(i => i.is_courtesy);
+                  return (
+                    <TableRow
+                      key={s.id}
+                      className="cursor-pointer hover:bg-secondary/40"
+                      onClick={() => setSelectedSale(s)}
+                    >
+                      <TableCell className="text-sm">{moment(s.sale_date).format('HH:mm')}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        <div className="flex items-center gap-1.5">
+                          <span>{(s.items || []).map(i => i.product_name).join(', ').slice(0, 35) || '—'}</span>
+                          {hasCourtesy && <span title="Incluye cortesías" className="text-amber-500 text-xs">🎁</span>}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="secondary" className="text-xs">
+                          {s.payment_method === 'efectivo' ? 'Efectivo' : s.payment_method === 'pago_movil' ? 'P. Móvil' : s.payment_method === 'punto_venta' ? 'Tarjeta' : 'Mixto'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right font-mono font-semibold">${s.total?.toFixed(2)}</TableCell>
+                    </TableRow>
+                  );
+                })
               )}
             </TableBody>
           </Table>
@@ -168,6 +191,24 @@ export default function CashRegister() {
           </Table>
         </CardContent>
       </Card>
+
+      {/* Sale detail */}
+      <SaleDetailDialog
+        sale={selectedSale}
+        supplies={supplies}
+        open={!!selectedSale}
+        onOpenChange={() => setSelectedSale(null)}
+      />
+
+      {/* Print report (hidden on screen, shown on print) */}
+      <PrintReport
+        date={today}
+        todaySales={todaySales}
+        systemCash={systemCash}
+        systemDigital={systemDigital}
+        todayTotal={todayTotal}
+        supplies={supplies}
+      />
 
       {/* Close dialog */}
       <Dialog open={closeDialog} onOpenChange={setCloseDialog}>
