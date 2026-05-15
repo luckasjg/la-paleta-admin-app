@@ -17,6 +17,7 @@ import { toast } from 'sonner';
 import moment from 'moment';
 import SaleDetailDialog from '@/components/cashregister/SaleDetailDialog';
 import PrintReport from '@/components/cashregister/PrintReport';
+import IceCreamAudit from '@/components/cashregister/IceCreamAudit';
 
 export default function CashRegister() {
   const [closeDialog, setCloseDialog] = useState(false);
@@ -40,6 +41,13 @@ export default function CashRegister() {
     queryKey: ['supplies'],
     queryFn: () => base44.entities.Supply.list(),
   });
+
+  const { data: trays = [] } = useQuery({
+    queryKey: ['trays'],
+    queryFn: () => base44.entities.Tray.list('-created_date', 50),
+  });
+
+  const activeTrays = trays.filter(t => t.status === 'activa');
 
   const today = moment().format('YYYY-MM-DD');
   const todaySales = sales.filter(s => s.sale_date && moment(s.sale_date).format('YYYY-MM-DD') === today);
@@ -191,6 +199,13 @@ export default function CashRegister() {
           </Table>
         </CardContent>
       </Card>
+
+      {/* Ice Cream Audit */}
+      <IceCreamAudit
+        activeTrays={activeTrays}
+        todaySales={todaySales}
+        shift={shift}
+      />
 
       {/* Sale detail */}
       <SaleDetailDialog
