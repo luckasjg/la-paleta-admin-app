@@ -128,28 +128,38 @@ export default function DataSimulator() {
     const toastId = toast.loading('Buscando y eliminando datos de prueba...');
 
     try {
-      // Page through all sales in case there are thousands
-      let allSales = [];
-      let page = 0;
-      while (true) {
-        const batch = await base44.entities.Sale.list('-sale_date', 500, page * 500);
-        if (!batch || batch.length === 0) break;
-        allSales = allSales.concat(batch);
-        if (batch.length < 500) break;
-        page++;
-      }
-      const mockSales = allSales.filter(s =>
-        (s.items || []).some(it => it.product_name?.startsWith(MOCK_PREFIX))
-      );
+      let totalDeleted = 0;
+      let safetyLoops = 0;
 
-      for (let i = 0; i < mockSales.length; i++) {
-        await base44.entities.Sale.delete(mockSales[i].id);
-        if (i % 25 === 0) {
-          toast.loading(`Eliminando... ${i + 1} / ${mockSales.length}`, { id: toastId });
+      // Loop: fetch a batch, delete mock entries, repeat until no mock entries remain.
+      // We always fetch from the top (no offset) because deletions shrink the dataset
+      // and would desync any pagination offset.
+      while (safetyLoops < 100) {
+        safetyLoops++;
+        const batch = await base44.entities.Sale.list('-sale_date', 500);
+        if (!batch || batch.length === 0) break;
+
+        const mockInBatch = batch.filter(s =>
+          (s.items || []).some(it => it.product_name?.startsWith(MOCK_PREFIX))
+        );
+
+        if (mockInBatch.length === 0) break;
+
+        // Delete in parallel chunks for speed
+        const chunkSize = 10;
+        for (let i = 0; i < mockInBatch.length; i += chunkSize) {
+          const chunk = mockInBatch.slice(i, i + chunkSize);
+          await Promise.all(chunk.map(s => base44.entities.Sale.delete(s.id)));
+          totalDeleted += chunk.length;
+          toast.loading(`Eliminando... ${totalDeleted} ventas borradas`, { id: toastId });
         }
       }
 
-      toast.success(`${mockSales.length} ventas de prueba eliminadas`, { id: toastId });
+      if (totalDeleted === 0) {
+        toast.success('No se encontraron datos de prueba para eliminar', { id: toastId });
+      } else {
+        toast.success(`${totalDeleted} ventas de prueba eliminadas`, { id: toastId });
+      }
       refreshAll();
     } catch (err) {
       toast.error('Error eliminando: ' + err.message, { id: toastId });
