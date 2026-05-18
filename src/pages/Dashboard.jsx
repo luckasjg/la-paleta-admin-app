@@ -16,10 +16,29 @@ import moment from 'moment';
 const COLORS = ['hsl(152,35%,38%)', 'hsl(28,60%,65%)', 'hsl(200,40%,50%)', 'hsl(340,55%,55%)', 'hsl(45,80%,55%)', 'hsl(270,50%,60%)'];
 
 export default function Dashboard() {
-  const { data: sales = [] } = useQuery({
+  const { data: rawSales = [] } = useQuery({
     queryKey: ['sales'],
-    queryFn: () => base44.entities.Sale.list('-sale_date', 500),
+    queryFn: async () => {
+      // Page through ALL sales so the dashboard reflects the full history,
+      // not just the most recent 500 (otherwise stale test data lingers).
+      const all = [];
+      let page = 0;
+      while (page < 50) {
+        const batch = await base44.entities.Sale.list('-sale_date', 500, page * 500);
+        if (!batch || batch.length === 0) break;
+        all.push(...batch);
+        if (batch.length < 500) break;
+        page++;
+      }
+      return all;
+    },
   });
+
+  // Exclude any simulator/test data (items prefixed with [TEST]) from analytics
+  const sales = useMemo(
+    () => rawSales.filter(s => !(s.items || []).some(it => it.product_name?.startsWith('[TEST]'))),
+    [rawSales]
+  );
 
   const { data: supplies = [] } = useQuery({
     queryKey: ['supplies'],
