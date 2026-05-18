@@ -15,6 +15,7 @@ import { Switch } from '@/components/ui/switch';
 import PageHeader from '@/components/shared/PageHeader';
 import { toast } from 'sonner';
 import CategoryManager from '@/components/inventory/CategoryManager';
+import PurchaseFormatPanel, { getPackageUnit } from '@/components/inventory/PurchaseFormatPanel';
 
 const SECTORS = [
   { value: 'materia_prima', label: 'Materia Prima', description: 'Ingredientes para producción de helados' },
@@ -49,12 +50,14 @@ const loadCategoriesFromStorage = () => {
 
 const emptySupply = { name: '', sector: 'materia_prima', category: '', unit: 'g', stock_current: 0, stock_minimum: 0, cost_per_unit: 0, supplier: '', is_infinite: false };
 const emptyCalc = { purchase_price: '', yield_amount: '' };
+const emptyPurchase = { purchase_price: '', net_content: '', package_unit: 'kg', packages_to_add: '' };
 
 export default function Inventory() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(emptySupply);
   const [calc, setCalc] = useState(emptyCalc);
+  const [purchase, setPurchase] = useState(emptyPurchase);
   const [search, setSearch] = useState('');
   const [activeSector, setActiveSector] = useState('materia_prima');
   const [catManagerOpen, setCatManagerOpen] = useState(false);
@@ -95,12 +98,14 @@ export default function Inventory() {
     setEditing(null);
     setForm(emptySupply);
     setCalc(emptyCalc);
+    setPurchase(emptyPurchase);
   };
 
   const openNew = () => {
     setForm({ ...emptySupply, sector: activeSector });
     setEditing(null);
     setCalc(emptyCalc);
+    setPurchase(emptyPurchase);
     setDialogOpen(true);
   };
 
@@ -112,6 +117,9 @@ export default function Inventory() {
       cost_per_unit: s.cost_per_unit, supplier: s.supplier || '', is_infinite: s.is_infinite || false
     });
     setCalc(emptyCalc);
+    // Pre-fill package_unit guess based on current base unit (kg for g, L for ml, unidad for unidad)
+    const defaultPkgUnit = s.unit === 'g' ? 'kg' : s.unit === 'ml' ? 'l' : 'unidad';
+    setPurchase({ ...emptyPurchase, package_unit: defaultPkgUnit });
     setDialogOpen(true);
   };
 
@@ -128,7 +136,12 @@ export default function Inventory() {
   const handleSave = () => {
     if (!form.name) return;
     const { name, sector, category, unit, stock_current, stock_minimum, cost_per_unit, supplier, is_infinite } = form;
-    const payload = { name, sector, category, unit, stock_current, stock_minimum, cost_per_unit, supplier, is_infinite };
+    // For materia_prima we normalize unit to the base unit derived from the purchase format
+    let finalUnit = unit;
+    if (sector === 'materia_prima') {
+      finalUnit = getPackageUnit(purchase.package_unit).baseUnit;
+    }
+    const payload = { name, sector, category, unit: finalUnit, stock_current, stock_minimum, cost_per_unit, supplier, is_infinite };
     if (editing) {
       updateMut.mutate({ id: editing.id, data: payload });
     } else {
@@ -333,17 +346,25 @@ export default function Inventory() {
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Unidad</Label>
-                <Select value={form.unit} onValueChange={v => setForm({ ...form, unit: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="g">Gramos (g)</SelectItem>
-                    <SelectItem value="ml">Mililitros (ml)</SelectItem>
-                    <SelectItem value="unidad">Unidad</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              {form.sector !== 'materia_prima' ? (
+                <div>
+                  <Label>Unidad</Label>
+                  <Select value={form.unit} onValueChange={v => setForm({ ...form, unit: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="g">Gramos (g)</SelectItem>
+                      <SelectItem value="ml">Mililitros (ml)</SelectItem>
+                      <SelectItem value="unidad">Unidad</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              ) : (
+                <div>
+                  <Label>Unidad Base</Label>
+                  <Input value={form.unit} disabled className="bg-muted/50 font-mono" />
+                  <p className="text-[10px] text-muted-foreground mt-1">Se deriva del formato de compra</p>
+                </div>
+              )}
               <div><Label>Proveedor</Label><Input value={form.supplier} onChange={e => setForm({ ...form, supplier: e.target.value })} /></div>
             </div>
 
@@ -353,8 +374,20 @@ export default function Inventory() {
             </div>
 
             <div>
-              <Label>Costo por Unidad ($)</Label>
-              <Input type="number" step="0.0001" value={form.cost_per_unit} onChange={e => setForm({ ...form, cost_per_unit: parseFloat(e.target.value) || 0 })} />
+              <Label>
+                Costo por Unidad{form.sector === 'materia_prima' ? ' Base' : ''} ($)
+                {form.sector === 'materia_prima' && <span className="text-xs text-muted-foreground font-normal"> (automático)</span>}
+              </Label>
+              <Input
+                type="number" step="0.0001" value={form.cost_per_unit}
+                onChange={e => setForm({ ...form, cost_per_unit: parseFloat(e.target.value) || 0 })}
+                readOnly={form.sector === 'materia_prima'}
+                disabled={form.sector === 'materia_prima'}
+                className={form.sector === 'materia_prima' ? 'bg-muted/50 font-mono' : ''}
+              />
+              {form.sector === 'materia_prima' && (
+                <p className="text-[10px] text-muted-foreground mt-1">Se calcula desde el "Formato de Compra" abajo.</p>
+              )}
             </div>
 
             {/* Stock infinito (solo materia prima) */}
@@ -370,24 +403,27 @@ export default function Inventory() {
               </div>
             )}
 
-            {/* Calculadora de Costos */}
-            {(() => {
-              const isVentaDirecta = form.sector === 'venta_directa';
+            {/* Formato de Compra (materia prima) */}
+            {form.sector === 'materia_prima' && (
+              <PurchaseFormatPanel
+                purchase={purchase}
+                setPurchase={setPurchase}
+                form={form}
+                setForm={setForm}
+              />
+            )}
+
+            {/* Calculadora simple para venta directa y utensilios (lote → pieza) */}
+            {form.sector !== 'materia_prima' && (() => {
               const isUtensilio = form.sector === 'utensilio';
-              const labelPrecio = isVentaDirecta || isUtensilio ? 'Precio del lote/caja ($)' : 'Precio del empaque ($)';
-              const labelCantidad = isVentaDirecta || isUtensilio
-                ? '¿Cuántas unidades trae?'
-                : `¿Cuántos ${form.unit} trae?`;
-              const placeholderCantidad = isVentaDirecta ? 'ej. 24 (caja de 24)' : isUtensilio ? 'ej. 85 (caja de barquillas)' : 'ej. 25000';
-              const nota = isVentaDirecta || isUtensilio
-                ? 'Divide el costo del lote entre las unidades para obtener el costo por pieza.'
-                : 'Al completar ambos campos, el costo por unidad se calcula automáticamente.';
+              const labelCantidad = '¿Cuántas unidades trae?';
+              const placeholderCantidad = isUtensilio ? 'ej. 85 (caja de barquillas)' : 'ej. 24 (caja de 24)';
               return (
                 <div className="rounded-lg border border-dashed border-border bg-muted/30 p-3 space-y-2">
                   <p className="text-xs font-semibold text-foreground">🧮 Calculadora de Costos <span className="font-normal text-muted-foreground">(Opcional)</span></p>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <Label className="text-xs">{labelPrecio}</Label>
+                      <Label className="text-xs">Precio del lote/caja ($)</Label>
                       <Input type="number" step="0.01" placeholder="ej. 180" value={calc.purchase_price} onChange={e => handleCalcChange('purchase_price', e.target.value)} />
                     </div>
                     <div>
@@ -395,7 +431,7 @@ export default function Inventory() {
                       <Input type="number" step="1" placeholder={placeholderCantidad} value={calc.yield_amount} onChange={e => handleCalcChange('yield_amount', e.target.value)} />
                     </div>
                   </div>
-                  <p className="text-[10px] text-muted-foreground">{nota} Solo visual, no se guarda en la base de datos.</p>
+                  <p className="text-[10px] text-muted-foreground">Divide el costo del lote entre las unidades para obtener el costo por pieza.</p>
                 </div>
               );
             })()}
