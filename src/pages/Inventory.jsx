@@ -50,7 +50,10 @@ const loadCategoriesFromStorage = () => {
 
 const emptySupply = { name: '', sector: 'materia_prima', category: '', unit: 'g', stock_current: 0, stock_minimum: 0, cost_per_unit: 0, supplier: '', is_infinite: false };
 const emptyCalc = { purchase_price: '', yield_amount: '' };
-const emptyPurchase = { purchase_price: '', net_content: '', package_unit: 'kg', packages_to_add: '' };
+const emptyPurchase = { presentation: '', purchase_price: '', net_content: '', package_unit: 'kg' };
+
+// Stock inputs (en empaques) — separados del form (que guarda en unidad base)
+const emptyStockPkg = { stock_current_pkg: '', stock_minimum_pkg: '' };
 
 export default function Inventory() {
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -58,6 +61,7 @@ export default function Inventory() {
   const [form, setForm] = useState(emptySupply);
   const [calc, setCalc] = useState(emptyCalc);
   const [purchase, setPurchase] = useState(emptyPurchase);
+  const [stockPkg, setStockPkg] = useState(emptyStockPkg);
   const [search, setSearch] = useState('');
   const [activeSector, setActiveSector] = useState('materia_prima');
   const [catManagerOpen, setCatManagerOpen] = useState(false);
@@ -99,6 +103,7 @@ export default function Inventory() {
     setForm(emptySupply);
     setCalc(emptyCalc);
     setPurchase(emptyPurchase);
+    setStockPkg(emptyStockPkg);
   };
 
   const openNew = () => {
@@ -106,6 +111,7 @@ export default function Inventory() {
     setEditing(null);
     setCalc(emptyCalc);
     setPurchase(emptyPurchase);
+    setStockPkg(emptyStockPkg);
     setDialogOpen(true);
   };
 
@@ -117,9 +123,30 @@ export default function Inventory() {
       cost_per_unit: s.cost_per_unit, supplier: s.supplier || '', is_infinite: s.is_infinite || false
     });
     setCalc(emptyCalc);
-    // Pre-fill package_unit guess based on current base unit (kg for g, L for ml, unidad for unidad)
-    const defaultPkgUnit = s.unit === 'g' ? 'kg' : s.unit === 'ml' ? 'l' : 'unidad';
-    setPurchase({ ...emptyPurchase, package_unit: defaultPkgUnit });
+
+    // Restore purchase format from saved package_format, or guess defaults
+    const pf = s.package_format || {};
+    const defaultPkgUnit = pf.package_unit || (s.unit === 'g' ? 'kg' : s.unit === 'ml' ? 'l' : 'unidad');
+    const restoredPurchase = {
+      presentation: pf.presentation || '',
+      purchase_price: pf.purchase_price != null ? String(pf.purchase_price) : '',
+      net_content: pf.net_content != null ? String(pf.net_content) : '',
+      package_unit: defaultPkgUnit,
+    };
+    setPurchase(restoredPurchase);
+
+    // Conversión inversa: stock base / (net_content * multiplicador) → empaques
+    const pkgU = getPackageUnit(defaultPkgUnit);
+    const net = parseFloat(restoredPurchase.net_content);
+    const baseTotal = net > 0 ? net * pkgU.multiplier : 0;
+    if ((s.sector || 'materia_prima') === 'materia_prima' && baseTotal > 0) {
+      setStockPkg({
+        stock_current_pkg: String(+( (s.stock_current || 0) / baseTotal).toFixed(4)),
+        stock_minimum_pkg: String(+((s.stock_minimum || 0) / baseTotal).toFixed(4)),
+      });
+    } else {
+      setStockPkg(emptyStockPkg);
+    }
     setDialogOpen(true);
   };
 
@@ -136,12 +163,42 @@ export default function Inventory() {
   const handleSave = () => {
     if (!form.name) return;
     const { name, sector, category, unit, stock_current, stock_minimum, cost_per_unit, supplier, is_infinite } = form;
-    // For materia_prima we normalize unit to the base unit derived from the purchase format
+
     let finalUnit = unit;
+    let finalStockCurrent = stock_current;
+    let finalStockMinimum = stock_minimum;
+    let packageFormatPayload = undefined;
+
     if (sector === 'materia_prima') {
-      finalUnit = getPackageUnit(purchase.package_unit).baseUnit;
+      const pkgU = getPackageUnit(purchase.package_unit);
+      finalUnit = pkgU.baseUnit;
+      const net = parseFloat(purchase.net_content);
+      const baseTotal = net > 0 ? net * pkgU.multiplier : 0;
+
+      // Conversión empaques → unidad base
+      const sCurPkg = parseFloat(stockPkg.stock_current_pkg) || 0;
+      const sMinPkg = parseFloat(stockPkg.stock_minimum_pkg) || 0;
+      finalStockCurrent = baseTotal > 0 ? sCurPkg * baseTotal : 0;
+      finalStockMinimum = baseTotal > 0 ? sMinPkg * baseTotal : 0;
+
+      const presentation = (purchase.presentation || '').trim();
+      const unitLabel = pkgU.label.replace(/\s*\(.*\)/, '');
+      packageFormatPayload = {
+        presentation,
+        net_content: net || 0,
+        package_unit: purchase.package_unit,
+        purchase_price: parseFloat(purchase.purchase_price) || 0,
+        label: presentation && net > 0 ? `${presentation} de ${net} ${unitLabel}` : '',
+      };
     }
-    const payload = { name, sector, category, unit: finalUnit, stock_current, stock_minimum, cost_per_unit, supplier, is_infinite };
+
+    const payload = {
+      name, sector, category, unit: finalUnit,
+      stock_current: finalStockCurrent,
+      stock_minimum: finalStockMinimum,
+      cost_per_unit, supplier, is_infinite,
+      ...(packageFormatPayload ? { package_format: packageFormatPayload } : {}),
+    };
     if (editing) {
       updateMut.mutate({ id: editing.id, data: payload });
     } else {
@@ -368,10 +425,49 @@ export default function Inventory() {
               <div><Label>Proveedor</Label><Input value={form.supplier} onChange={e => setForm({ ...form, supplier: e.target.value })} /></div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div><Label>Stock Actual</Label><Input type="number" value={form.stock_current} onChange={e => setForm({ ...form, stock_current: parseFloat(e.target.value) || 0 })} /></div>
-              <div><Label>Stock Mínimo</Label><Input type="number" value={form.stock_minimum} onChange={e => setForm({ ...form, stock_minimum: parseFloat(e.target.value) || 0 })} /></div>
-            </div>
+            {form.sector === 'materia_prima' ? (() => {
+              const presentation = (purchase.presentation || '').trim();
+              // Pluralize simple: "Saco" → "Sacos"
+              const plural = presentation
+                ? (presentation.endsWith('s') ? presentation : `${presentation}s`)
+                : 'Empaques';
+              const pkgU = getPackageUnit(purchase.package_unit);
+              const net = parseFloat(purchase.net_content) || 0;
+              const baseTotal = net * pkgU.multiplier;
+              const sCur = parseFloat(stockPkg.stock_current_pkg) || 0;
+              const sMin = parseFloat(stockPkg.stock_minimum_pkg) || 0;
+              return (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>Stock Actual (en {plural})</Label>
+                    <Input
+                      type="number" step="0.01" min="0" placeholder="ej. 1.5"
+                      value={stockPkg.stock_current_pkg}
+                      onChange={e => setStockPkg(s => ({ ...s, stock_current_pkg: e.target.value }))}
+                    />
+                    {baseTotal > 0 && sCur > 0 && (
+                      <p className="text-[10px] text-muted-foreground mt-1 font-mono">= {sCur * baseTotal} {pkgU.baseUnit}</p>
+                    )}
+                  </div>
+                  <div>
+                    <Label>Stock Mínimo Alerta (en {plural})</Label>
+                    <Input
+                      type="number" step="0.01" min="0" placeholder="ej. 0.5"
+                      value={stockPkg.stock_minimum_pkg}
+                      onChange={e => setStockPkg(s => ({ ...s, stock_minimum_pkg: e.target.value }))}
+                    />
+                    {baseTotal > 0 && sMin > 0 && (
+                      <p className="text-[10px] text-muted-foreground mt-1 font-mono">= {sMin * baseTotal} {pkgU.baseUnit}</p>
+                    )}
+                  </div>
+                </div>
+              );
+            })() : (
+              <div className="grid grid-cols-2 gap-4">
+                <div><Label>Stock Actual</Label><Input type="number" value={form.stock_current} onChange={e => setForm({ ...form, stock_current: parseFloat(e.target.value) || 0 })} /></div>
+                <div><Label>Stock Mínimo</Label><Input type="number" value={form.stock_minimum} onChange={e => setForm({ ...form, stock_minimum: parseFloat(e.target.value) || 0 })} /></div>
+              </div>
+            )}
 
             <div>
               <Label>

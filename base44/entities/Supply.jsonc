@@ -27,19 +27,19 @@
         "ml",
         "unidad"
       ],
-      "description": "Unidad de medida"
+      "description": "Unidad de medida base"
     },
     "stock_current": {
       "type": "number",
-      "description": "Stock actual en la unidad correspondiente"
+      "description": "Stock actual en la unidad base (g, ml o unidad)"
     },
     "stock_minimum": {
       "type": "number",
-      "description": "Stock m\u00ednimo para alertas"
+      "description": "Stock m\u00ednimo para alertas en unidad base"
     },
     "cost_per_unit": {
       "type": "number",
-      "description": "Costo por unidad de medida"
+      "description": "Costo por unidad base"
     },
     "supplier": {
       "type": "string",
@@ -49,28 +49,36 @@
       "type": "boolean",
       "description": "Si es true, no se descuenta del inventario (ej. agua con abastecimiento propio)",
       "default": false
+    },
+    "package_format": {
+      "type": "object",
+      "description": "Formato de compra para conversi\u00f3n empaques\u2194unidad base",
+      "properties": {
+        "presentation": {
+          "type": "string",
+          "description": "Nombre del envase (ej. Saco, Lata, Bolsa)"
+        },
+        "net_content": {
+          "type": "number",
+          "description": "Contenido neto por empaque"
+        },
+        "package_unit": {
+          "type": "string",
+          "description": "Unidad del empaque (kg, g, l, ml, unidad)"
+        },
+        "purchase_price": {
+          "type": "number",
+          "description": "Precio del empaque"
+        },
+        "label": {
+          "type": "string",
+          "description": "Etiqueta generada (ej. Saco de 25 Kg)"
+        }
+      }
     }
   },
   "required": [
     "name",
     "unit"
-  ],
-  "rls": {
-    "create": {
-      "user_condition": {
-        "role": "admin"
-      }
-    },
-    "read": {},
-    "update": {
-      "user_condition": {
-        "role": "admin"
-      }
-    },
-    "delete": {
-      "user_condition": {
-        "role": "admin"
-      }
-    }
-  }
+  ]
 }
