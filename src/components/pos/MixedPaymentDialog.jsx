@@ -17,19 +17,34 @@ export const PAYMENT_METHODS = [
 
 const getMethod = (v) => PAYMENT_METHODS.find(m => m.value === v) || PAYMENT_METHODS[0];
 
-const makeRow = (method = 'efectivo_usd') => ({
-  id: Math.random().toString(36).slice(2),
-  method,
-  currency: getMethod(method).defaultCurrency,
-  amount: '',
-});
+const makeRow = (method = 'efectivo_usd', amount = '') => {
+  const m = getMethod(method);
+  return {
+    id: Math.random().toString(36).slice(2),
+    method,
+    currency: m.defaultCurrency,
+    amount: amount === '' ? '' : String(amount),
+  };
+};
+
+// Formats a number for prefilling the amount input (in the row's currency)
+const prefillAmount = (usdAmount, currency, rate) => {
+  if (usdAmount <= 0) return '';
+  const val = currency === 'USD' ? usdAmount : usdAmount * rate;
+  return val.toFixed(2);
+};
 
 export default function MixedPaymentDialog({ open, onOpenChange, totalUSD, exchangeRate, onConfirm, isProcessing }) {
-  const [rows, setRows] = useState([makeRow('efectivo_usd')]);
+  const [rows, setRows] = useState(() => [
+    makeRow('efectivo_usd', prefillAmount(totalUSD, 'USD', exchangeRate)),
+  ]);
 
-  // Reset rows on open
+  // On open: reset with a single row pre-filled with the full total
   useEffect(() => {
-    if (open) setRows([makeRow('efectivo_usd')]);
+    if (open) {
+      setRows([makeRow('efectivo_usd', prefillAmount(totalUSD, 'USD', exchangeRate))]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   const totalVES = totalUSD * exchangeRate;
@@ -47,12 +62,34 @@ export default function MixedPaymentDialog({ open, onOpenChange, totalUSD, excha
   const isComplete = receivedUSD >= totalUSD - 0.001 && totalUSD > 0;
   const hasAnyAmount = computed.some(r => r.amt > 0);
 
-  const addRow = () => setRows(rs => [...rs, makeRow('pago_movil')]);
+  const addRow = () => {
+    // Compute remaining amount based on current rows (USD equivalent)
+    const remainingUSD = Math.max(0, totalUSD - receivedUSD);
+    const newMethod = 'pago_movil';
+    const newCurrency = getMethod(newMethod).defaultCurrency;
+    setRows(rs => [...rs, makeRow(newMethod, prefillAmount(remainingUSD, newCurrency, exchangeRate))]);
+  };
   const removeRow = (id) => setRows(rs => rs.length > 1 ? rs.filter(r => r.id !== id) : rs);
   const updateRow = (id, patch) => setRows(rs => rs.map(r => {
     if (r.id !== id) return r;
     const next = { ...r, ...patch };
-    if (patch.method && !patch.currency) next.currency = getMethod(patch.method).defaultCurrency;
+    // When method changes, also realign the currency to the method's default
+    // and reconvert the existing amount to the new currency so the value stays equivalent.
+    if (patch.method && !patch.currency) {
+      const newCurrency = getMethod(patch.method).defaultCurrency;
+      if (newCurrency !== r.currency && r.amount !== '') {
+        const amtNum = parseFloat(r.amount) || 0;
+        const usdEq = r.currency === 'USD' ? amtNum : (exchangeRate > 0 ? amtNum / exchangeRate : 0);
+        next.amount = prefillAmount(usdEq, newCurrency, exchangeRate);
+      }
+      next.currency = newCurrency;
+    }
+    // When currency changes manually, convert the existing amount accordingly
+    if (patch.currency && patch.currency !== r.currency && r.amount !== '') {
+      const amtNum = parseFloat(r.amount) || 0;
+      const usdEq = r.currency === 'USD' ? amtNum : (exchangeRate > 0 ? amtNum / exchangeRate : 0);
+      next.amount = prefillAmount(usdEq, patch.currency, exchangeRate);
+    }
     return next;
   }));
 
