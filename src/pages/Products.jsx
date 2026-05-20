@@ -15,6 +15,7 @@ import { toast } from 'sonner';
 import POSCategoryManager from '@/components/products/POSCategoryManager';
 
 const DEFAULT_CATEGORIES = ['helado', 'cafe', 'merengada', 'adicional', 'otro'];
+const HIDDEN_CATS_KEY = 'pos_hidden_categories';
 
 const emptyProduct = { name: '', category: '', size_label: '', grams_per_serving: 0, recipe_id: '', utensil_supply_id: '', price: 0, is_active: true, requires_flavor: false, max_flavors: 1 };
 
@@ -23,7 +24,15 @@ export default function Products() {
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(emptyProduct);
   const [catManagerOpen, setCatManagerOpen] = useState(false);
+  const [hiddenCats, setHiddenCats] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(HIDDEN_CATS_KEY) || '[]'); } catch { return []; }
+  });
   const qc = useQueryClient();
+
+  const persistHiddenCats = (next) => {
+    setHiddenCats(next);
+    try { localStorage.setItem(HIDDEN_CATS_KEY, JSON.stringify(next)); } catch { /* ignore */ }
+  };
 
   const { data: products = [] } = useQuery({
     queryKey: ['products'],
@@ -40,18 +49,22 @@ export default function Products() {
     queryFn: () => base44.entities.Supply.list(),
   });
 
-  const utensilios = supplies.filter(s => s.sector === 'utensilio');
+  const linkableSupplies = supplies.filter(s => s.sector === 'utensilio' || s.sector === 'venta_directa');
 
   // Dynamic categories: defaults + every unique category that exists in DB (case-insensitive de-dup)
+  // minus any the user has hidden from the manager.
   const dynamicCategories = useMemo(() => {
+    const hiddenSet = new Set(hiddenCats.map(c => c.toLowerCase()));
     const seen = new Map(); // lowercased -> original casing
-    DEFAULT_CATEGORIES.forEach(c => seen.set(c.toLowerCase(), c));
+    DEFAULT_CATEGORIES.forEach(c => {
+      if (!hiddenSet.has(c.toLowerCase())) seen.set(c.toLowerCase(), c);
+    });
     products.forEach(p => {
       const c = (p.category || '').trim();
       if (c && !seen.has(c.toLowerCase())) seen.set(c.toLowerCase(), c);
     });
     return Array.from(seen.values());
-  }, [products]);
+  }, [products, hiddenCats]);
 
   const createMut = useMutation({
     mutationFn: (d) => base44.entities.Product.create(d),
@@ -166,6 +179,8 @@ export default function Products() {
         onOpenChange={setCatManagerOpen}
         categories={dynamicCategories}
         products={products}
+        hiddenCats={hiddenCats}
+        onHideCategory={(cat) => persistHiddenCats([...new Set([...hiddenCats, cat])])}
         onProductsRefresh={() => qc.invalidateQueries({ queryKey: ['products'] })}
       />
 
@@ -194,14 +209,18 @@ export default function Products() {
               <div><Label>Gramos/Porción</Label><Input type="number" value={form.grams_per_serving} onChange={e => setForm({ ...form, grams_per_serving: parseFloat(e.target.value) || 0 })} /></div>
             </div>
 
-            {/* Envase / Utensilio vinculado */}
+            {/* Insumo vinculado (utensilio o venta directa) */}
             <div>
-              <Label>Envase / Utensilio Vinculado <span className="font-normal text-muted-foreground">(opcional)</span></Label>
+              <Label>Insumo Vinculado <span className="font-normal text-muted-foreground">(opcional)</span></Label>
               <Select value={form.utensil_supply_id || '__none__'} onValueChange={v => setForm({ ...form, utensil_supply_id: v === '__none__' ? '' : v })}>
                 <SelectTrigger><SelectValue placeholder="Ninguno" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__none__">Ninguno</SelectItem>
-                  {utensilios.map(s => <SelectItem key={s.id} value={s.id}>{s.name} (stock: {s.stock_current} {s.unit})</SelectItem>)}
+                  {linkableSupplies.map(s => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.name} ({s.sector === 'venta_directa' ? 'Venta directa' : 'Utensilio'} · stock: {s.stock_current} {s.unit})
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground mt-1">Se descuenta 1 unidad por cada venta de este producto.</p>

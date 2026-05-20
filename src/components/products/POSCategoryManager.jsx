@@ -7,7 +7,7 @@ import { Pencil, Trash2, Plus, Check, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { base44 } from '@/api/base44Client';
 
-export default function POSCategoryManager({ open, onOpenChange, categories, products, onProductsRefresh }) {
+export default function POSCategoryManager({ open, onOpenChange, categories, products, onProductsRefresh, onHideCategory }) {
   const [newCatInput, setNewCatInput] = useState('');
   const [editingCat, setEditingCat] = useState(null); // { oldName, newName }
 
@@ -46,6 +46,9 @@ export default function POSCategoryManager({ open, onOpenChange, categories, pro
     await Promise.all(toUpdate.map(p =>
       base44.entities.Product.update(p.id, { category: '' })
     ));
+
+    // Hide from the list (works for default categories too, which can't be deleted from DB)
+    if (onHideCategory) onHideCategory(catName);
 
     toast.success(toUpdate.length > 0
       ? `Categoría eliminada. ${toUpdate.length} producto(s) sin categoría`
