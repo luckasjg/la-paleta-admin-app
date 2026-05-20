@@ -35,27 +35,32 @@ const prefillAmount = (usdAmount, currency, rate) => {
 };
 
 export default function MixedPaymentDialog({ open, onOpenChange, totalUSD, exchangeRate, onConfirm, isProcessing }) {
+  // Lock the exchange rate at the moment the dialog opens so prefills and conversions
+  // stay consistent even if the user edits the rate elsewhere mid-checkout.
+  const [lockedRate, setLockedRate] = useState(exchangeRate);
+
   const [rows, setRows] = useState(() => [
     makeRow('efectivo_usd', prefillAmount(totalUSD, 'USD', exchangeRate)),
   ]);
 
-  // On open: reset with a single row pre-filled with the full total
+  // On open: snapshot the current rate and reset rows pre-filled with full total
   useEffect(() => {
     if (open) {
+      setLockedRate(exchangeRate);
       setRows([makeRow('efectivo_usd', prefillAmount(totalUSD, 'USD', exchangeRate))]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  const totalVES = totalUSD * exchangeRate;
+  const totalVES = totalUSD * lockedRate;
 
   const computed = useMemo(() => {
     return rows.map(r => {
       const amt = parseFloat(r.amount) || 0;
-      const amount_usd_equivalent = r.currency === 'USD' ? amt : (exchangeRate > 0 ? amt / exchangeRate : 0);
+      const amount_usd_equivalent = r.currency === 'USD' ? amt : (lockedRate > 0 ? amt / lockedRate : 0);
       return { ...r, amt, amount_usd_equivalent };
     });
-  }, [rows, exchangeRate]);
+  }, [rows, lockedRate]);
 
   const receivedUSD = computed.reduce((s, r) => s + r.amount_usd_equivalent, 0);
   const diff = receivedUSD - totalUSD;
@@ -67,7 +72,7 @@ export default function MixedPaymentDialog({ open, onOpenChange, totalUSD, excha
     const remainingUSD = Math.max(0, totalUSD - receivedUSD);
     const newMethod = 'pago_movil';
     const newCurrency = getMethod(newMethod).defaultCurrency;
-    setRows(rs => [...rs, makeRow(newMethod, prefillAmount(remainingUSD, newCurrency, exchangeRate))]);
+    setRows(rs => [...rs, makeRow(newMethod, prefillAmount(remainingUSD, newCurrency, lockedRate))]);
   };
   const removeRow = (id) => setRows(rs => rs.length > 1 ? rs.filter(r => r.id !== id) : rs);
   const updateRow = (id, patch) => setRows(rs => rs.map(r => {
@@ -79,16 +84,16 @@ export default function MixedPaymentDialog({ open, onOpenChange, totalUSD, excha
       const newCurrency = getMethod(patch.method).defaultCurrency;
       if (newCurrency !== r.currency && r.amount !== '') {
         const amtNum = parseFloat(r.amount) || 0;
-        const usdEq = r.currency === 'USD' ? amtNum : (exchangeRate > 0 ? amtNum / exchangeRate : 0);
-        next.amount = prefillAmount(usdEq, newCurrency, exchangeRate);
+        const usdEq = r.currency === 'USD' ? amtNum : (lockedRate > 0 ? amtNum / lockedRate : 0);
+        next.amount = prefillAmount(usdEq, newCurrency, lockedRate);
       }
       next.currency = newCurrency;
     }
     // When currency changes manually, convert the existing amount accordingly
     if (patch.currency && patch.currency !== r.currency && r.amount !== '') {
       const amtNum = parseFloat(r.amount) || 0;
-      const usdEq = r.currency === 'USD' ? amtNum : (exchangeRate > 0 ? amtNum / exchangeRate : 0);
-      next.amount = prefillAmount(usdEq, patch.currency, exchangeRate);
+      const usdEq = r.currency === 'USD' ? amtNum : (lockedRate > 0 ? amtNum / lockedRate : 0);
+      next.amount = prefillAmount(usdEq, patch.currency, lockedRate);
     }
     return next;
   }));
@@ -107,7 +112,7 @@ export default function MixedPaymentDialog({ open, onOpenChange, totalUSD, excha
         }
         return base;
       });
-    onConfirm({ payments, exchange_rate: exchangeRate });
+    onConfirm({ payments, exchange_rate: lockedRate });
   };
 
   return (
@@ -122,6 +127,7 @@ export default function MixedPaymentDialog({ open, onOpenChange, totalUSD, excha
           <p className="text-xs text-muted-foreground uppercase tracking-wide">Total a Pagar</p>
           <p className="text-3xl font-bold text-primary">{formatUSD(totalUSD)}</p>
           <p className="text-sm text-muted-foreground font-mono">{formatVES(totalVES)}</p>
+          <p className="text-[10px] text-muted-foreground">Tasa fija de esta venta: <span className="font-mono font-semibold">1 USD = Bs. {lockedRate.toFixed(2)}</span></p>
         </div>
 
         {/* Payment rows */}

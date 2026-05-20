@@ -272,7 +272,7 @@ export default function POS() {
               ))}
             </TabsList>
           </Tabs>
-          <ExchangeRateInput rate={exchangeRate} setRate={setExchangeRate} />
+          <ExchangeRateInput rate={exchangeRate} setRate={setExchangeRate} requireConfirm={payDialog} />
         </div>
 
         <div className="flex-1 overflow-y-auto">
