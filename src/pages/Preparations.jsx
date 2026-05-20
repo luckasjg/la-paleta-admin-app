@@ -7,12 +7,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import {
-  AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription,
-  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
+
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Pencil, Trash2, FlaskConical, Factory, AlertTriangle } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Plus, Pencil, Trash2, FlaskConical, Factory, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import PageHeader from '@/components/shared/PageHeader';
 import { toast } from 'sonner';
 
@@ -29,7 +27,7 @@ export default function Preparations() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(emptyPrep);
-  const [stockAlert, setStockAlert] = useState(null); // { prepName, missing: [{ name, needed, have, unit }] }
+  const [produceDialog, setProduceDialog] = useState(null); // prep object to produce
   const qc = useQueryClient();
 
   const { data: preparations = [] } = useQuery({
@@ -149,72 +147,66 @@ export default function Preparations() {
     },
   });
 
-  // ===== Validación de stock previa =====
-  const handleProduceClick = (prep) => {
-    if (!prep.ingredients || prep.ingredients.length === 0) {
-      toast.error('Este preparado no tiene ingredientes definidos. Edítalo primero.');
-      return;
-    }
-    if (!prep.linked_supply_id || !supplies.find(s => s.id === prep.linked_supply_id)) {
-      toast.error('Falta el insumo vinculado. Edita y guarda el preparado.');
-      return;
-    }
-
-    const missing = [];
-    for (const ing of prep.ingredients) {
+  // Pre-compute ingredient check for the produce dialog
+  const ingredientCheck = useMemo(() => {
+    if (!produceDialog) return [];
+    return (produceDialog.ingredients || []).map(ing => {
       const supply = supplies.find(s => s.id === ing.supply_id);
-      if (!supply) {
-        missing.push({ name: ing.supply_name || 'Insumo desconocido', needed: ing.quantity || 0, have: 0, unit: ing.unit || '', notFound: true });
-        continue;
-      }
-      if (!supply.is_infinite && (supply.stock_current || 0) < (ing.quantity || 0)) {
-        missing.push({
-          name: supply.name,
-          needed: ing.quantity || 0,
-          have: supply.stock_current || 0,
-          unit: supply.unit,
-        });
-      }
-    }
+      if (!supply) return { name: ing.supply_name || 'Desconocido', needed: ing.quantity || 0, available: 0, unit: ing.unit || '', missing: true, notFound: true, isInfinite: false };
+      const needed = ing.quantity || 0;
+      const available = supply.stock_current || 0;
+      const isInfinite = !!supply.is_infinite;
+      return { name: supply.name, needed, available, unit: supply.unit, missing: !isInfinite && available < needed, notFound: false, isInfinite };
+    });
+  }, [produceDialog, supplies]);
 
-    if (missing.length > 0) {
-      setStockAlert({ prepName: prep.name, missing });
-      return;
-    }
-
-    produceMut.mutate(prep);
-  };
+  const missingIngredients = ingredientCheck.filter(i => i.missing);
+  const canProduce = produceDialog && (produceDialog.ingredients || []).length > 0 && missingIngredients.length === 0;
 
   // ===== Producir Lote =====
   const produceMut = useMutation({
     mutationFn: async (prep) => {
-      console.log('[Producir] Iniciando lote', prep);
-      const linked = supplies.find(s => s.id === prep.linked_supply_id);
+      // Ensure linked supply exists; re-create if deleted
+      let linkedId = prep.linked_supply_id;
+      let linked = supplies.find(s => s.id === linkedId);
+      if (!linked) {
+        const newSupply = await base44.entities.Supply.create({
+          name: prep.name,
+          sector: 'materia_prima',
+          category: 'Preparado Propio',
+          unit: prep.yield_unit || 'g',
+          cost_per_unit: prep.computed_cost_per_unit || 0,
+          stock_current: 0,
+          stock_minimum: 0,
+        });
+        linkedId = newSupply.id;
+        linked = newSupply;
+        // Update preparation with the new linked supply
+        await base44.entities.Preparation.update(prep.id, { linked_supply_id: linkedId });
+      }
 
       // Deduct raw materials
       for (const ing of prep.ingredients) {
         const supply = supplies.find(s => s.id === ing.supply_id);
         if (supply && !supply.is_infinite) {
           const newStock = (supply.stock_current || 0) - (ing.quantity || 0);
-          console.log(`[Producir] Descontando ${ing.quantity}${supply.unit} de ${supply.name} (${supply.stock_current} -> ${newStock})`);
           await base44.entities.Supply.update(supply.id, { stock_current: newStock });
         }
       }
 
       // Add yield to linked supply
       const newLinkedStock = (linked.stock_current || 0) + (parseFloat(prep.yield_amount) || 0);
-      console.log(`[Producir] Sumando ${prep.yield_amount}${linked.unit} a ${linked.name} (${linked.stock_current} -> ${newLinkedStock})`);
-      await base44.entities.Supply.update(linked.id, { stock_current: newLinkedStock });
+      await base44.entities.Supply.update(linkedId, { stock_current: newLinkedStock });
 
       return prep;
     },
     onSuccess: (prep) => {
       qc.invalidateQueries({ queryKey: ['supplies'] });
       qc.invalidateQueries({ queryKey: ['preparations'] });
+      setProduceDialog(null);
       toast.success(`Lote de ${prep.name} producido (+${prep.yield_amount}${prep.yield_unit})`);
     },
     onError: (e) => {
-      console.error('[Producir] Error:', e);
       toast.error(e?.message || 'Error desconocido al producir lote');
     },
   });
@@ -311,7 +303,7 @@ export default function Preparations() {
                     <TableCell className="text-right font-mono">{linked ? `${linked.stock_current} ${linked.unit}` : '—'}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
-                        <Button variant="outline" size="sm" onClick={() => handleProduceClick(p)} disabled={produceMut.isPending}>
+                        <Button variant="outline" size="sm" onClick={() => setProduceDialog(p)} disabled={produceMut.isPending}>
                           <Factory className="h-3.5 w-3.5 mr-1" /> Producir
                         </Button>
                         <Button variant="ghost" size="icon" onClick={() => openEdit(p)}><Pencil className="h-4 w-4" /></Button>
@@ -426,37 +418,71 @@ export default function Preparations() {
         </DialogContent>
       </Dialog>
 
-      {/* Alerta de stock insuficiente */}
-      <AlertDialog open={!!stockAlert} onOpenChange={(o) => !o && setStockAlert(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2 text-destructive">
-              <AlertTriangle className="h-5 w-5" />
-              Stock insuficiente
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              No se puede producir el lote de <strong>{stockAlert?.prepName}</strong> porque faltan los siguientes insumos:
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <div className="rounded-lg border border-destructive/30 bg-destructive/5 divide-y divide-destructive/20">
-            {stockAlert?.missing.map((m, i) => (
-              <div key={i} className="flex items-center justify-between p-3 text-sm">
-                <div>
-                  <p className="font-medium text-foreground">{m.name}</p>
-                  {m.notFound && <p className="text-xs text-destructive">No existe en inventario</p>}
+      {/* Diálogo de producción con verificación de ingredientes */}
+      <Dialog open={!!produceDialog} onOpenChange={(o) => !o && setProduceDialog(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Producir Lote — {produceDialog?.name}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Se producirán <strong className="text-foreground">{produceDialog?.yield_amount} {produceDialog?.yield_unit}</strong> y se descontarán los insumos.
+            </p>
+
+            {(produceDialog?.ingredients || []).length === 0 ? (
+              <div className="border rounded-lg p-3 bg-amber-50 border-amber-300 text-amber-700 text-sm flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4" /> Este preparado no tiene ingredientes. Edítalo primero.
+              </div>
+            ) : (
+              <div className="border border-border rounded-lg overflow-hidden">
+                <div className={`px-3 py-2 flex items-center gap-2 text-sm font-medium ${
+                  missingIngredients.length > 0
+                    ? 'bg-destructive/10 text-destructive'
+                    : 'bg-green-50 text-green-700'
+                }`}>
+                  {missingIngredients.length > 0 ? (
+                    <><AlertTriangle className="h-4 w-4" /> Faltan {missingIngredients.length} insumo(s)</>
+                  ) : (
+                    <><CheckCircle2 className="h-4 w-4" /> Inventario suficiente</>
+                  )}
                 </div>
-                <div className="text-right font-mono text-xs">
-                  <p className="text-destructive">Falta: <strong>{(m.needed - m.have).toFixed(2)}{m.unit}</strong></p>
-                  <p className="text-muted-foreground">Necesita {m.needed}{m.unit} · Hay {m.have}{m.unit}</p>
+                <div className="divide-y divide-border max-h-56 overflow-y-auto">
+                  {ingredientCheck.map((ing, i) => (
+                    <div key={i} className="px-3 py-2 flex items-center justify-between text-sm">
+                      <div className="flex-1 min-w-0">
+                        <p className={`truncate ${ing.missing ? 'text-destructive font-medium' : ''}`}>
+                          {ing.name}
+                          {ing.notFound && <span className="text-xs ml-1">(no encontrado)</span>}
+                        </p>
+                        <p className="text-xs text-muted-foreground font-mono">
+                          Requiere: {ing.needed.toFixed(1)}{ing.unit}
+                          {!ing.isInfinite && !ing.notFound && (
+                            <> · Disponible: {ing.available?.toFixed(1)}{ing.unit}</>
+                          )}
+                          {ing.isInfinite && <> · (ilimitado)</>}
+                        </p>
+                      </div>
+                      {ing.missing ? (
+                        <Badge className="bg-destructive/15 text-destructive hover:bg-destructive/15 flex-shrink-0">
+                          Falta {Math.max(0, ing.needed - ing.available).toFixed(1)}{ing.unit}
+                        </Badge>
+                      ) : (
+                        <CheckCircle2 className="h-4 w-4 text-green-600 flex-shrink-0" />
+                      )}
+                    </div>
+                  ))}
                 </div>
               </div>
-            ))}
+            )}
           </div>
-          <AlertDialogFooter>
-            <AlertDialogAction onClick={() => setStockAlert(null)}>Entendido</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setProduceDialog(null)}>Cancelar</Button>
+            <Button onClick={() => produceMut.mutate(produceDialog)} disabled={!canProduce || produceMut.isPending}>
+              {produceMut.isPending ? 'Produciendo...' : 'Producir Lote'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
