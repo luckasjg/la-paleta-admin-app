@@ -7,7 +7,7 @@ import { Pencil, Trash2, Plus, Check, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { base44 } from '@/api/base44Client';
 
-export default function POSCategoryManager({ open, onOpenChange, categories, setCategories, products, onProductsRefresh }) {
+export default function POSCategoryManager({ open, onOpenChange, categories, products, onProductsRefresh }) {
   const [newCatInput, setNewCatInput] = useState('');
   const [editingCat, setEditingCat] = useState(null); // { oldName, newName }
 
@@ -18,9 +18,8 @@ export default function POSCategoryManager({ open, onOpenChange, categories, set
       toast.error('Esa categoría ya existe');
       return;
     }
-    setCategories(prev => [...prev, val]);
     setNewCatInput('');
-    toast.success(`Categoría "${val}" añadida`);
+    toast.success(`Categoría "${val}" lista para usar. Asígnala a un producto para guardarla.`);
   };
 
   const handleEdit = async () => {
@@ -28,8 +27,6 @@ export default function POSCategoryManager({ open, onOpenChange, categories, set
     const { oldName, newName } = editingCat;
     const trimmed = newName.trim();
     if (!trimmed || trimmed === oldName) { setEditingCat(null); return; }
-
-    setCategories(prev => prev.map(c => c === oldName ? trimmed : c));
 
     const toUpdate = products.filter(p => p.category === oldName);
     await Promise.all(toUpdate.map(p =>
@@ -45,8 +42,6 @@ export default function POSCategoryManager({ open, onOpenChange, categories, set
   };
 
   const handleDelete = async (catName) => {
-    setCategories(prev => prev.filter(c => c !== catName));
-
     const toUpdate = products.filter(p => p.category === catName);
     await Promise.all(toUpdate.map(p =>
       base44.entities.Product.update(p.id, { category: '' })
