@@ -53,6 +53,20 @@ export default function Recipes() {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['recipes'] }); toast.success('Receta eliminada'); },
   });
 
+  const cloneMut = useMutation({
+    mutationFn: (r) => {
+      const { id, created_date, updated_date, created_by, ...rest } = r;
+      return base44.entities.Recipe.create({
+        ...rest,
+        name: `${r.name} (copia)`,
+        ingredients: (r.ingredients || []).map(({ supply_id, supply_name, quantity, unit }) => ({
+          supply_id, supply_name, quantity, unit,
+        })),
+      });
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['recipes'] }); toast.success('Receta duplicada'); },
+  });
+
   const close = () => { setDialogOpen(false); setEditing(null); setForm(emptyRecipe); };
 
   const openEdit = (r) => {
@@ -164,6 +178,7 @@ export default function Recipes() {
             supplies={supplies}
             onEdit={openEdit}
             onDelete={(id) => deleteMut.mutate(id)}
+            onClone={(rec) => cloneMut.mutate(rec)}
           />
         ))}
         {recipes.length === 0 && (

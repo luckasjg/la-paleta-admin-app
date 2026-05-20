@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Pencil, Trash2, Calculator } from 'lucide-react';
+import { Pencil, Trash2, Calculator, Copy } from 'lucide-react';
 
 const TYPES = [
   { value: 'helado', label: 'Helado' },
@@ -13,7 +13,7 @@ const TYPES = [
   { value: 'otro', label: 'Otro' },
 ];
 
-export default function RecipeDetailCard({ recipe, supplies, onEdit, onDelete }) {
+export default function RecipeDetailCard({ recipe, supplies, onEdit, onDelete, onClone }) {
   const [mixDeseado, setMixDeseado] = useState('');
 
   const ingredients = recipe.ingredients || [];
@@ -45,10 +45,15 @@ export default function RecipeDetailCard({ recipe, supplies, onEdit, onDelete })
             </div>
           </div>
           <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onEdit(recipe)}>
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onEdit(recipe)} title="Editar">
               <Pencil className="h-3.5 w-3.5" />
             </Button>
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onDelete(recipe.id)}>
+            {onClone && (
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onClone(recipe)} title="Duplicar">
+                <Copy className="h-3.5 w-3.5" />
+              </Button>
+            )}
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onDelete(recipe.id)} title="Eliminar">
               <Trash2 className="h-3.5 w-3.5 text-destructive" />
             </Button>
           </div>
