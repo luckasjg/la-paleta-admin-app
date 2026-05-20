@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -41,14 +41,26 @@ export default function Production() {
 
   const iceRecipes = recipes.filter(r => r.type === 'helado');
 
+  // Resolve an ingredient to its current Supply: first by id, then fallback by name
+  // (case-insensitive). This handles cases where a Supply was re-created (e.g. a
+  // Preparation's linked supply) and the old id stored in the recipe is now stale.
+  const resolveSupply = React.useCallback((ing) => {
+    if (!ing) return null;
+    let supply = ing.supply_id ? supplies.find(s => s.id === ing.supply_id) : null;
+    if (!supply && ing.supply_name) {
+      const target = ing.supply_name.trim().toLowerCase();
+      supply = supplies.find(s => (s.name || '').trim().toLowerCase() === target);
+    }
+    return supply || null;
+  }, [supplies]);
+
   // Pre-compute ingredient requirements for the dialog (current recipe + grams)
   const selectedRecipe = recipes.find(r => r.id === recipeId);
   const ingredientCheck = React.useMemo(() => {
     if (!selectedRecipe || !grams) return [];
-    // 1:1 ratio: grams to produce divided by the recipe's base mix size
     const multiplier = grams / (selectedRecipe.yield_amount || 1);
     return (selectedRecipe.ingredients || []).map(ing => {
-      const supply = supplies.find(s => s.id === ing.supply_id);
+      const supply = resolveSupply(ing);
       const needed = (ing.quantity || 0) * multiplier;
       const available = supply?.stock_current || 0;
       const isInfinite = supply?.is_infinite === true;
@@ -61,9 +73,10 @@ export default function Production() {
         isInfinite,
         missing,
         notFound: !supply,
+        relinked: supply && ing.supply_id && supply.id !== ing.supply_id,
       };
     });
-  }, [selectedRecipe, grams, supplies]);
+  }, [selectedRecipe, grams, supplies, resolveSupply]);
 
   const missingIngredients = ingredientCheck.filter(i => i.missing);
   const canProduce = recipeId && grams > 0 && missingIngredients.length === 0;
@@ -77,10 +90,13 @@ export default function Production() {
       const multiplier = grams / (recipe.yield_amount || 1);
       const ingredients = recipe.ingredients || [];
 
+      // Resolve each ingredient and detect any that were re-linked by name (stale id)
+      const resolved = ingredients.map(ing => ({ ing, supply: resolveSupply(ing) }));
+      const relinked = resolved.filter(r => r.supply && r.ing.supply_id && r.supply.id !== r.ing.supply_id);
+
       // Final validation (defensive — UI already blocks this)
       const missing = [];
-      for (const ing of ingredients) {
-        const supply = supplies.find(s => s.id === ing.supply_id);
+      for (const { ing, supply } of resolved) {
         if (!supply) {
           missing.push(`${ing.supply_name || 'Insumo'} (no existe en inventario)`);
           continue;
@@ -95,9 +111,17 @@ export default function Production() {
         throw new Error(`Insumos insuficientes — ${missing.join(' · ')}`);
       }
 
+      // Auto-heal: persist the fresh supply ids in the recipe so this doesn't repeat
+      if (relinked.length > 0) {
+        const fixedIngredients = ingredients.map(ing => {
+          const fix = relinked.find(r => r.ing === ing);
+          return fix ? { ...ing, supply_id: fix.supply.id, supply_name: fix.supply.name, unit: fix.supply.unit } : ing;
+        });
+        await base44.entities.Recipe.update(recipe.id, { ingredients: fixedIngredients });
+      }
+
       // Deduct supplies (skip infinite ones)
-      for (const ing of ingredients) {
-        const supply = supplies.find(s => s.id === ing.supply_id);
+      for (const { ing, supply } of resolved) {
         if (!supply || supply.is_infinite) continue;
         const needed = (ing.quantity || 0) * multiplier;
         await base44.entities.Supply.update(supply.id, {
@@ -118,6 +142,7 @@ export default function Production() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['trays'] });
       qc.invalidateQueries({ queryKey: ['supplies'] });
+      qc.invalidateQueries({ queryKey: ['recipes'] });
       setDialogOpen(false);
       toast.success('Producción registrada. Insumos descontados.');
     },
