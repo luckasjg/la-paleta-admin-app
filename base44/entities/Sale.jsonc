@@ -40,7 +40,42 @@
     },
     "total": {
       "type": "number",
-      "description": "Total de la venta"
+      "description": "Total de la venta en USD"
+    },
+    "exchange_rate": {
+      "type": "number",
+      "description": "Tasa de cambio USD\u2192VES vigente en el momento de la venta"
+    },
+    "payments": {
+      "type": "array",
+      "description": "Desglose de pagos mixtos",
+      "items": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "efectivo_usd",
+              "efectivo_ves",
+              "pago_movil",
+              "punto_venta",
+              "zelle"
+            ]
+          },
+          "amount_usd": {
+            "type": "number",
+            "description": "Monto si el cobro fue en USD"
+          },
+          "amount_ves": {
+            "type": "number",
+            "description": "Monto si el cobro fue en VES"
+          },
+          "amount_usd_equivalent": {
+            "type": "number",
+            "description": "Equivalente en USD para totalizaci\u00f3n"
+          }
+        }
+      }
     },
     "payment_method": {
       "type": "string",
@@ -48,17 +83,20 @@
         "efectivo",
         "pago_movil",
         "punto_venta",
-        "mixto"
+        "mixto",
+        "efectivo_usd",
+        "efectivo_ves",
+        "zelle"
       ],
-      "description": "M\u00e9todo de pago"
+      "description": "M\u00e9todo de pago resumen (legacy/compatibilidad)"
     },
     "cash_amount": {
       "type": "number",
-      "description": "Monto pagado en efectivo"
+      "description": "Monto total en efectivo (USD equivalente, legacy)"
     },
     "digital_amount": {
       "type": "number",
-      "description": "Monto pagado digitalmente"
+      "description": "Monto total digital (USD equivalente, legacy)"
     },
     "sale_date": {
       "type": "string",
@@ -76,25 +114,6 @@
     }
   },
   "required": [
-    "total",
-    "payment_method"
-  ],
-  "rls": {
-    "create": {},
-    "read": {
-      "user_condition": {
-        "role": "admin"
-      }
-    },
-    "update": {
-      "user_condition": {
-        "role": "admin"
-      }
-    },
-    "delete": {
-      "user_condition": {
-        "role": "admin"
-      }
-    }
-  }
+    "total"
+  ]
 }

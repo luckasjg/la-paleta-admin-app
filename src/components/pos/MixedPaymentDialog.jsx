@@ -1,0 +1,179 @@
+import React, { useState, useMemo, useEffect } from 'react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Plus, Trash2, Banknote, DollarSign, Smartphone, CreditCard, Send } from 'lucide-react';
+import { formatUSD, formatVES } from '@/lib/useExchangeRate';
+
+export const PAYMENT_METHODS = [
+  { value: 'efectivo_usd', label: 'Efectivo Divisas', icon: DollarSign, defaultCurrency: 'USD' },
+  { value: 'efectivo_ves', label: 'Efectivo VES', icon: Banknote, defaultCurrency: 'VES' },
+  { value: 'pago_movil', label: 'Pago Móvil', icon: Smartphone, defaultCurrency: 'VES' },
+  { value: 'punto_venta', label: 'Punto de Venta', icon: CreditCard, defaultCurrency: 'VES' },
+  { value: 'zelle', label: 'Zelle', icon: Send, defaultCurrency: 'USD' },
+];
+
+const getMethod = (v) => PAYMENT_METHODS.find(m => m.value === v) || PAYMENT_METHODS[0];
+
+const makeRow = (method = 'efectivo_usd') => ({
+  id: Math.random().toString(36).slice(2),
+  method,
+  currency: getMethod(method).defaultCurrency,
+  amount: '',
+});
+
+export default function MixedPaymentDialog({ open, onOpenChange, totalUSD, exchangeRate, onConfirm, isProcessing }) {
+  const [rows, setRows] = useState([makeRow('efectivo_usd')]);
+
+  // Reset rows on open
+  useEffect(() => {
+    if (open) setRows([makeRow('efectivo_usd')]);
+  }, [open]);
+
+  const totalVES = totalUSD * exchangeRate;
+
+  const computed = useMemo(() => {
+    return rows.map(r => {
+      const amt = parseFloat(r.amount) || 0;
+      const amount_usd_equivalent = r.currency === 'USD' ? amt : (exchangeRate > 0 ? amt / exchangeRate : 0);
+      return { ...r, amt, amount_usd_equivalent };
+    });
+  }, [rows, exchangeRate]);
+
+  const receivedUSD = computed.reduce((s, r) => s + r.amount_usd_equivalent, 0);
+  const diff = receivedUSD - totalUSD;
+  const isComplete = receivedUSD >= totalUSD - 0.001 && totalUSD > 0;
+  const hasAnyAmount = computed.some(r => r.amt > 0);
+
+  const addRow = () => setRows(rs => [...rs, makeRow('pago_movil')]);
+  const removeRow = (id) => setRows(rs => rs.length > 1 ? rs.filter(r => r.id !== id) : rs);
+  const updateRow = (id, patch) => setRows(rs => rs.map(r => {
+    if (r.id !== id) return r;
+    const next = { ...r, ...patch };
+    if (patch.method && !patch.currency) next.currency = getMethod(patch.method).defaultCurrency;
+    return next;
+  }));
+
+  const handleConfirm = () => {
+    const payments = computed
+      .filter(r => r.amt > 0)
+      .map(r => {
+        const base = { method: r.method };
+        if (r.currency === 'USD') {
+          base.amount_usd = +r.amt.toFixed(2);
+          base.amount_usd_equivalent = +r.amt.toFixed(2);
+        } else {
+          base.amount_ves = +r.amt.toFixed(2);
+          base.amount_usd_equivalent = +r.amount_usd_equivalent.toFixed(2);
+        }
+        return base;
+      });
+    onConfirm({ payments, exchange_rate: exchangeRate });
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Cobro</DialogTitle>
+        </DialogHeader>
+
+        {/* Total */}
+        <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 text-center space-y-1">
+          <p className="text-xs text-muted-foreground uppercase tracking-wide">Total a Pagar</p>
+          <p className="text-3xl font-bold text-primary">{formatUSD(totalUSD)}</p>
+          <p className="text-sm text-muted-foreground font-mono">{formatVES(totalVES)}</p>
+        </div>
+
+        {/* Payment rows */}
+        <div className="space-y-2">
+          <Label className="text-xs uppercase text-muted-foreground tracking-wide">Métodos de Pago</Label>
+          {rows.map((r, idx) => {
+            const cmp = computed[idx];
+            return (
+              <div key={r.id} className="space-y-1.5 p-2 border border-border rounded-lg bg-card">
+                <div className="flex gap-2">
+                  <Select value={r.method} onValueChange={v => updateRow(r.id, { method: v })}>
+                    <SelectTrigger className="flex-1 h-9 text-sm"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {PAYMENT_METHODS.map(m => (
+                        <SelectItem key={m.value} value={m.value}>
+                          <span className="flex items-center gap-2"><m.icon className="h-3.5 w-3.5" /> {m.label}</span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {rows.length > 1 && (
+                    <Button variant="ghost" size="icon" className="h-9 w-9 text-destructive" onClick={() => removeRow(r.id)}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  <Input
+                    type="number" step="0.01" min="0" placeholder="0.00"
+                    value={r.amount}
+                    onChange={e => updateRow(r.id, { amount: e.target.value })}
+                    className="flex-1 h-9 font-mono"
+                  />
+                  <Select value={r.currency} onValueChange={v => updateRow(r.id, { currency: v })}>
+                    <SelectTrigger className="w-20 h-9"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="USD">USD</SelectItem>
+                      <SelectItem value="VES">VES</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {cmp.amt > 0 && r.currency === 'VES' && (
+                  <p className="text-[10px] text-muted-foreground font-mono pl-1">
+                    ≈ {formatUSD(cmp.amount_usd_equivalent)}
+                  </p>
+                )}
+              </div>
+            );
+          })}
+          <Button variant="outline" size="sm" onClick={addRow} className="w-full">
+            <Plus className="h-3.5 w-3.5 mr-1" /> Agregar método
+          </Button>
+        </div>
+
+        {/* Summary */}
+        <div className="border-t border-border pt-3 space-y-1.5 text-sm">
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Total recibido (USD)</span>
+            <span className="font-mono font-semibold">{formatUSD(receivedUSD)}</span>
+          </div>
+          {diff < 0 ? (
+            <div className="flex justify-between text-destructive font-semibold">
+              <span>Falta por cobrar</span>
+              <span className="font-mono">{formatUSD(-diff)}</span>
+            </div>
+          ) : diff > 0.001 ? (
+            <div className="flex justify-between text-emerald-600 font-semibold">
+              <span>Vuelto</span>
+              <span className="font-mono">{formatUSD(diff)}</span>
+            </div>
+          ) : hasAnyAmount ? (
+            <div className="flex justify-between text-emerald-600 font-semibold">
+              <span>Pago exacto</span>
+              <span>✓</span>
+            </div>
+          ) : null}
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
+          <Button
+            onClick={handleConfirm}
+            disabled={!isComplete || isProcessing}
+            className="flex-1"
+          >
+            {isProcessing ? 'Procesando...' : 'Confirmar Venta'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}

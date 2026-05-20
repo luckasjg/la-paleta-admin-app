@@ -7,9 +7,12 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ShoppingCart, Plus, Minus, Trash2, CreditCard, Banknote, Smartphone, IceCream, Gift } from 'lucide-react';
+import { ShoppingCart, Plus, Minus, Trash2, Gift } from 'lucide-react';
 import { toast } from 'sonner';
 import moment from 'moment';
+import { useExchangeRate, formatUSD, formatVES } from '@/lib/useExchangeRate';
+import ExchangeRateInput from '@/components/pos/ExchangeRateInput';
+import MixedPaymentDialog from '@/components/pos/MixedPaymentDialog';
 
 export default function POS() {
   const [cart, setCart] = useState([]);
@@ -17,7 +20,7 @@ export default function POS() {
   const [flavorDialog, setFlavorDialog] = useState(null);
   const [selectedFlavors, setSelectedFlavors] = useState([]);
   const [payDialog, setPayDialog] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState('efectivo');
+  const { rate: exchangeRate, setRate: setExchangeRate } = useExchangeRate();
   const qc = useQueryClient();
 
   const { data: products = [] } = useQuery({
@@ -176,7 +179,7 @@ export default function POS() {
   };
 
   const completeSale = useMutation({
-    mutationFn: async () => {
+    mutationFn: async ({ payments, exchange_rate }) => {
       // Deduct from trays (helado items)
       for (const item of cart) {
         if (item.category === 'helado') {
@@ -219,13 +222,25 @@ export default function POS() {
         }
       }
 
-      // Create sale
+      // Derive legacy summary fields for backwards compatibility with reports/cash register
+      const cashUSD = payments
+        .filter(p => p.method === 'efectivo_usd' || p.method === 'efectivo_ves')
+        .reduce((s, p) => s + (p.amount_usd_equivalent || 0), 0);
+      const digitalUSD = payments
+        .filter(p => p.method !== 'efectivo_usd' && p.method !== 'efectivo_ves')
+        .reduce((s, p) => s + (p.amount_usd_equivalent || 0), 0);
+      const legacyMethod = payments.length > 1
+        ? 'mixto'
+        : (payments[0]?.method || 'efectivo_usd');
+
       await base44.entities.Sale.create({
         items: cart,
         total,
-        payment_method: paymentMethod,
-        cash_amount: paymentMethod === 'efectivo' ? total : paymentMethod === 'mixto' ? total / 2 : 0,
-        digital_amount: paymentMethod !== 'efectivo' ? (paymentMethod === 'mixto' ? total / 2 : total) : 0,
+        exchange_rate,
+        payments,
+        payment_method: legacyMethod,
+        cash_amount: +cashUSD.toFixed(2),
+        digital_amount: +digitalUSD.toFixed(2),
         sale_date: new Date().toISOString(),
         shift: getCurrentShift(),
       });
@@ -241,19 +256,24 @@ export default function POS() {
     onError: (err) => toast.error(err.message),
   });
 
+  const totalVES = total * exchangeRate;
+
   return (
     <div className="flex flex-col lg:flex-row gap-4 h-[calc(100vh-5rem)]">
       {/* Product Grid */}
       <div className="flex-1 flex flex-col min-h-0">
-        <Tabs value={activeCat} onValueChange={setSelectedCategory} className="mb-4">
-          <TabsList className="w-full justify-start overflow-x-auto">
-            {categories.map(c => (
-              <TabsTrigger key={c} value={c} className="text-sm px-4 py-2 capitalize">
-                {c}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </Tabs>
+        <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
+          <Tabs value={activeCat} onValueChange={setSelectedCategory} className="flex-1 min-w-0">
+            <TabsList className="w-full justify-start overflow-x-auto">
+              {categories.map(c => (
+                <TabsTrigger key={c} value={c} className="text-sm px-4 py-2 capitalize">
+                  {c}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
+          <ExchangeRateInput rate={exchangeRate} setRate={setExchangeRate} />
+        </div>
 
         <div className="flex-1 overflow-y-auto">
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
@@ -310,9 +330,10 @@ export default function POS() {
                   <Plus className="h-3 w-3" />
                 </Button>
               </div>
-              <span className={`text-sm font-semibold w-14 text-right ${item.is_courtesy ? 'text-amber-600' : ''}`}>
-                ${item.subtotal.toFixed(2)}
-              </span>
+              <div className={`w-20 text-right ${item.is_courtesy ? 'text-amber-600' : ''}`}>
+                <div className="text-sm font-semibold">${item.subtotal.toFixed(2)}</div>
+                <div className="text-[10px] text-muted-foreground font-mono">{formatVES(item.subtotal * exchangeRate)}</div>
+              </div>
               <div className="flex flex-col gap-0.5">
                 <Button
                   variant="ghost" size="icon" className={`h-6 w-6 ${item.is_courtesy ? 'text-amber-500' : 'text-muted-foreground'}`}
@@ -342,9 +363,12 @@ export default function POS() {
               <span>Inventario se descuenta igual</span>
             </div>
           )}
-          <div className="flex items-center justify-between">
+          <div className="flex items-end justify-between">
             <span className="text-lg font-bold">Total</span>
-            <span className="text-2xl font-bold text-primary">${total.toFixed(2)}</span>
+            <div className="text-right">
+              <div className="text-2xl font-bold text-primary leading-tight">{formatUSD(total)}</div>
+              <div className="text-sm text-muted-foreground font-mono">{formatVES(totalVES)}</div>
+            </div>
           </div>
           <Button className="w-full h-12 text-base" disabled={cart.length === 0} onClick={() => setPayDialog(true)}>
             Cobrar
@@ -419,41 +443,15 @@ export default function POS() {
         </DialogContent>
       </Dialog>
 
-      {/* Payment dialog */}
-      <Dialog open={payDialog} onOpenChange={setPayDialog}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Método de Pago</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3 py-4">
-            <p className="text-center text-2xl font-bold text-primary">${total.toFixed(2)}</p>
-            <div className="grid grid-cols-3 gap-2">
-              {[
-                { value: 'efectivo', label: 'Efectivo', icon: Banknote },
-                { value: 'pago_movil', label: 'Pago Móvil', icon: Smartphone },
-                { value: 'punto_venta', label: 'Tarjeta', icon: CreditCard },
-              ].map(pm => (
-                <button
-                  key={pm.value}
-                  onClick={() => setPaymentMethod(pm.value)}
-                  className={`p-4 rounded-xl border-2 flex flex-col items-center gap-2 transition-all ${
-                    paymentMethod === pm.value ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/30'
-                  }`}
-                >
-                  <pm.icon className="h-6 w-6" />
-                  <span className="text-xs font-medium">{pm.label}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setPayDialog(false)}>Cancelar</Button>
-            <Button onClick={() => completeSale.mutate()} disabled={completeSale.isPending} className="flex-1">
-              {completeSale.isPending ? 'Procesando...' : 'Confirmar Venta'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Mixed Payment dialog */}
+      <MixedPaymentDialog
+        open={payDialog}
+        onOpenChange={setPayDialog}
+        totalUSD={total}
+        exchangeRate={exchangeRate}
+        isProcessing={completeSale.isPending}
+        onConfirm={(data) => completeSale.mutate(data)}
+      />
     </div>
   );
 }
