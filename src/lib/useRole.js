@@ -3,7 +3,7 @@ import { useAuth } from '@/lib/AuthContext';
 // Lista de correos con rol de administrador.
 // Agrega o quita correos aquí para cambiar los administradores.
 export const ADMIN_EMAILS = [
-  'admin@lapaleta.com',
+  'luckasjimenez@gmail.com',
 ];
 
 /**
