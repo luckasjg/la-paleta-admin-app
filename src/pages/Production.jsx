@@ -14,12 +14,10 @@ import PageHeader from '@/components/shared/PageHeader';
 import { toast } from 'sonner';
 import moment from 'moment';
 
-const GRAMS_PER_LITER = 550;
-
 export default function Production() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [recipeId, setRecipeId] = useState('');
-  const [liters, setLiters] = useState(5);
+  const [grams, setGrams] = useState(5000);
   const [editTray, setEditTray] = useState(null); // tray being edited
   const [editForm, setEditForm] = useState({ recipe_id: '', recipe_name: '', remaining_grams: 0 });
   const [consumableDialog, setConsumableDialog] = useState(false);
@@ -43,11 +41,12 @@ export default function Production() {
 
   const iceRecipes = recipes.filter(r => r.type === 'helado');
 
-  // Pre-compute ingredient requirements for the dialog (current recipe + liters)
+  // Pre-compute ingredient requirements for the dialog (current recipe + grams)
   const selectedRecipe = recipes.find(r => r.id === recipeId);
   const ingredientCheck = React.useMemo(() => {
-    if (!selectedRecipe || !liters) return [];
-    const multiplier = (liters * 1000) / (selectedRecipe.yield_amount || 1000);
+    if (!selectedRecipe || !grams) return [];
+    // 1:1 ratio: grams to produce divided by the recipe's base mix size
+    const multiplier = grams / (selectedRecipe.yield_amount || 1);
     return (selectedRecipe.ingredients || []).map(ing => {
       const supply = supplies.find(s => s.id === ing.supply_id);
       const needed = (ing.quantity || 0) * multiplier;
@@ -64,17 +63,18 @@ export default function Production() {
         notFound: !supply,
       };
     });
-  }, [selectedRecipe, liters, supplies]);
+  }, [selectedRecipe, grams, supplies]);
 
   const missingIngredients = ingredientCheck.filter(i => i.missing);
-  const canProduce = recipeId && liters > 0 && missingIngredients.length === 0;
+  const canProduce = recipeId && grams > 0 && missingIngredients.length === 0;
 
   const produce = useMutation({
     mutationFn: async () => {
       const recipe = recipes.find(r => r.id === recipeId);
       if (!recipe) throw new Error('Receta no encontrada');
 
-      const multiplier = (liters * 1000) / (recipe.yield_amount || 1000);
+      // 1:1 ratio: peso real procesado = peso final de la bandeja (sin overrun, sin conversión a volumen)
+      const multiplier = grams / (recipe.yield_amount || 1);
       const ingredients = recipe.ingredients || [];
 
       // Final validation (defensive — UI already blocks this)
@@ -105,14 +105,12 @@ export default function Production() {
         });
       }
 
-      // Create tray
-      const totalGrams = liters * GRAMS_PER_LITER;
+      // Create tray — 1:1 con el peso real procesado
       await base44.entities.Tray.create({
         recipe_id: recipe.id,
         recipe_name: recipe.name,
-        produced_liters: liters,
-        remaining_grams: totalGrams,
-        initial_grams: totalGrams,
+        remaining_grams: grams,
+        initial_grams: grams,
         status: 'activa',
         production_date: moment().format('YYYY-MM-DD'),
       });
@@ -236,7 +234,7 @@ export default function Production() {
                     </div>
                     <Progress value={pct} className="h-2" />
                     <div className="flex justify-between text-xs text-muted-foreground">
-                      <span>{t.produced_liters}L producidos</span>
+                      <span>Peso Neto: {t.initial_grams}g</span>
                       <span>{t.production_date && moment(t.production_date).format('DD/MM/YY')}</span>
                     </div>
                   </div>
@@ -349,13 +347,13 @@ export default function Production() {
               </Select>
             </div>
             <div>
-              <Label>Litros a producir</Label>
-              <Input type="number" value={liters} onChange={e => setLiters(parseFloat(e.target.value) || 0)} />
-              <p className="text-xs text-muted-foreground mt-1">≈ {(liters * GRAMS_PER_LITER).toFixed(0)}g de helado</p>
+              <Label>Peso Neto a producir (g)</Label>
+              <Input type="number" value={grams} onChange={e => setGrams(parseFloat(e.target.value) || 0)} />
+              <p className="text-xs text-muted-foreground mt-1">La bandeja se creará con exactamente {grams || 0}g (relación 1:1).</p>
             </div>
 
             {/* Ingredient check */}
-            {selectedRecipe && liters > 0 && (
+            {selectedRecipe && grams > 0 && (
               <div className="border border-border rounded-lg overflow-hidden">
                 <div className={`px-3 py-2 flex items-center gap-2 text-sm font-medium ${
                   missingIngredients.length > 0
