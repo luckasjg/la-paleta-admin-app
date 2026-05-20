@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Plus, Factory, Pencil, Trash2, Package } from 'lucide-react';
+import { Plus, Factory, Pencil, Trash2, Package, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import PageHeader from '@/components/shared/PageHeader';
 import { toast } from 'sonner';
 import moment from 'moment';
@@ -43,23 +43,56 @@ export default function Production() {
 
   const iceRecipes = recipes.filter(r => r.type === 'helado');
 
+  // Pre-compute ingredient requirements for the dialog (current recipe + liters)
+  const selectedRecipe = recipes.find(r => r.id === recipeId);
+  const ingredientCheck = React.useMemo(() => {
+    if (!selectedRecipe || !liters) return [];
+    const multiplier = (liters * 1000) / (selectedRecipe.yield_amount || 1000);
+    return (selectedRecipe.ingredients || []).map(ing => {
+      const supply = supplies.find(s => s.id === ing.supply_id);
+      const needed = (ing.quantity || 0) * multiplier;
+      const available = supply?.stock_current || 0;
+      const isInfinite = supply?.is_infinite === true;
+      const missing = !supply || (!isInfinite && available < needed);
+      return {
+        name: supply?.name || ing.supply_name || 'Insumo desconocido',
+        unit: supply?.unit || ing.unit || '',
+        needed,
+        available,
+        isInfinite,
+        missing,
+        notFound: !supply,
+      };
+    });
+  }, [selectedRecipe, liters, supplies]);
+
+  const missingIngredients = ingredientCheck.filter(i => i.missing);
+  const canProduce = recipeId && liters > 0 && missingIngredients.length === 0;
+
   const produce = useMutation({
     mutationFn: async () => {
       const recipe = recipes.find(r => r.id === recipeId);
       if (!recipe) throw new Error('Receta no encontrada');
 
-      // Calculate ingredient amounts needed (recipe is per yield_amount, we need for 'liters' L)
       const multiplier = (liters * 1000) / (recipe.yield_amount || 1000);
       const ingredients = recipe.ingredients || [];
 
-      // Check and deduct supplies (skip infinite ones)
+      // Final validation (defensive — UI already blocks this)
+      const missing = [];
       for (const ing of ingredients) {
         const supply = supplies.find(s => s.id === ing.supply_id);
-        if (!supply || supply.is_infinite) continue;
+        if (!supply) {
+          missing.push(`${ing.supply_name || 'Insumo'} (no existe en inventario)`);
+          continue;
+        }
+        if (supply.is_infinite) continue;
         const needed = (ing.quantity || 0) * multiplier;
         if (supply.stock_current < needed) {
-          throw new Error(`Insuficiente ${supply.name}: necesita ${needed.toFixed(0)}${supply.unit}, tiene ${supply.stock_current}${supply.unit}`);
+          missing.push(`${supply.name}: faltan ${(needed - supply.stock_current).toFixed(0)}${supply.unit}`);
         }
+      }
+      if (missing.length > 0) {
+        throw new Error(`Insumos insuficientes — ${missing.join(' · ')}`);
       }
 
       // Deduct supplies (skip infinite ones)
@@ -91,7 +124,7 @@ export default function Production() {
       toast.success('Producción registrada. Insumos descontados.');
     },
     onError: (err) => {
-      toast.error(err.message);
+      toast.error(err.message, { duration: 8000 });
     },
   });
 
@@ -303,7 +336,7 @@ export default function Production() {
 
       {/* Produce Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-sm">
+        <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Producir Bandeja de Helado</DialogTitle>
           </DialogHeader>
@@ -320,10 +353,56 @@ export default function Production() {
               <Input type="number" value={liters} onChange={e => setLiters(parseFloat(e.target.value) || 0)} />
               <p className="text-xs text-muted-foreground mt-1">≈ {(liters * GRAMS_PER_LITER).toFixed(0)}g de helado</p>
             </div>
+
+            {/* Ingredient check */}
+            {selectedRecipe && liters > 0 && (
+              <div className="border border-border rounded-lg overflow-hidden">
+                <div className={`px-3 py-2 flex items-center gap-2 text-sm font-medium ${
+                  missingIngredients.length > 0
+                    ? 'bg-destructive/10 text-destructive'
+                    : 'bg-green-50 text-green-700'
+                }`}>
+                  {missingIngredients.length > 0 ? (
+                    <><AlertTriangle className="h-4 w-4" /> Faltan {missingIngredients.length} insumo(s)</>
+                  ) : (
+                    <><CheckCircle2 className="h-4 w-4" /> Inventario suficiente</>
+                  )}
+                </div>
+                <div className="divide-y divide-border max-h-56 overflow-y-auto">
+                  {ingredientCheck.map((ing, i) => (
+                    <div key={i} className="px-3 py-2 flex items-center justify-between text-sm">
+                      <div className="flex-1 min-w-0">
+                        <p className={`truncate ${ing.missing ? 'text-destructive font-medium' : ''}`}>
+                          {ing.name}
+                          {ing.notFound && <span className="text-xs ml-1">(no encontrado)</span>}
+                        </p>
+                        <p className="text-xs text-muted-foreground font-mono">
+                          Requiere: {ing.needed.toFixed(1)}{ing.unit}
+                          {!ing.isInfinite && !ing.notFound && (
+                            <> · Disponible: {ing.available?.toFixed(1)}{ing.unit}</>
+                          )}
+                          {ing.isInfinite && <> · (ilimitado)</>}
+                        </p>
+                      </div>
+                      {ing.missing ? (
+                        <Badge className="bg-destructive/15 text-destructive hover:bg-destructive/15 flex-shrink-0">
+                          Falta {Math.max(0, ing.needed - ing.available).toFixed(1)}{ing.unit}
+                        </Badge>
+                      ) : (
+                        <CheckCircle2 className="h-4 w-4 text-green-600 flex-shrink-0" />
+                      )}
+                    </div>
+                  ))}
+                  {ingredientCheck.length === 0 && (
+                    <p className="px-3 py-3 text-xs text-muted-foreground">Esta receta no tiene ingredientes definidos.</p>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
-            <Button onClick={() => produce.mutate()} disabled={!recipeId || produce.isPending}>
+            <Button onClick={() => produce.mutate()} disabled={!canProduce || produce.isPending}>
               {produce.isPending ? 'Produciendo...' : 'Producir'}
             </Button>
           </DialogFooter>
