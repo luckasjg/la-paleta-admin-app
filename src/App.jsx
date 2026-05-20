@@ -7,6 +7,7 @@ import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 
 import AppLayout from '@/components/layout/AppLayout';
+import RequireAdmin from '@/components/RequireAdmin';
 import Dashboard from '@/pages/Dashboard.jsx';
 import POS from '@/pages/POS';
 import Inventory from '@/pages/Inventory';
@@ -43,15 +44,15 @@ const AuthenticatedApp = () => {
   return (
     <Routes>
       <Route element={<AppLayout />}>
-        <Route path="/" element={<Dashboard />} />
+        <Route path="/" element={<RequireAdmin><Dashboard /></RequireAdmin>} />
         <Route path="/pos" element={<POS />} />
-        <Route path="/inventario" element={<Inventory />} />
-        <Route path="/recetas" element={<Recipes />} />
-        <Route path="/preparados" element={<Preparations />} />
-        <Route path="/produccion" element={<Production />} />
-        <Route path="/productos" element={<Products />} />
+        <Route path="/inventario" element={<RequireAdmin><Inventory /></RequireAdmin>} />
+        <Route path="/recetas" element={<RequireAdmin><Recipes /></RequireAdmin>} />
+        <Route path="/preparados" element={<RequireAdmin><Preparations /></RequireAdmin>} />
+        <Route path="/produccion" element={<RequireAdmin><Production /></RequireAdmin>} />
+        <Route path="/productos" element={<RequireAdmin><Products /></RequireAdmin>} />
         <Route path="/caja" element={<CashRegister />} />
-        <Route path="/ajustes" element={<Adjustments />} />
+        <Route path="/ajustes" element={<RequireAdmin><Adjustments /></RequireAdmin>} />
       </Route>
       <Route path="*" element={<PageNotFound />} />
     </Routes>

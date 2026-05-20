@@ -6,22 +6,26 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { useRole } from '@/lib/useRole';
 
+// adminOnly: true → solo visible para administradores
 const navItems = [
-  { label: 'Dashboard', icon: LayoutDashboard, path: '/' },
+  { label: 'Dashboard', icon: LayoutDashboard, path: '/', adminOnly: true },
   { label: 'Punto de Venta', icon: ShoppingCart, path: '/pos' },
-  { label: 'Inventario', icon: Warehouse, path: '/inventario' },
-  { label: 'Recetas', icon: BookOpen, path: '/recetas' },
-  { label: 'Preparados', icon: FlaskConical, path: '/preparados' },
-  { label: 'Producción', icon: Factory, path: '/produccion' },
-  { label: 'Productos', icon: Package, path: '/productos' },
+  { label: 'Inventario', icon: Warehouse, path: '/inventario', adminOnly: true },
+  { label: 'Recetas', icon: BookOpen, path: '/recetas', adminOnly: true },
+  { label: 'Preparados', icon: FlaskConical, path: '/preparados', adminOnly: true },
+  { label: 'Producción', icon: Factory, path: '/produccion', adminOnly: true },
+  { label: 'Productos', icon: Package, path: '/productos', adminOnly: true },
   { label: 'Caja', icon: DollarSign, path: '/caja' },
-  { label: 'Ajustes Inv.', icon: SlidersHorizontal, path: '/ajustes' },
+  { label: 'Ajustes Inv.', icon: SlidersHorizontal, path: '/ajustes', adminOnly: true },
 ];
 
 export default function Sidebar() {
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { isAdmin } = useRole();
+  const visibleItems = navItems.filter(item => !item.adminOnly || isAdmin);
 
   return (
     <>
@@ -62,7 +66,7 @@ export default function Sidebar() {
 
         {/* Nav */}
         <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-          {navItems.map(item => {
+          {visibleItems.map(item => {
             const isActive = location.pathname === item.path;
             return (
               <Link
