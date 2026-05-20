@@ -16,12 +16,22 @@
     },
     "flavor_count": {
       "type": "number",
-      "description": "Cantidad de sabores que incluye este producto (1, 2 o 3). Solo para helados.",
+      "description": "Cantidad de sabores que incluye este producto (1, 2 o 3). Solo para helados. (Legacy)",
+      "default": 1
+    },
+    "requires_flavor": {
+      "type": "boolean",
+      "description": "Si es true, abre el selector de sabores al a\u00f1adir al carrito",
+      "default": false
+    },
+    "max_flavors": {
+      "type": "number",
+      "description": "Cantidad m\u00e1xima de sabores permitidos cuando requires_flavor es true",
       "default": 1
     },
     "grams_per_serving": {
       "type": "number",
-      "description": "Gramos totales que descuenta de las bandejas (para helados)"
+      "description": "Gramos totales que descuenta de las bandejas (se divide equitativamente entre sabores)"
     },
     "recipe_id": {
       "type": "string",

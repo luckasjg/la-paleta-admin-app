@@ -16,7 +16,7 @@ import POSCategoryManager from '@/components/products/POSCategoryManager';
 
 const DEFAULT_CATEGORIES = ['helado', 'cafe', 'merengada', 'adicional', 'otro'];
 
-const emptyProduct = { name: '', category: '', size_label: '', grams_per_serving: 0, recipe_id: '', utensil_supply_id: '', price: 0, is_active: true };
+const emptyProduct = { name: '', category: '', size_label: '', grams_per_serving: 0, recipe_id: '', utensil_supply_id: '', price: 0, is_active: true, requires_flavor: false, max_flavors: 1 };
 
 export default function Products() {
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -75,6 +75,8 @@ export default function Products() {
       grams_per_serving: p.grams_per_serving || 0, recipe_id: p.recipe_id || '',
       utensil_supply_id: p.utensil_supply_id || '',
       price: p.price, is_active: p.is_active !== false,
+      requires_flavor: p.requires_flavor === true || p.category === 'helado',
+      max_flavors: p.max_flavors || p.flavor_count || 1,
     });
     setDialogOpen(true);
   };
@@ -214,6 +216,31 @@ export default function Products() {
                 </Select>
               </div>
             )}
+
+            {/* Requiere selección de sabor */}
+            <div className="border border-border rounded-lg p-3 space-y-3 bg-secondary/30">
+              <div className="flex items-center gap-3">
+                <Switch
+                  checked={form.requires_flavor}
+                  onCheckedChange={v => setForm({ ...form, requires_flavor: v, max_flavors: v ? Math.max(1, form.max_flavors || 1) : 1 })}
+                />
+                <Label>Requiere selección de sabor</Label>
+              </div>
+              {form.requires_flavor && (
+                <div>
+                  <Label className="text-xs">Cantidad máxima de sabores permitidos</Label>
+                  <Input
+                    type="number" min={1} max={10}
+                    value={form.max_flavors}
+                    onChange={e => setForm({ ...form, max_flavors: Math.max(1, parseInt(e.target.value) || 1) })}
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Los <span className="font-mono">{form.grams_per_serving || 0}g</span> se dividen equitativamente entre los sabores elegidos.
+                  </p>
+                </div>
+              )}
+            </div>
+
             <div className="flex items-center gap-3">
               <Switch checked={form.is_active} onCheckedChange={v => setForm({ ...form, is_active: v })} />
               <Label>Activo en POS</Label>

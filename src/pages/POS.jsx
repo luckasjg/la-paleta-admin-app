@@ -56,12 +56,25 @@ export default function POS() {
   const activeCat = selectedCategory || categories[0] || 'helado';
   const filteredProducts = activeProducts.filter(p => p.category === activeCat);
 
+  // A product needs flavor selection if explicitly flagged OR if it's a helado (legacy default)
+  const productNeedsFlavor = (p) => p.requires_flavor === true || p.category === 'helado';
+  const productMaxFlavors = (p) => Math.max(1, p.max_flavors || p.flavor_count || 1);
+
+  // Split grams equally across N flavors (last slot absorbs rounding remainder so the sum is exact)
+  const splitGramsEqually = (totalGrams, n) => {
+    const base = Math.floor(totalGrams / n);
+    const arr = Array.from({ length: n }, () => base);
+    arr[n - 1] = totalGrams - base * (n - 1);
+    return arr;
+  };
+
   const addToCart = (product) => {
-    if (product.category === 'helado') {
-      const count = product.flavor_count || 1;
-      const gramsEach = Math.round((product.grams_per_serving || 80) / count);
+    if (productNeedsFlavor(product)) {
+      const totalGrams = product.grams_per_serving || 80;
+      // Start with 1 flavor; cashier can add up to max_flavors
+      const portions = splitGramsEqually(totalGrams, 1);
       setFlavorDialog(product);
-      setSelectedFlavors(Array.from({ length: count }, () => ({ tray_id: '', grams: gramsEach })));
+      setSelectedFlavors([{ tray_id: '', grams: portions[0] }]);
     } else {
       setCart(prev => {
         const existing = prev.find(i => i.product_id === product.id && !i.tray_id && !i.is_courtesy);
@@ -84,28 +97,26 @@ export default function POS() {
     }
   };
 
-  const totalFlavorGrams = selectedFlavors.reduce((s, f) => s + (parseFloat(f.grams) || 0), 0);
   const targetGrams = flavorDialog?.grams_per_serving || 80;
+  const maxFlavors = flavorDialog ? productMaxFlavors(flavorDialog) : 1;
+  const totalFlavorGrams = selectedFlavors.reduce((s, f) => s + (parseFloat(f.grams) || 0), 0);
   const flavorGramsOk = Math.abs(totalFlavorGrams - targetGrams) <= 1;
   const allFlavorsFilled = selectedFlavors.every(f => f.tray_id);
 
+  // Adding/removing a slot re-divides grams equally so the cashier never has to do the math.
   const addFlavorSlot = () => {
-    if (selectedFlavors.length >= 3) return;
-    const remaining = targetGrams - totalFlavorGrams;
-    setSelectedFlavors(prev => [...prev.slice(0, -1).map(f => ({ ...f })),
-      { ...prev[prev.length - 1], grams: Math.max(0, prev[prev.length - 1].grams - Math.ceil(remaining === 0 ? prev[prev.length - 1].grams / 2 : 0)) },
-      { tray_id: '', grams: Math.ceil(remaining > 0 ? remaining : prev[prev.length - 1].grams / 2) }
-    ]);
+    if (selectedFlavors.length >= maxFlavors) return;
+    const n = selectedFlavors.length + 1;
+    const portions = splitGramsEqually(targetGrams, n);
+    setSelectedFlavors(prev => prev.map((f, i) => ({ ...f, grams: portions[i] })).concat([{ tray_id: '', grams: portions[n - 1] }]));
   };
 
   const removeFlavorSlot = (idx) => {
     setSelectedFlavors(prev => {
-      const removed = prev[idx];
       const next = prev.filter((_, i) => i !== idx);
-      if (next.length > 0) {
-        next[next.length - 1] = { ...next[next.length - 1], grams: next[next.length - 1].grams + (parseFloat(removed.grams) || 0) };
-      }
-      return next;
+      if (next.length === 0) return next;
+      const portions = splitGramsEqually(targetGrams, next.length);
+      return next.map((f, i) => ({ ...f, grams: portions[i] }));
     });
   };
 
@@ -124,7 +135,8 @@ export default function POS() {
     setCart(prev => [...prev, {
       product_id: product.id,
       product_name: product.name,
-      category: 'helado',
+      category: product.category,
+      recipe_id: product.recipe_id,
       flavor: flavorLabel,
       flavors: selectedFlavors.map(f => {
         const tray = trays.find(t => t.id === f.tray_id);
@@ -180,21 +192,21 @@ export default function POS() {
 
   const completeSale = useMutation({
     mutationFn: async ({ payments, exchange_rate }) => {
-      // Deduct from trays (helado items)
+      // Deduct from trays for any item that carries a flavors[] array (helado or any product with requires_flavor)
       for (const item of cart) {
-        if (item.category === 'helado') {
-          const flavorList = item.flavors || [{ tray_id: item.tray_id, grams: item.grams || 80 }];
-          for (const fl of flavorList) {
-            if (!fl.tray_id) continue;
-            const tray = trays.find(t => t.id === fl.tray_id);
-            if (!tray) continue;
-            const gramsToDeduct = (fl.grams || 0) * item.quantity;
-            const newRemaining = Math.max(0, (tray.remaining_grams || 0) - gramsToDeduct);
-            await base44.entities.Tray.update(tray.id, {
-              remaining_grams: newRemaining,
-              status: newRemaining <= 0 ? 'agotada' : 'activa',
-            });
-          }
+        const flavorList = (item.flavors && item.flavors.length > 0)
+          ? item.flavors
+          : (item.tray_id ? [{ tray_id: item.tray_id, grams: item.grams || 0 }] : []);
+        for (const fl of flavorList) {
+          if (!fl.tray_id) continue;
+          const tray = trays.find(t => t.id === fl.tray_id);
+          if (!tray) continue;
+          const gramsToDeduct = (fl.grams || 0) * item.quantity;
+          const newRemaining = Math.max(0, (tray.remaining_grams || 0) - gramsToDeduct);
+          await base44.entities.Tray.update(tray.id, {
+            remaining_grams: newRemaining,
+            status: newRemaining <= 0 ? 'agotada' : 'activa',
+          });
         }
         // Deduct supplies for café/merengada
         if ((item.category === 'cafe' || item.category === 'merengada') && item.recipe_id) {
@@ -422,11 +434,13 @@ export default function POS() {
             ))}
 
             <div className="flex items-center justify-between">
-              {selectedFlavors.length < 3 ? (
+              {selectedFlavors.length < maxFlavors ? (
                 <Button variant="outline" size="sm" onClick={addFlavorSlot} className="text-xs">
-                  <Plus className="h-3 w-3 mr-1" /> Agregar sabor
+                  <Plus className="h-3 w-3 mr-1" /> Agregar sabor ({selectedFlavors.length}/{maxFlavors})
                 </Button>
-              ) : <span />}
+              ) : (
+                <span className="text-xs text-muted-foreground">Máx. {maxFlavors} sabores</span>
+              )}
               <span className={`text-sm font-semibold ${flavorGramsOk ? 'text-primary' : 'text-destructive'}`}>
                 {totalFlavorGrams}g / {targetGrams}g
               </span>
