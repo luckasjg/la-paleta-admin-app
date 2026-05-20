@@ -52,6 +52,11 @@
     "is_active": {
       "type": "boolean",
       "description": "Producto activo"
+    },
+    "sort_order": {
+      "type": "number",
+      "description": "Orden de visualizaci\u00f3n dentro de la categor\u00eda en el POS (menor = primero)",
+      "default": 99
     }
   },
   "required": [

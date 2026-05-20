@@ -54,7 +54,14 @@ export default function POS() {
   ];
 
   const activeCat = selectedCategory || categories[0] || 'helado';
-  const filteredProducts = activeProducts.filter(p => p.category === activeCat);
+  const filteredProducts = activeProducts
+    .filter(p => p.category === activeCat)
+    .sort((a, b) => {
+      const oa = a.sort_order ?? 99;
+      const ob = b.sort_order ?? 99;
+      if (oa !== ob) return oa - ob;
+      return (a.name || '').localeCompare(b.name || '');
+    });
 
   // A product needs flavor selection if explicitly flagged OR if it's a helado (legacy default)
   const productNeedsFlavor = (p) => p.requires_flavor === true || p.category === 'helado';

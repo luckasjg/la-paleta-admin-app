@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
-import { Plus, Pencil, Trash2, Package, Settings } from 'lucide-react';
+import { Plus, Pencil, Trash2, Package, Settings, ArrowUp, ArrowDown } from 'lucide-react';
 import PageHeader from '@/components/shared/PageHeader';
 import { toast } from 'sonner';
 import POSCategoryManager from '@/components/products/POSCategoryManager';
@@ -102,7 +102,6 @@ export default function Products() {
 
   // Fail-safe grouping: every product in DB gets shown under its category (or "Sin categoría")
   const grouped = useMemo(() => {
-    console.log('Productos cargados:', products);
     const groups = {};
     products.forEach(p => {
       const cat = (p.category || '').trim() || 'Sin categoría';
@@ -111,8 +110,22 @@ export default function Products() {
     });
     return Object.entries(groups)
       .sort(([a], [b]) => a.localeCompare(b))
-      .map(([cat, ps]) => ({ cat, products: ps }));
+      .map(([cat, ps]) => ({
+        cat,
+        products: ps.sort((a, b) => {
+          const oa = a.sort_order ?? 99;
+          const ob = b.sort_order ?? 99;
+          if (oa !== ob) return oa - ob;
+          return (a.name || '').localeCompare(b.name || '');
+        }),
+      }));
   }, [products]);
+
+  const updateSortOrder = (product, newOrder) => {
+    const value = Math.max(0, parseInt(newOrder) || 0);
+    if (value === (product.sort_order ?? 99)) return;
+    updateMut.mutate({ id: product.id, data: { sort_order: value } });
+  };
 
   return (
     <div className="space-y-6">
@@ -160,6 +173,32 @@ export default function Products() {
                     </p>
                   )}
                   {!p.is_active && <Badge className="mt-2 bg-yellow-100 text-yellow-700">Inactivo</Badge>}
+
+                  {/* Orden de visualización en POS */}
+                  <div className="mt-3 pt-2 border-t flex items-center gap-1.5">
+                    <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Orden</Label>
+                    <Button
+                      variant="outline" size="icon" className="h-6 w-6"
+                      title="Subir prioridad"
+                      onClick={() => updateSortOrder(p, (p.sort_order ?? 99) - 1)}
+                    >
+                      <ArrowUp className="h-3 w-3" />
+                    </Button>
+                    <Input
+                      type="number"
+                      min={0}
+                      value={p.sort_order ?? 99}
+                      onChange={e => updateSortOrder(p, e.target.value)}
+                      className="h-6 w-14 text-center text-xs px-1"
+                    />
+                    <Button
+                      variant="outline" size="icon" className="h-6 w-6"
+                      title="Bajar prioridad"
+                      onClick={() => updateSortOrder(p, (p.sort_order ?? 99) + 1)}
+                    >
+                      <ArrowDown className="h-3 w-3" />
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             ))}
