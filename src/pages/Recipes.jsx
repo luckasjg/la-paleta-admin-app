@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Trash2, Pencil, BookOpen } from 'lucide-react';
+import { Plus, Trash2, Pencil, BookOpen, Search } from 'lucide-react';
 import PageHeader from '@/components/shared/PageHeader';
 import { toast } from 'sonner';
 import RecipeDetailCard from '@/components/recipes/RecipeDetailCard';
@@ -22,10 +22,13 @@ const TYPES = [
 
 const emptyRecipe = { name: '', type: 'helado', yield_amount: 1000, yield_unit: 'ml', ingredients: [], sale_price: 0, is_active: true };
 
+const normalize = (s) => (s || '').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
 export default function Recipes() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(emptyRecipe);
+  const [search, setSearch] = useState('');
   const qc = useQueryClient();
 
   const { data: recipes = [] } = useQuery({
@@ -37,6 +40,15 @@ export default function Recipes() {
     queryKey: ['supplies'],
     queryFn: () => base44.entities.Supply.list(),
   });
+
+  const filteredRecipes = useMemo(() => {
+    const q = normalize(search.trim());
+    if (!q) return recipes;
+    return recipes.filter(r => {
+      if (normalize(r.name).includes(q)) return true;
+      return (r.ingredients || []).some(ing => normalize(ing.supply_name).includes(q));
+    });
+  }, [recipes, search]);
 
   const createMut = useMutation({
     mutationFn: (d) => base44.entities.Recipe.create(d),
@@ -170,8 +182,18 @@ export default function Recipes() {
         }
       />
 
+      <div className="relative max-w-md">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="Buscar por nombre de receta o ingrediente..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="pl-9"
+        />
+      </div>
+
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {recipes.map(r => (
+        {filteredRecipes.map(r => (
           <RecipeDetailCard
             key={r.id}
             recipe={r}
@@ -185,6 +207,12 @@ export default function Recipes() {
           <Card className="col-span-full p-12 flex flex-col items-center justify-center text-center">
             <BookOpen className="h-10 w-10 text-muted-foreground/50 mb-3" />
             <p className="text-muted-foreground">No hay recetas creadas aún</p>
+          </Card>
+        )}
+        {recipes.length > 0 && filteredRecipes.length === 0 && (
+          <Card className="col-span-full p-12 flex flex-col items-center justify-center text-center">
+            <Search className="h-10 w-10 text-muted-foreground/50 mb-3" />
+            <p className="text-muted-foreground">No se encontraron recetas que coincidan con la búsqueda</p>
           </Card>
         )}
       </div>
