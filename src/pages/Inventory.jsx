@@ -135,14 +135,23 @@ export default function Inventory() {
     };
     setPurchase(restoredPurchase);
 
-    // Conversión inversa: stock base / (net_content * multiplicador) → empaques
+    // Conversión inversa segura: stock base / (net_content * multiplicador) → empaques
     const pkgU = getPackageUnit(defaultPkgUnit);
     const net = parseFloat(restoredPurchase.net_content);
-    const baseTotal = net > 0 ? net * pkgU.multiplier : 0;
-    if ((s.sector || 'materia_prima') === 'materia_prima' && baseTotal > 0) {
+    const baseTotal = Number.isFinite(net) && net > 0 ? net * pkgU.multiplier : 0;
+    const safeDiv = (num, den) => {
+      if (!Number.isFinite(num) || !Number.isFinite(den) || den <= 0) return null;
+      const r = num / den;
+      return Number.isFinite(r) ? +r.toFixed(4) : null;
+    };
+
+    if ((s.sector || 'materia_prima') === 'materia_prima') {
+      const curPkg = baseTotal > 0 ? safeDiv(s.stock_current || 0, baseTotal) : null;
+      const minPkg = baseTotal > 0 ? safeDiv(s.stock_minimum || 0, baseTotal) : null;
       setStockPkg({
-        stock_current_pkg: String(+( (s.stock_current || 0) / baseTotal).toFixed(4)),
-        stock_minimum_pkg: String(+((s.stock_minimum || 0) / baseTotal).toFixed(4)),
+        // Si no se puede convertir, mostrar el valor base como fallback (nunca vacío)
+        stock_current_pkg: curPkg !== null ? String(curPkg) : String(s.stock_current ?? 0),
+        stock_minimum_pkg: minPkg !== null ? String(minPkg) : String(s.stock_minimum ?? 0),
       });
     } else {
       setStockPkg(emptyStockPkg);
@@ -173,13 +182,28 @@ export default function Inventory() {
       const pkgU = getPackageUnit(purchase.package_unit);
       finalUnit = pkgU.baseUnit;
       const net = parseFloat(purchase.net_content);
-      const baseTotal = net > 0 ? net * pkgU.multiplier : 0;
+      const baseTotal = Number.isFinite(net) && net > 0 ? net * pkgU.multiplier : 0;
 
-      // Conversión empaques → unidad base
-      const sCurPkg = parseFloat(stockPkg.stock_current_pkg) || 0;
-      const sMinPkg = parseFloat(stockPkg.stock_minimum_pkg) || 0;
-      finalStockCurrent = baseTotal > 0 ? sCurPkg * baseTotal : 0;
-      finalStockMinimum = baseTotal > 0 ? sMinPkg * baseTotal : 0;
+      // Protección: si los inputs de stock están vacíos o no es posible convertir,
+      // preservar los valores originales del item para NO borrar el stock real.
+      const curRaw = stockPkg.stock_current_pkg;
+      const minRaw = stockPkg.stock_minimum_pkg;
+      const curEmpty = curRaw === '' || curRaw === null || curRaw === undefined;
+      const minEmpty = minRaw === '' || minRaw === null || minRaw === undefined;
+      const sCurPkg = parseFloat(curRaw);
+      const sMinPkg = parseFloat(minRaw);
+
+      if (baseTotal > 0 && !curEmpty && Number.isFinite(sCurPkg)) {
+        finalStockCurrent = sCurPkg * baseTotal;
+      } else {
+        finalStockCurrent = editing?.stock_current ?? form.stock_current ?? 0;
+      }
+
+      if (baseTotal > 0 && !minEmpty && Number.isFinite(sMinPkg)) {
+        finalStockMinimum = sMinPkg * baseTotal;
+      } else {
+        finalStockMinimum = editing?.stock_minimum ?? form.stock_minimum ?? 0;
+      }
 
       const presentation = (purchase.presentation || '').trim();
       const unitLabel = pkgU.label.replace(/\s*\(.*\)/, '');
