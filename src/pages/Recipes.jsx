@@ -8,10 +8,11 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Trash2, Pencil, BookOpen, Search } from 'lucide-react';
+import { Plus, Trash2, Pencil, BookOpen, Search, FileSpreadsheet } from 'lucide-react';
 import PageHeader from '@/components/shared/PageHeader';
 import { toast } from 'sonner';
 import RecipeDetailCard from '@/components/recipes/RecipeDetailCard';
+import { exportRecipesToCSV } from '@/lib/exportRecipesCSV';
 
 const TYPES = [
   { value: 'helado', label: 'Helado' },
@@ -176,9 +177,24 @@ export default function Recipes() {
         title="Recetario Maestro"
         description="Recetas de helados, cafés y merengadas"
         actions={
-          <Button onClick={() => { setForm(emptyRecipe); setEditing(null); setDialogOpen(true); }}>
-            <Plus className="h-4 w-4 mr-2" /> Nueva Receta
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (recipes.length === 0) {
+                  toast.error('No hay recetas para exportar');
+                  return;
+                }
+                exportRecipesToCSV(recipes, supplies);
+                toast.success('Exportación descargada');
+              }}
+            >
+              <FileSpreadsheet className="h-4 w-4 mr-2" /> Exportar Excel
+            </Button>
+            <Button onClick={() => { setForm(emptyRecipe); setEditing(null); setDialogOpen(true); }}>
+              <Plus className="h-4 w-4 mr-2" /> Nueva Receta
+            </Button>
+          </div>
         }
       />
 
