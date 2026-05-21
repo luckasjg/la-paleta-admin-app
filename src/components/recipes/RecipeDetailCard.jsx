@@ -88,25 +88,29 @@ export default function RecipeDetailCard({ recipe, supplies, onEdit, onDelete, o
           <div className="space-y-1">
             {/* Encabezado */}
             <div className="grid text-[10px] font-semibold text-muted-foreground uppercase tracking-wide pb-1 border-b"
-              style={{ gridTemplateColumns: showCalc ? '1fr auto auto auto' : '1fr auto auto' }}>
+              style={{ gridTemplateColumns: showCalc ? '1fr auto auto auto auto' : '1fr auto auto auto' }}>
               <span>Ingrediente</span>
               <span className="text-right">Cant.</span>
               <span className="text-right">% Receta</span>
+              <span className="text-right">Costo</span>
               {showCalc && <span className="text-right text-primary">A Pesar (g)</span>}
             </div>
 
             {ingredients.map((ing, i) => {
               const pct = totalBaseGrams > 0 ? ((ing.quantity || 0) / totalBaseGrams) * 100 : 0;
               const gramsAPesar = showCalc ? (mixValue / totalBaseGrams) * (ing.quantity || 0) : 0;
+              const supply = supplies.find(s => s.id === ing.supply_id);
+              const ingCost = (supply?.cost_per_unit || 0) * (ing.quantity || 0);
               return (
                 <div
                   key={i}
                   className="grid text-sm py-0.5"
-                  style={{ gridTemplateColumns: showCalc ? '1fr auto auto auto' : '1fr auto auto' }}
+                  style={{ gridTemplateColumns: showCalc ? '1fr auto auto auto auto' : '1fr auto auto auto' }}
                 >
                   <span className="text-muted-foreground truncate">{ing.supply_name}</span>
                   <span className="font-mono text-right ml-2">{ing.quantity}{ing.unit}</span>
                   <span className="font-mono text-right ml-2 text-muted-foreground">{pct.toFixed(2)}%</span>
+                  <span className="font-mono text-right ml-2 text-amber-700">${ingCost.toFixed(2)}</span>
                   {showCalc && (
                     <span className="font-mono text-right ml-2 text-primary font-semibold">
                       {gramsAPesar.toFixed(1)}g
@@ -119,11 +123,12 @@ export default function RecipeDetailCard({ recipe, supplies, onEdit, onDelete, o
             {/* Footer totales */}
             <div
               className="grid text-xs font-semibold pt-1 border-t"
-              style={{ gridTemplateColumns: showCalc ? '1fr auto auto auto' : '1fr auto auto' }}
+              style={{ gridTemplateColumns: showCalc ? '1fr auto auto auto auto' : '1fr auto auto auto' }}
             >
               <span>Total Base</span>
               <span className="font-mono text-right ml-2">{totalBaseGrams}g</span>
               <span className="font-mono text-right ml-2">100.00%</span>
+              <span className="font-mono text-right ml-2 text-amber-700">${cost.toFixed(2)}</span>
               {showCalc && <span className="font-mono text-right ml-2 text-primary">{mixValue.toFixed(1)}g</span>}
             </div>
           </div>
