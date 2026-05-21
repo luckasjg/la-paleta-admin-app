@@ -59,24 +59,56 @@ export default function CashRegister() {
   const activeTrays = trays.filter(t => t.status === 'activa');
 
   const today = moment().format('YYYY-MM-DD');
+
+  // Cierres del día actual, ordenados por fecha de creación ascendente
+  const todayRegisters = useMemo(
+    () => registers
+      .filter(r => r.date === today && r.status === 'cerrada')
+      .sort((a, b) => moment(a.created_date).valueOf() - moment(b.created_date).valueOf()),
+    [registers, today]
+  );
+
+  // Marca de tiempo del último cierre del día (si hay)
+  const lastCloseTime = useMemo(() => {
+    if (todayRegisters.length === 0) return null;
+    const last = todayRegisters[todayRegisters.length - 1];
+    return last.created_date ? moment(last.created_date) : null;
+  }, [todayRegisters]);
+
+  // Solo ventas del día que NO han sido cubiertas por un cierre previo
   const todaySales = useMemo(
-    () => sales.filter(s => s.sale_date && moment(s.sale_date).format('YYYY-MM-DD') === today),
-    [sales, today]
+    () => sales.filter(s => {
+      if (!s.sale_date) return false;
+      if (moment(s.sale_date).format('YYYY-MM-DD') !== today) return false;
+      if (lastCloseTime && !moment(s.sale_date).isAfter(lastCloseTime)) return false;
+      return true;
+    }),
+    [sales, today, lastCloseTime]
   );
 
   const systemCash = todaySales.reduce((sum, s) => sum + (s.cash_amount || 0), 0);
   const systemDigital = todaySales.reduce((sum, s) => sum + (s.digital_amount || 0), 0);
   const todayTotal = todaySales.reduce((sum, s) => sum + (s.total || 0), 0);
 
+  // Ventas asociadas a un cierre: entre el cierre anterior del día y este cierre
   const getSalesForRegister = (register) => {
     if (!register) return [];
     const regDate = register.date;
     const regCreated = register.created_date ? moment(register.created_date) : null;
+
+    // Buscar cierre anterior del mismo día
+    const sameDay = registers
+      .filter(r => r.date === regDate && r.status === 'cerrada' && r.created_date)
+      .sort((a, b) => moment(a.created_date).valueOf() - moment(b.created_date).valueOf());
+    const idx = sameDay.findIndex(r => r.id === register.id);
+    const prev = idx > 0 ? sameDay[idx - 1] : null;
+    const prevCreated = prev?.created_date ? moment(prev.created_date) : null;
+
     return sales.filter(s => {
       if (!s.sale_date) return false;
       if (moment(s.sale_date).format('YYYY-MM-DD') !== regDate) return false;
-      if (register.shift && s.shift && s.shift !== register.shift) return false;
       if (regCreated && moment(s.sale_date).isAfter(regCreated)) return false;
+      if (prevCreated && !moment(s.sale_date).isAfter(prevCreated)) return false;
       return true;
     });
   };
