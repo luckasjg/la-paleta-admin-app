@@ -87,7 +87,7 @@ export default function ProfitabilityMatrix({ recipes, products, supplies, fixed
                   Sabor / Presentación
                 </TableHead>
                 {presentations.map(p => {
-                  const ivaPrice = p.price * (1 + IVA_RATE);
+                  const basePrice = p.price / (1 + IVA_RATE);
                   return (
                     <TableHead key={p.id} className="text-center min-w-[160px] border-l">
                       <div className="font-semibold text-foreground text-xs">{p.name}</div>
@@ -95,9 +95,9 @@ export default function ProfitabilityMatrix({ recipes, products, supplies, fixed
                         {p.grams_per_serving || 0}g · {p.max_flavors || 1} sabor{(p.max_flavors || 1) > 1 ? 'es' : ''}
                       </div>
                       <div className="flex justify-center gap-2 mt-1 font-mono text-[11px]">
-                        <span title="Precio Base">Base: ${p.price.toFixed(2)}</span>
-                        <span className="text-muted-foreground" title="Precio con IVA 16%">
-                          c/IVA: ${ivaPrice.toFixed(2)}
+                        <span title="Precio sin IVA">Base: ${basePrice.toFixed(2)}</span>
+                        <span className="text-muted-foreground" title="Precio de venta (incluye IVA 16%)">
+                          c/IVA: ${p.price.toFixed(2)}
                         </span>
                       </div>
                     </TableHead>
@@ -122,7 +122,8 @@ export default function ProfitabilityMatrix({ recipes, products, supplies, fixed
                       const utensilCost = supplyCost(p.utensil_supply_id);
                       const fixedCost = utensilCost + fixedServiceCosts;
                       const totalCost = iceCreamCost + fixedCost;
-                      const aporte = p.price - totalCost;
+                      const basePrice = p.price / (1 + IVA_RATE);
+                      const aporte = basePrice - totalCost;
                       const isProfit = aporte >= 0;
 
                       return (
@@ -141,8 +142,8 @@ export default function ProfitabilityMatrix({ recipes, products, supplies, fixed
                               <span>${totalCost.toFixed(2)}</span>
                             </div>
                             <div className="flex justify-between text-foreground">
-                              <span>Venta:</span>
-                              <span>${p.price.toFixed(2)}</span>
+                              <span>Venta s/IVA:</span>
+                              <span>${basePrice.toFixed(2)}</span>
                             </div>
                             <div
                               className={`flex justify-between font-bold rounded px-1.5 py-0.5 mt-1 ${
@@ -169,7 +170,7 @@ export default function ProfitabilityMatrix({ recipes, products, supplies, fixed
         <div className="px-4 py-3 border-t text-[11px] text-muted-foreground">
           💡 <strong>Costo Helado</strong> = costo/g de la receta × gramos del producto.{' '}
           <strong>Costo Fijos</strong> = envase/utensilio vinculado + costos fijos de servicio.{' '}
-          <strong>Aporte</strong> = Precio Base − Costo Total.
+          <strong>Aporte</strong> = Precio sin IVA − Costo Total (el precio de venta ya incluye IVA 16%).
         </div>
       </CardContent>
     </Card>
