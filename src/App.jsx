@@ -15,7 +15,7 @@ import Recipes from '@/pages/Recipes';
 import Preparations from '@/pages/Preparations.jsx';
 import Production from '@/pages/Production';
 import Products from '@/pages/Products';
-import CashRegister from '@/pages/CashRegister.jsx';
+import CashRegister from '@/pages/CashRegister';
 import Adjustments from '@/pages/Adjustments';
 
 const AuthenticatedApp = () => {
