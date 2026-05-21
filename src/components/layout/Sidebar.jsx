@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, ShoppingCart, Package, BookOpen, Factory,
-  DollarSign, Warehouse, SlidersHorizontal, Menu, X, IceCream, FlaskConical
+  DollarSign, Warehouse, SlidersHorizontal, Menu, X, IceCream, FlaskConical, ClipboardCheck
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -19,6 +19,7 @@ const navItems = [
   { label: 'Productos', icon: Package, path: '/productos', adminOnly: true },
   { label: 'Caja', icon: DollarSign, path: '/caja' },
   { label: 'Ajustes Inv.', icon: SlidersHorizontal, path: '/ajustes', adminOnly: true },
+  { label: 'Auditorías', icon: ClipboardCheck, path: '/auditorias', adminOnly: true },
 ];
 
 export default function Sidebar() {
