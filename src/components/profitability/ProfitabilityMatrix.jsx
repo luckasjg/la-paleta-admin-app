@@ -29,7 +29,9 @@ export default function ProfitabilityMatrix({ recipes, products, supplies, fixed
   );
 
   const presentations = useMemo(
-    () => products.filter(p => p.requires_flavor === true && p.is_active !== false && p.price > 0),
+    () => products
+      .filter(p => p.grams_per_serving && p.is_active !== false && p.price > 0)
+      .sort((a, b) => (a.grams_per_serving || 0) - (b.grams_per_serving || 0)),
     [products]
   );
 
