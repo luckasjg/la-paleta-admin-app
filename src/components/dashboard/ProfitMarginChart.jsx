@@ -36,22 +36,59 @@ const CustomTooltip = ({ active, payload }) => {
       <p>Precio venta: <span className="font-mono font-semibold">${d.salePrice.toFixed(2)}</span></p>
       <p>Costo estimado: <span className="font-mono text-amber-600">${d.cost.toFixed(2)}</span></p>
       <p>Margen: <span className={`font-mono font-bold ${d.margin >= 50 ? 'text-emerald-600' : d.margin >= 20 ? 'text-amber-600' : 'text-destructive'}`}>{d.margin.toFixed(1)}%</span></p>
+      {d.usedAverage && (
+        <p className="text-[10px] text-muted-foreground italic pt-1">*Basado en costo promedio de sabores.</p>
+      )}
     </div>
   );
 };
 
 export default function ProfitMarginChart({ products, recipes, supplies }) {
   const data = useMemo(() => {
+    // 1) Calcular costo promedio por gramo de helados
+    const iceCreamRecipes = recipes.filter(r => {
+      const t = (r.type || '').toLowerCase();
+      const c = (r.category || '').toLowerCase();
+      return t === 'helado' || c === 'helado';
+    });
+
+    const perGramCosts = iceCreamRecipes
+      .map(r => {
+        if (!r.ingredients?.length) return null;
+        const totalIngredientCost = r.ingredients.reduce((sum, ing) => {
+          const supply = supplies.find(s => s.id === ing.supply_id);
+          if (!supply || !supply.cost_per_unit) return sum;
+          return sum + (supply.cost_per_unit * (ing.quantity || 0));
+        }, 0);
+        const yieldAmt = r.yield_amount || 1000;
+        if (yieldAmt <= 0 || totalIngredientCost <= 0) return null;
+        return totalIngredientCost / yieldAmt;
+      })
+      .filter(v => v !== null && v > 0);
+
+    const averageIceCreamCostPerGram = perGramCosts.length
+      ? perGramCosts.reduce((s, v) => s + v, 0) / perGramCosts.length
+      : 0;
+
     return products
       .filter(p => p.price > 0 && p.is_active !== false)
       .map(product => {
         let cost = 0;
+        let usedAverage = false;
 
         // Cost from recipe (if linked) — drinks vs ice cream handled inside helper
         if (product.recipe_id) {
           const recipe = recipes.find(r => r.id === product.recipe_id);
           if (recipe) {
             cost += calcRecipeCostPerServing(recipe, supplies, product.grams_per_serving, product.category);
+          }
+        } else {
+          // Producto dinámico (sin receta fija): aplicar promedio si es helado / requiere sabor
+          const cat = (product.category || '').toLowerCase();
+          const isIceCreamLike = cat === 'helado' || cat === 'para llevar' || product.requires_flavor === true;
+          if (isIceCreamLike && averageIceCreamCostPerGram > 0 && (product.grams_per_serving || 0) > 0) {
+            cost += averageIceCreamCostPerGram * (product.grams_per_serving || 0);
+            usedAverage = true;
           }
         }
 
@@ -70,6 +107,7 @@ export default function ProfitMarginChart({ products, recipes, supplies }) {
           cost,
           margin: margin !== null ? margin : 0,
           hasData: cost > 0,
+          usedAverage,
         };
       })
       .filter(d => d.hasData)
@@ -107,7 +145,7 @@ export default function ProfitMarginChart({ products, recipes, supplies }) {
         <CardTitle className="text-sm font-semibold flex items-center gap-2">
           <TrendingUp className="h-4 w-4 text-primary" />
           Margen de Ganancia por Producto
-          <span className="font-normal text-muted-foreground text-xs ml-1">(precio venta vs costo ingredientes + envase)</span>
+          <span className="font-normal text-muted-foreground text-xs ml-1">(precio venta vs costo de empaque + ingredientes o promedio de vitrina)</span>
         </CardTitle>
       </CardHeader>
       <CardContent>
