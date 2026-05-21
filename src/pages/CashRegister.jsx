@@ -75,20 +75,21 @@ export default function CashRegister() {
     return last.created_date ? moment(last.created_date) : null;
   }, [todayRegisters]);
 
-  // Solo ventas del día que NO han sido cubiertas por un cierre previo
+  // Todas las ventas del día (para visualización)
   const todaySales = useMemo(
-    () => sales.filter(s => {
-      if (!s.sale_date) return false;
-      if (moment(s.sale_date).format('YYYY-MM-DD') !== today) return false;
-      if (lastCloseTime && !moment(s.sale_date).isAfter(lastCloseTime)) return false;
-      return true;
-    }),
-    [sales, today, lastCloseTime]
+    () => sales.filter(s => s.sale_date && moment(s.sale_date).format('YYYY-MM-DD') === today),
+    [sales, today]
   );
 
-  const systemCash = todaySales.reduce((sum, s) => sum + (s.cash_amount || 0), 0);
-  const systemDigital = todaySales.reduce((sum, s) => sum + (s.digital_amount || 0), 0);
-  const todayTotal = todaySales.reduce((sum, s) => sum + (s.total || 0), 0);
+  // Ventas pendientes de cierre (posteriores al último cierre del día) — para totales de caja
+  const openSales = useMemo(
+    () => todaySales.filter(s => !lastCloseTime || moment(s.sale_date).isAfter(lastCloseTime)),
+    [todaySales, lastCloseTime]
+  );
+
+  const systemCash = openSales.reduce((sum, s) => sum + (s.cash_amount || 0), 0);
+  const systemDigital = openSales.reduce((sum, s) => sum + (s.digital_amount || 0), 0);
+  const todayTotal = openSales.reduce((sum, s) => sum + (s.total || 0), 0);
 
   // Ventas asociadas a un cierre: entre el cierre anterior del día y este cierre
   const getSalesForRegister = (register) => {
@@ -123,7 +124,7 @@ export default function CashRegister() {
         declared_cash: declaredCash,
         difference: declaredCash - systemCash,
         total_sales: todayTotal,
-        sales_count: todaySales.length,
+        sales_count: openSales.length,
         notes,
         status: 'cerrada',
         operator: me?.email || me?.full_name || '',
@@ -141,7 +142,7 @@ export default function CashRegister() {
       date: today,
       shift,
       operator: me?.email || me?.full_name || '',
-      sales: todaySales,
+      sales: openSales,
       register: null,
     });
     setTimeout(() => window.print(), 50);
@@ -185,7 +186,7 @@ export default function CashRegister() {
         <TabsContent value="today" className="space-y-6">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <StatCard title="Ventas Hoy" value={`$${todayTotal.toFixed(2)}`} icon={DollarSign} />
-            <StatCard title="Transacciones" value={todaySales.length} />
+            <StatCard title="Transacciones" value={openSales.length} />
             <StatCard title="Efectivo" value={`$${systemCash.toFixed(2)}`} />
             <StatCard title="Digital" value={`$${systemDigital.toFixed(2)}`} />
           </div>
@@ -345,7 +346,7 @@ export default function CashRegister() {
             <Card className="p-4 bg-secondary/50">
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div><span className="text-muted-foreground">Ventas:</span> <span className="font-semibold">${todayTotal.toFixed(2)}</span></div>
-                <div><span className="text-muted-foreground">Transacciones:</span> <span className="font-semibold">{todaySales.length}</span></div>
+                <div><span className="text-muted-foreground">Transacciones:</span> <span className="font-semibold">{openSales.length}</span></div>
                 <div><span className="text-muted-foreground">Efectivo (sistema):</span> <span className="font-semibold">${systemCash.toFixed(2)}</span></div>
                 <div><span className="text-muted-foreground">Digital:</span> <span className="font-semibold">${systemDigital.toFixed(2)}</span></div>
               </div>
