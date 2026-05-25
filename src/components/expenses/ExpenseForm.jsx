@@ -5,29 +5,21 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
-
-export const CATEGORIES = [
-  { value: 'alquiler', label: 'Alquiler', type: 'fijo' },
-  { value: 'sueldos_fijos', label: 'Sueldos Fijos', type: 'fijo' },
-  { value: 'software', label: 'Software / Suscripciones', type: 'fijo' },
-  { value: 'servicios', label: 'Servicios (luz, agua, internet)', type: 'fijo' },
-  { value: 'otros_fijos', label: 'Otros Fijos', type: 'fijo' },
-  { value: 'mantenimiento', label: 'Mantenimiento', type: 'variable' },
-  { value: 'imprevistos', label: 'Imprevistos', type: 'variable' },
-  { value: 'otros_variables', label: 'Otros Variables', type: 'variable' },
-];
-
-export const CATEGORY_LABEL = Object.fromEntries(CATEGORIES.map(c => [c.value, c.label]));
-export const CATEGORY_TYPE = Object.fromEntries(CATEGORIES.map(c => [c.value, c.type]));
+import { Switch } from '@/components/ui/switch';
+import { Repeat } from 'lucide-react';
 
 const today = () => new Date().toISOString().slice(0, 10);
 
-export default function ExpenseForm({ open, onOpenChange, onSubmit, initialValue }) {
+export default function ExpenseForm({ open, onOpenChange, onSubmit, initialValue, categories }) {
   const [form, setForm] = useState({
     description: '',
     amount: '',
-    category: 'alquiler',
+    type: 'fijo',
+    category: '',
     date: today(),
+    is_recurring: false,
+    recurring_active: true,
+    recurring_end_date: '',
     notes: '',
   });
 
@@ -36,32 +28,52 @@ export default function ExpenseForm({ open, onOpenChange, onSubmit, initialValue
       setForm({
         description: initialValue.description || '',
         amount: initialValue.amount ?? '',
-        category: initialValue.category || 'alquiler',
+        type: initialValue.type || 'fijo',
+        category: initialValue.category || '',
         date: initialValue.date || today(),
+        is_recurring: !!initialValue.is_recurring,
+        recurring_active: initialValue.recurring_active !== false,
+        recurring_end_date: initialValue.recurring_end_date || '',
         notes: initialValue.notes || '',
       });
     } else {
-      setForm({ description: '', amount: '', category: 'alquiler', date: today(), notes: '' });
+      setForm({
+        description: '', amount: '', type: 'fijo', category: '',
+        date: today(), is_recurring: false, recurring_active: true,
+        recurring_end_date: '', notes: '',
+      });
     }
   }, [initialValue, open]);
+
+  const availableCats = categories[form.type] || [];
+
+  // Auto-pick first category if current is invalid
+  useEffect(() => {
+    if (!availableCats.includes(form.category) && availableCats.length > 0) {
+      setForm(f => ({ ...f, category: availableCats[0] }));
+    }
+  }, [form.type, availableCats, form.category]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
     const amount = parseFloat(form.amount);
-    if (!form.description.trim() || !amount || amount <= 0) return;
+    if (!form.description.trim() || !amount || amount <= 0 || !form.category) return;
     onSubmit({
       description: form.description.trim(),
       amount,
+      type: form.type,
       category: form.category,
-      type: CATEGORY_TYPE[form.category],
       date: form.date,
+      is_recurring: form.is_recurring,
+      recurring_active: form.is_recurring ? form.recurring_active : false,
+      recurring_end_date: form.is_recurring ? (form.recurring_end_date || null) : null,
       notes: form.notes?.trim() || '',
     });
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{initialValue ? 'Editar Gasto' : 'Nuevo Gasto'}</DialogTitle>
         </DialogHeader>
@@ -71,7 +83,7 @@ export default function ExpenseForm({ open, onOpenChange, onSubmit, initialValue
             <Input
               value={form.description}
               onChange={e => setForm({ ...form, description: e.target.value })}
-              placeholder="ej. Alquiler de mayo"
+              placeholder="ej. Alquiler local"
               required
             />
           </div>
@@ -79,9 +91,7 @@ export default function ExpenseForm({ open, onOpenChange, onSubmit, initialValue
             <div>
               <Label className="text-xs">Monto (USD)</Label>
               <Input
-                type="number"
-                step="0.01"
-                min="0"
+                type="number" step="0.01" min="0"
                 value={form.amount}
                 onChange={e => setForm({ ...form, amount: e.target.value })}
                 placeholder="0.00"
@@ -98,25 +108,74 @@ export default function ExpenseForm({ open, onOpenChange, onSubmit, initialValue
               />
             </div>
           </div>
-          <div>
-            <Label className="text-xs">Categoría</Label>
-            <Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v })}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <div className="px-2 py-1 text-[10px] uppercase text-muted-foreground font-semibold">Fijos</div>
-                {CATEGORIES.filter(c => c.type === 'fijo').map(c => (
-                  <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
-                ))}
-                <div className="px-2 py-1 mt-1 text-[10px] uppercase text-muted-foreground font-semibold">Variables</div>
-                {CATEGORIES.filter(c => c.type === 'variable').map(c => (
-                  <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <p className="text-[10px] text-muted-foreground mt-1">
-              Tipo: <span className="font-semibold">{CATEGORY_TYPE[form.category]}</span>
-            </p>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs">Tipo</Label>
+              <Select value={form.type} onValueChange={(v) => setForm({ ...form, type: v })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="fijo">Fijo</SelectItem>
+                  <SelectItem value="variable">Variable</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs">Categoría</Label>
+              <Select
+                value={form.category}
+                onValueChange={(v) => setForm({ ...form, category: v })}
+                disabled={availableCats.length === 0}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={availableCats.length ? 'Selecciona...' : 'Crea categorías primero'} />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableCats.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
+
+          {/* Recurring switch */}
+          <div className="rounded-lg border p-3 space-y-3 bg-secondary/30">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <Repeat className="h-4 w-4 text-primary" />
+                <div>
+                  <Label className="text-sm font-medium">Gasto Fijo Recurrente</Label>
+                  <p className="text-[10px] text-muted-foreground">
+                    Se aplicará automáticamente a todos los meses siguientes
+                  </p>
+                </div>
+              </div>
+              <Switch
+                checked={form.is_recurring}
+                onCheckedChange={(v) => setForm({ ...form, is_recurring: v })}
+              />
+            </div>
+
+            {form.is_recurring && (
+              <div className="grid grid-cols-2 gap-3 pt-2 border-t">
+                <div className="flex items-center justify-between col-span-2">
+                  <Label className="text-xs">Recurrencia activa</Label>
+                  <Switch
+                    checked={form.recurring_active}
+                    onCheckedChange={(v) => setForm({ ...form, recurring_active: v })}
+                  />
+                </div>
+                <div className="col-span-2">
+                  <Label className="text-xs">Fin de recurrencia (opcional)</Label>
+                  <Input
+                    type="date"
+                    value={form.recurring_end_date}
+                    onChange={e => setForm({ ...form, recurring_end_date: e.target.value })}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
           <div>
             <Label className="text-xs">Notas (opcional)</Label>
             <Textarea
@@ -127,7 +186,7 @@ export default function ExpenseForm({ open, onOpenChange, onSubmit, initialValue
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-            <Button type="submit">{initialValue ? 'Guardar' : 'Crear'}</Button>
+            <Button type="submit" disabled={!form.category}>{initialValue ? 'Guardar' : 'Crear'}</Button>
           </DialogFooter>
         </form>
       </DialogContent>

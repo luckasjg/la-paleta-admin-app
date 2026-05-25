@@ -12,17 +12,7 @@
     },
     "category": {
       "type": "string",
-      "enum": [
-        "alquiler",
-        "sueldos_fijos",
-        "software",
-        "servicios",
-        "mantenimiento",
-        "imprevistos",
-        "otros_fijos",
-        "otros_variables"
-      ],
-      "description": "Categor\u00eda del gasto"
+      "description": "Categor\u00eda del gasto (libre, gestionada por el usuario)"
     },
     "type": {
       "type": "string",
@@ -36,7 +26,22 @@
     "date": {
       "type": "string",
       "format": "date",
-      "description": "Fecha del gasto"
+      "description": "Fecha del gasto (mes de origen para recurrentes)"
+    },
+    "is_recurring": {
+      "type": "boolean",
+      "description": "Si es true, el gasto se replica autom\u00e1ticamente en todos los meses siguientes",
+      "default": false
+    },
+    "recurring_active": {
+      "type": "boolean",
+      "description": "Si es true y is_recurring=true, sigue activo (puede desactivarse para detener la recurrencia)",
+      "default": true
+    },
+    "recurring_end_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Fecha opcional de fin de la recurrencia"
     },
     "notes": {
       "type": "string",

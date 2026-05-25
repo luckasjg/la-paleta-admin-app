@@ -5,16 +5,63 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Wallet, Lock, Unlock, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Wallet, Lock, Unlock, ChevronLeft, ChevronRight, Tags, Repeat } from 'lucide-react';
 import PageHeader from '@/components/shared/PageHeader';
 import StatCard from '@/components/shared/StatCard';
 import ExpenseForm from '@/components/expenses/ExpenseForm';
 import ExpensesTable from '@/components/expenses/ExpensesTable';
 import BreakevenAnalysis from '@/components/expenses/BreakevenAnalysis';
+import ExpenseCategoryManager from '@/components/expenses/ExpenseCategoryManager';
+import { useExpenseCategories } from '@/lib/useExpenseCategories';
+import { useAverageMargin } from '@/lib/useAverageMargin';
 import moment from 'moment';
 
 const MONTH_NAMES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
-const MARGIN_KEY = 'expenses_avg_margin_pct';
+
+/**
+ * Build a virtual list of expense "rows" for the given month, including:
+ *   - expenses created exactly in (year, month)
+ *   - recurring expenses created BEFORE/AT (year, month) that are still active
+ *
+ * A row is { expense, displayDate, isProjection } where displayDate is the
+ * date used in the table (real for the origin month, first-of-month for projections).
+ */
+function buildMonthRows(expenses, year, month) {
+  const monthStart = moment({ year, month }).startOf('month');
+  const monthEnd = moment({ year, month }).endOf('month');
+
+  const rows = [];
+  expenses.forEach(e => {
+    if (!e.date) return;
+    const created = moment(e.date);
+
+    // Real (origin month) record
+    if (created.year() === year && created.month() === month) {
+      rows.push({ expense: e, displayDate: e.date, isProjection: false });
+      return;
+    }
+
+    // Recurring projection for a future month
+    if (e.is_recurring && e.recurring_active !== false && created.isBefore(monthEnd)) {
+      if (e.recurring_end_date) {
+        const endDate = moment(e.recurring_end_date);
+        if (monthStart.isAfter(endDate, 'month')) return;
+      }
+      rows.push({
+        expense: e,
+        displayDate: monthStart.format('YYYY-MM-DD'),
+        isProjection: true,
+      });
+    }
+  });
+
+  // Sort: real first by date desc, then projections
+  rows.sort((a, b) => {
+    if (a.isProjection !== b.isProjection) return a.isProjection ? 1 : -1;
+    return moment(b.displayDate).valueOf() - moment(a.displayDate).valueOf();
+  });
+  return rows;
+}
 
 export default function ExpensesManager() {
   const qc = useQueryClient();
@@ -23,26 +70,35 @@ export default function ExpensesManager() {
   const [typeFilter, setTypeFilter] = useState('all');
   const [search, setSearch] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [categoriesOpen, setCategoriesOpen] = useState(false);
   const [editing, setEditing] = useState(null);
-  const [marginPct, setMarginPct] = useState(() => {
-    const saved = localStorage.getItem(MARGIN_KEY);
-    return saved ? parseFloat(saved) : 60;
-  });
 
-  const updateMargin = (v) => {
-    setMarginPct(v);
-    localStorage.setItem(MARGIN_KEY, String(v));
-  };
+  const { categories, addCategory, renameCategory, deleteCategory } = useExpenseCategories();
 
   // ── Data ──
   const { data: expenses = [] } = useQuery({
     queryKey: ['expenses'],
-    queryFn: () => base44.entities.Expense.list('-date', 500),
+    queryFn: () => base44.entities.Expense.list('-date', 1000),
   });
 
   const { data: sales = [] } = useQuery({
     queryKey: ['sales'],
     queryFn: () => base44.entities.Sale.list('-sale_date', 2000),
+  });
+
+  const { data: recipes = [] } = useQuery({
+    queryKey: ['recipes'],
+    queryFn: () => base44.entities.Recipe.list(),
+  });
+
+  const { data: products = [] } = useQuery({
+    queryKey: ['products'],
+    queryFn: () => base44.entities.Product.list(),
+  });
+
+  const { data: supplies = [] } = useQuery({
+    queryKey: ['supplies'],
+    queryFn: () => base44.entities.Supply.list(),
   });
 
   // ── Mutations ──
@@ -65,34 +121,34 @@ export default function ExpensesManager() {
   };
 
   const handleDelete = (e) => {
-    if (window.confirm(`¿Eliminar el gasto "${e.description}"?`)) deleteMut.mutate(e.id);
+    const msg = e.is_recurring
+      ? `Eliminar "${e.description}" eliminará también todas sus proyecciones futuras. ¿Continuar?`
+      : `¿Eliminar el gasto "${e.description}"?`;
+    if (window.confirm(msg)) deleteMut.mutate(e.id);
   };
 
-  // ── Filtering ──
-  const monthExpenses = useMemo(() => expenses.filter(e => {
-    if (!e.date) return false;
-    const d = moment(e.date);
-    return d.year() === year && d.month() === month;
-  }), [expenses, year, month]);
+  // ── Month rows (real + recurring projections) ──
+  const monthRows = useMemo(() => buildMonthRows(expenses, year, month), [expenses, year, month]);
 
-  const filteredExpenses = useMemo(() => {
-    return monthExpenses.filter(e => {
-      if (typeFilter !== 'all' && e.type !== typeFilter) return false;
-      if (search && !e.description.toLowerCase().includes(search.toLowerCase())) return false;
+  const filteredRows = useMemo(() => {
+    return monthRows.filter(r => {
+      if (typeFilter !== 'all' && r.expense.type !== typeFilter) return false;
+      if (search && !r.expense.description.toLowerCase().includes(search.toLowerCase())) return false;
       return true;
     });
-  }, [monthExpenses, typeFilter, search]);
+  }, [monthRows, typeFilter, search]);
 
-  // ── Aggregates ──
+  // ── Aggregates for the month ──
   const fixedTotal = useMemo(
-    () => monthExpenses.filter(e => e.type === 'fijo').reduce((s, e) => s + (e.amount || 0), 0),
-    [monthExpenses]
+    () => monthRows.filter(r => r.expense.type === 'fijo').reduce((s, r) => s + (r.expense.amount || 0), 0),
+    [monthRows]
   );
   const variableTotal = useMemo(
-    () => monthExpenses.filter(e => e.type === 'variable').reduce((s, e) => s + (e.amount || 0), 0),
-    [monthExpenses]
+    () => monthRows.filter(r => r.expense.type === 'variable').reduce((s, r) => s + (r.expense.amount || 0), 0),
+    [monthRows]
   );
   const grandTotal = fixedTotal + variableTotal;
+  const recurringCount = monthRows.filter(r => r.isProjection).length;
 
   const monthlySales = useMemo(() => sales
     .filter(s => {
@@ -103,6 +159,12 @@ export default function ExpensesManager() {
     .filter(s => !(s.items || []).some(it => it.product_name?.startsWith('[TEST]')))
     .reduce((sum, s) => sum + (s.total || 0), 0),
   [sales, year, month]);
+
+  // ── Average margin from Profitability Matrix logic ──
+  const marginInfo = useAverageMargin({ recipes, products, supplies, fixedServiceCosts: 0 });
+
+  // ── Category usage count (across ALL expenses, all months) ──
+  const categoryUsage = (catName) => expenses.filter(e => e.category === catName).length;
 
   // Month navigation
   const changeMonth = (delta) => {
@@ -115,16 +177,22 @@ export default function ExpensesManager() {
   };
 
   const monthLabel = `${MONTH_NAMES[month]} ${year}`;
+  const hasAnyCategory = (categories.fijo?.length || 0) + (categories.variable?.length || 0) > 0;
 
   return (
     <div className="w-full max-w-none space-y-6">
       <PageHeader
         title="Gastos y Punto de Equilibrio"
-        description="Registra los gastos del negocio y monitorea el umbral de rentabilidad"
+        description="Panel financiero conectado con Recetas, Productos e Inventario"
         actions={
-          <Button onClick={() => { setEditing(null); setDialogOpen(true); }}>
-            <Plus className="h-4 w-4" /> Nuevo Gasto
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setCategoriesOpen(true)}>
+              <Tags className="h-4 w-4" /> Categorías
+            </Button>
+            <Button onClick={() => { setEditing(null); setDialogOpen(true); }} disabled={!hasAnyCategory}>
+              <Plus className="h-4 w-4" /> Nuevo Gasto
+            </Button>
+          </div>
         }
       />
 
@@ -158,33 +226,33 @@ export default function ExpensesManager() {
           title="Gastos Fijos (Mes)"
           value={`$${fixedTotal.toFixed(2)}`}
           icon={Lock}
-          subtitle={`${monthExpenses.filter(e => e.type === 'fijo').length} gastos`}
+          subtitle={`${monthRows.filter(r => r.expense.type === 'fijo').length} ítems`}
         />
         <StatCard
           title="Gastos Variables (Mes)"
           value={`$${variableTotal.toFixed(2)}`}
           icon={Unlock}
-          subtitle={`${monthExpenses.filter(e => e.type === 'variable').length} gastos`}
+          subtitle={`${monthRows.filter(r => r.expense.type === 'variable').length} ítems`}
         />
         <StatCard
-          title="Total Gastos"
+          title="Recurrentes Activos"
+          value={recurringCount.toString()}
+          icon={Repeat}
+          subtitle="aplicados este mes"
+        />
+        <StatCard
+          title="Total / Ventas"
           value={`$${grandTotal.toFixed(2)}`}
           icon={Wallet}
-          subtitle={`${monthExpenses.length} registros`}
-        />
-        <StatCard
-          title="Ventas del Mes"
-          value={`$${monthlySales.toFixed(2)}`}
-          icon={Wallet}
-          subtitle="ingreso bruto"
+          subtitle={`Ventas: $${monthlySales.toFixed(2)}`}
         />
       </div>
 
       {/* Breakeven analysis */}
       <BreakevenAnalysis
         fixedExpenses={fixedTotal}
-        marginPct={marginPct}
-        onMarginChange={updateMargin}
+        marginPct={marginInfo.marginPct}
+        marginInfo={marginInfo}
         monthlySales={monthlySales}
         monthLabel={monthLabel}
       />
@@ -196,6 +264,9 @@ export default function ExpensesManager() {
             <CardTitle className="text-sm font-semibold flex items-center gap-2">
               <Wallet className="h-4 w-4 text-primary" />
               Gastos Registrados — {monthLabel}
+              <span className="text-[11px] text-muted-foreground font-normal ml-1">
+                (incluye recurrentes activos)
+              </span>
             </CardTitle>
             <div className="flex items-center gap-2">
               <Input
@@ -217,7 +288,7 @@ export default function ExpensesManager() {
         </CardHeader>
         <CardContent>
           <ExpensesTable
-            expenses={filteredExpenses}
+            rows={filteredRows}
             onEdit={(e) => { setEditing(e); setDialogOpen(true); }}
             onDelete={handleDelete}
           />
@@ -229,6 +300,17 @@ export default function ExpensesManager() {
         onOpenChange={(v) => { setDialogOpen(v); if (!v) setEditing(null); }}
         onSubmit={handleSubmit}
         initialValue={editing}
+        categories={categories}
+      />
+
+      <ExpenseCategoryManager
+        open={categoriesOpen}
+        onOpenChange={setCategoriesOpen}
+        categories={categories}
+        addCategory={addCategory}
+        renameCategory={renameCategory}
+        deleteCategory={deleteCategory}
+        usageCount={categoryUsage}
       />
     </div>
   );
