@@ -57,7 +57,7 @@ export default function Sidebar() {
         mobileOpen ? "translate-x-0" : "-translate-x-full"
       )}>
         {/* Logo */}
-        <div className="p-4 flex items-center justify-center border-b border-border bg-[#761011]">
+        <div className="p-4 flex items-center justify-center border-b border-border bg-gray-400">
           <img src="https://media.base44.com/images/public/69e078117e2725c0776d724e/7cc689726_logoPaletaMesadetrabajo8-111.png" alt="La Paleta Café" className="h-32 w-auto object-contain" />
         </div>
 
