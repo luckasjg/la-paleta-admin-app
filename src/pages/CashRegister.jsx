@@ -53,6 +53,11 @@ export default function CashRegister() {
     queryFn: () => base44.entities.Tray.list('-created_date', 50),
   });
 
+  const { data: recipes = [] } = useQuery({
+    queryKey: ['recipes'],
+    queryFn: () => base44.entities.Recipe.list(),
+  });
+
   const { data: me } = useQuery({
     queryKey: ['me'],
     queryFn: () => base44.auth.me().catch(() => null),
@@ -265,6 +270,8 @@ export default function CashRegister() {
             activeTrays={activeTrays}
             todaySales={todaySales}
             shift={shift}
+            recipes={recipes}
+            supplies={supplies}
           />
         </TabsContent>
 

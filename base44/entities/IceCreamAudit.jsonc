@@ -42,6 +42,12 @@
           },
           "variance": {
             "type": "number"
+          },
+          "cost_per_gram": {
+            "type": "number"
+          },
+          "financial_impact": {
+            "type": "number"
           }
         }
       }
@@ -49,6 +55,10 @@
     "total_variance_grams": {
       "type": "number",
       "description": "Merma total en gramos"
+    },
+    "financial_impact": {
+      "type": "number",
+      "description": "P\u00e9rdida/ganancia total de la auditor\u00eda en USD (suma algebraica de impactos por bandeja)"
     },
     "notes": {
       "type": "string",

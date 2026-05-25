@@ -6,11 +6,21 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ClipboardCheck, AlertTriangle, CheckCircle2, TrendingDown } from 'lucide-react';
+import { ClipboardCheck, AlertTriangle, CheckCircle2, TrendingDown, DollarSign } from 'lucide-react';
 import { toast } from 'sonner';
 import moment from 'moment';
 
-export default function IceCreamAudit({ activeTrays = [], todaySales = [], shift = 'manana' }) {
+// Cost per gram of a recipe = (sum of ingredient_qty * supply.cost_per_unit) / yield_amount
+const computeRecipeCostPerGram = (recipe, supplies) => {
+  if (!recipe || !recipe.yield_amount) return 0;
+  const totalCost = (recipe.ingredients || []).reduce((sum, ing) => {
+    const supply = supplies.find(s => s.id === ing.supply_id);
+    return sum + (supply?.cost_per_unit || 0) * (ing.quantity || 0);
+  }, 0);
+  return totalCost / recipe.yield_amount;
+};
+
+export default function IceCreamAudit({ activeTrays = [], todaySales = [], shift = 'manana', recipes = [], supplies = [] }) {
   const qc = useQueryClient();
   const today = moment().format('YYYY-MM-DD');
 
@@ -53,11 +63,15 @@ export default function IceCreamAudit({ activeTrays = [], todaySales = [], shift
       const physicalRaw = physicalWeights[tray.id];
       const physicalWeight = physicalRaw !== undefined && physicalRaw !== '' ? parseFloat(physicalRaw) : null;
       const variance = physicalWeight !== null ? physicalWeight - theoreticalStock : null;
-      return { tray, gramsConsumed, theoreticalStock, physicalWeight, variance };
+      const recipe = recipes.find(r => r.id === tray.recipe_id) || recipes.find(r => r.name === tray.recipe_name);
+      const costPerGram = computeRecipeCostPerGram(recipe, supplies);
+      const financialImpact = variance !== null ? variance * costPerGram : null;
+      return { tray, gramsConsumed, theoreticalStock, physicalWeight, variance, costPerGram, financialImpact };
     });
-  }, [activeTrays, theoreticalMap, physicalWeights]);
+  }, [activeTrays, theoreticalMap, physicalWeights, recipes, supplies]);
 
   const totalVariance = rows.reduce((s, r) => s + (r.variance || 0), 0);
+  const totalFinancialImpact = rows.reduce((s, r) => s + (r.financialImpact || 0), 0);
   const allFilled = rows.length > 0 && rows.every(r => r.physicalWeight !== null && !isNaN(r.physicalWeight));
 
   const saveAudit = useMutation({
@@ -74,8 +88,11 @@ export default function IceCreamAudit({ activeTrays = [], todaySales = [], shift
           theoretical_stock: r.theoreticalStock,
           physical_weight: r.physicalWeight,
           variance: r.variance,
+          cost_per_gram: r.costPerGram,
+          financial_impact: r.financialImpact,
         })),
         total_variance_grams: totalVariance,
+        financial_impact: totalFinancialImpact,
       });
 
       // Update each tray's remaining_grams with the physical count
@@ -144,10 +161,11 @@ export default function IceCreamAudit({ activeTrays = [], todaySales = [], shift
                 <TableHead className="text-right font-semibold text-foreground">Stock Teórico</TableHead>
                 <TableHead className="text-right">Peso Físico Real (g)</TableHead>
                 <TableHead className="text-right">Descuadre / Merma</TableHead>
+                <TableHead className="text-right">Impacto ($)</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {rows.map(({ tray, gramsConsumed, theoreticalStock, physicalWeight, variance }) => {
+              {rows.map(({ tray, gramsConsumed, theoreticalStock, physicalWeight, variance, costPerGram, financialImpact }) => {
                 const hasMerma = variance !== null && variance < -50;
                 const isOk = variance !== null && variance >= -50;
                 return (
@@ -184,12 +202,36 @@ export default function IceCreamAudit({ activeTrays = [], todaySales = [], shift
                         </Badge>
                       ) : null}
                     </TableCell>
+                    <TableCell className="text-right font-mono text-sm">
+                      {financialImpact === null ? (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      ) : financialImpact < 0 ? (
+                        <span className="text-red-600 font-semibold">-${Math.abs(financialImpact).toFixed(2)}</span>
+                      ) : financialImpact > 0 ? (
+                        <span className="text-green-600 font-semibold">+${financialImpact.toFixed(2)}</span>
+                      ) : (
+                        <span className="text-muted-foreground">$0.00</span>
+                      )}
+                      {costPerGram > 0 && (
+                        <div className="text-[10px] text-muted-foreground">${costPerGram.toFixed(4)}/g</div>
+                      )}
+                    </TableCell>
                   </TableRow>
                 );
               })}
             </TableBody>
           </Table>
         </div>
+        {allFilled && (
+          <div className="px-4 py-3 border-t bg-secondary/30 flex items-center justify-between flex-wrap gap-2">
+            <span className="text-sm font-semibold flex items-center gap-1.5">
+              <DollarSign className="h-4 w-4" /> Pérdida / Ganancia Total de la Auditoría
+            </span>
+            <span className={`text-base font-bold font-mono ${totalFinancialImpact < 0 ? 'text-red-600' : totalFinancialImpact > 0 ? 'text-green-600' : 'text-foreground'}`}>
+              {totalFinancialImpact < 0 ? '-' : totalFinancialImpact > 0 ? '+' : ''}${Math.abs(totalFinancialImpact).toFixed(2)}
+            </span>
+          </div>
+        )}
         <div className="px-4 py-2 border-t">
           <p className="text-xs text-muted-foreground">
             💡 Ingresa el peso físico de cada bandeja. El botón "Registrar Auditoría" guardará el reporte y actualizará el stock de las bandejas con el peso real.
