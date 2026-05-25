@@ -1,0 +1,74 @@
+{
+  "name": "Expense",
+  "type": "object",
+  "properties": {
+    "description": {
+      "type": "string",
+      "description": "Descripci\u00f3n del gasto"
+    },
+    "amount": {
+      "type": "number",
+      "description": "Monto del gasto en USD"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "alquiler",
+        "sueldos_fijos",
+        "software",
+        "servicios",
+        "mantenimiento",
+        "imprevistos",
+        "otros_fijos",
+        "otros_variables"
+      ],
+      "description": "Categor\u00eda del gasto"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "fijo",
+        "variable"
+      ],
+      "description": "Tipo de gasto: fijo o variable",
+      "default": "fijo"
+    },
+    "date": {
+      "type": "string",
+      "format": "date",
+      "description": "Fecha del gasto"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Notas adicionales"
+    }
+  },
+  "required": [
+    "description",
+    "amount",
+    "category",
+    "date"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}
