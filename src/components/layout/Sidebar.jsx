@@ -57,14 +57,8 @@ export default function Sidebar() {
         mobileOpen ? "translate-x-0" : "-translate-x-full"
       )}>
         {/* Logo */}
-        <div className="p-6 flex items-center gap-3 border-b border-border">
-          <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
-            <IceCream className="h-5 w-5 text-primary-foreground" />
-          </div>
-          <div>
-            <h1 className="text-lg font-bold tracking-tight text-foreground">Gelato</h1>
-            <p className="text-xs text-muted-foreground">& Café Premium</p>
-          </div>
+        <div className="p-4 flex items-center justify-center border-b border-border">
+          <img src="https://media.base44.com/images/public/69e078117e2725c0776d724e/7cc689726_logoPaletaMesadetrabajo8-111.png" alt="La Paleta Café" className="h-32 w-auto object-contain" />
         </div>
 
         {/* Nav */}
