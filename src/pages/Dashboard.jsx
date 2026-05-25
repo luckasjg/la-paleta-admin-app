@@ -7,7 +7,7 @@ import { DollarSign, IceCream, AlertTriangle, TrendingUp } from 'lucide-react';
 import PageHeader from '@/components/shared/PageHeader';
 import StatCard from '@/components/shared/StatCard';
 import FinancialKPIs from '@/components/dashboard/FinancialKPIs';
-import BreakEvenPanel from '@/components/dashboard/BreakEvenPanel';
+import BreakEvenPanel from '@/components/dashboard/BreakEvenPanel.jsx';
 import DataSimulator from '@/components/dashboard/DataSimulator';
 import AnnualSalesChart from '@/components/dashboard/AnnualSalesChart';
 import MonthDetailCharts from '@/components/dashboard/MonthDetailCharts';
@@ -207,7 +207,14 @@ export default function Dashboard() {
             />
           </div>
           <div className="xl:col-span-2">
-            <BreakEvenPanel grossProfit={grossRevenue - cogs} />
+            <BreakEvenPanel
+              year={selectedYear}
+              month={selectedMonth}
+              monthlySales={grossRevenue}
+              recipes={recipes}
+              products={products}
+              supplies={supplies}
+            />
           </div>
         </div>
 

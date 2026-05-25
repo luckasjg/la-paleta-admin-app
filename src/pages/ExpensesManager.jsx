@@ -14,54 +14,10 @@ import BreakevenAnalysis from '@/components/expenses/BreakevenAnalysis';
 import ExpenseCategoryManager from '@/components/expenses/ExpenseCategoryManager';
 import { useExpenseCategories } from '@/lib/useExpenseCategories';
 import { useAverageMargin } from '@/lib/useAverageMargin';
+import { buildMonthRows } from '@/lib/expenseProjections';
 import moment from 'moment';
 
 const MONTH_NAMES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
-
-/**
- * Build a virtual list of expense "rows" for the given month, including:
- *   - expenses created exactly in (year, month)
- *   - recurring expenses created BEFORE/AT (year, month) that are still active
- *
- * A row is { expense, displayDate, isProjection } where displayDate is the
- * date used in the table (real for the origin month, first-of-month for projections).
- */
-function buildMonthRows(expenses, year, month) {
-  const monthStart = moment({ year, month }).startOf('month');
-  const monthEnd = moment({ year, month }).endOf('month');
-
-  const rows = [];
-  expenses.forEach(e => {
-    if (!e.date) return;
-    const created = moment(e.date);
-
-    // Real (origin month) record
-    if (created.year() === year && created.month() === month) {
-      rows.push({ expense: e, displayDate: e.date, isProjection: false });
-      return;
-    }
-
-    // Recurring projection for a future month
-    if (e.is_recurring && e.recurring_active !== false && created.isBefore(monthEnd)) {
-      if (e.recurring_end_date) {
-        const endDate = moment(e.recurring_end_date);
-        if (monthStart.isAfter(endDate, 'month')) return;
-      }
-      rows.push({
-        expense: e,
-        displayDate: monthStart.format('YYYY-MM-DD'),
-        isProjection: true,
-      });
-    }
-  });
-
-  // Sort: real first by date desc, then projections
-  rows.sort((a, b) => {
-    if (a.isProjection !== b.isProjection) return a.isProjection ? 1 : -1;
-    return moment(b.displayDate).valueOf() - moment(a.displayDate).valueOf();
-  });
-  return rows;
-}
 
 export default function ExpensesManager() {
   const qc = useQueryClient();

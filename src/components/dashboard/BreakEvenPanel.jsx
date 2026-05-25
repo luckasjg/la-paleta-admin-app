@@ -1,90 +1,110 @@
-import React, { useState } from 'react';
+import React from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Target } from 'lucide-react';
+import { Target, Info, Sparkles, CheckCircle2, AlertCircle, ExternalLink } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { base44 } from '@/api/base44Client';
+import { getFixedExpensesForMonth } from '@/lib/expenseProjections';
+import { useAverageMargin } from '@/lib/useAverageMargin';
 
-const LS_KEY = 'dashboard_fixed_costs';
-
-export default function BreakEvenPanel({ grossProfit }) {
-  const [fixedCosts, setFixedCosts] = useState(() => {
-    const saved = localStorage.getItem(LS_KEY);
-    return saved ? parseFloat(saved) : 0;
+export default function BreakEvenPanel({ year, month, monthlySales, recipes, products, supplies }) {
+  const { data: expenses = [] } = useQuery({
+    queryKey: ['expenses'],
+    queryFn: () => base44.entities.Expense.list('-date', 1000),
   });
 
-  const handleChange = (val) => {
-    const num = parseFloat(val) || 0;
-    setFixedCosts(num);
-    localStorage.setItem(LS_KEY, String(num));
-  };
+  const fixedExpenses = getFixedExpensesForMonth(expenses, year, month);
+  const marginInfo = useAverageMargin({ recipes, products, supplies, fixedServiceCosts: 0 });
+  const marginPct = marginInfo.marginPct;
+  const marginRatio = Math.max(0.01, Math.min(0.99, marginPct / 100));
 
-  const netProfit = grossProfit - fixedCosts;
-  const breakEvenPct = fixedCosts > 0 ? Math.min(100, (grossProfit / fixedCosts) * 100) : 100;
-  const reached = netProfit >= 0;
-
-  const daysInMonth = 30;
-  const dailyFixed = fixedCosts / daysInMonth;
-  const dailyRevNeeded = dailyFixed; // simplification: assume same margin ratio
+  const breakevenRevenue = fixedExpenses > 0 ? fixedExpenses / marginRatio : 0;
+  const progressPct = breakevenRevenue > 0 ? Math.min(100, (monthlySales / breakevenRevenue) * 100) : 0;
+  const reached = monthlySales >= breakevenRevenue && breakevenRevenue > 0;
+  const missing = Math.max(0, breakevenRevenue - monthlySales);
+  const surplus = Math.max(0, monthlySales - breakevenRevenue);
 
   return (
-    <Card>
+    <Card className="h-full">
       <CardHeader className="pb-3">
-        <CardTitle className="text-sm font-semibold flex items-center gap-2">
-          <Target className="h-4 w-4 text-primary" />
-          Punto de Equilibrio
+        <CardTitle className="text-sm font-semibold flex items-center justify-between gap-2">
+          <span className="flex items-center gap-2">
+            <Target className="h-4 w-4 text-primary" />
+            Punto de Equilibrio
+          </span>
+          <Link
+            to="/gastos"
+            className="text-[10px] font-normal text-muted-foreground hover:text-primary flex items-center gap-1"
+            title="Gestionar gastos y categorías"
+          >
+            Gestionar <ExternalLink className="h-3 w-3" />
+          </Link>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-end">
-          <div className="flex-1">
-            <Label className="text-xs text-muted-foreground">Costos Fijos Mensuales ($)</Label>
-            <Input
-              type="number"
-              step="0.01"
-              value={fixedCosts || ''}
-              placeholder="ej. 1500.00"
-              onChange={e => handleChange(e.target.value)}
-              className="mt-1"
-            />
-            <p className="text-[10px] text-muted-foreground mt-1">Alquiler, servicios, sueldos, etc. Se guarda localmente.</p>
+        <div className="grid grid-cols-3 gap-2">
+          <div className="rounded-lg bg-secondary/60 p-2.5">
+            <p className="text-[10px] text-muted-foreground">Gastos Fijos</p>
+            <p className="text-base font-bold font-mono">${fixedExpenses.toFixed(2)}</p>
           </div>
-          <div className="grid grid-cols-2 gap-3 flex-1">
-            <div className="rounded-lg bg-secondary/60 p-3 text-center">
-              <p className="text-[10px] text-muted-foreground">Costo fijo/día</p>
-              <p className="text-lg font-bold">${dailyFixed.toFixed(2)}</p>
+          <div className={`rounded-lg p-2.5 border ${marginInfo.usingFallback ? 'bg-amber-50 border-amber-200' : 'bg-emerald-50 border-emerald-200'}`}>
+            <div className="flex items-center gap-1">
+              {marginInfo.usingFallback ? <Info className="h-3 w-3 text-amber-600" /> : <Sparkles className="h-3 w-3 text-emerald-600" />}
+              <p className="text-[10px] text-muted-foreground">Margen</p>
             </div>
-            <div className={`rounded-lg p-3 text-center ${reached ? 'bg-emerald-50' : 'bg-amber-50'}`}>
-              <p className="text-[10px] text-muted-foreground">Resultado neto</p>
-              <p className={`text-lg font-bold ${reached ? 'text-emerald-600' : 'text-amber-600'}`}>
-                {netProfit >= 0 ? '+' : ''}{netProfit.toFixed(2)}
-              </p>
-            </div>
+            <p className={`text-base font-bold font-mono ${marginInfo.usingFallback ? 'text-amber-700' : 'text-emerald-700'}`}>
+              {marginPct.toFixed(1)}%
+            </p>
+          </div>
+          <div className="rounded-lg bg-primary/5 border border-primary/20 p-2.5">
+            <p className="text-[10px] text-muted-foreground">Equilibrio</p>
+            <p className="text-base font-bold font-mono text-primary">${breakevenRevenue.toFixed(2)}</p>
           </div>
         </div>
 
-        {/* Progress bar */}
+        {marginInfo.usingFallback && (
+          <div className="flex items-start gap-1.5 rounded-md bg-amber-50 border border-amber-200 px-2 py-1.5 text-[10px] text-amber-700">
+            <Info className="h-3 w-3 flex-shrink-0 mt-0.5" />
+            <span>Margen de respaldo del 50% (faltan recetas/productos activos).</span>
+          </div>
+        )}
+
         <div>
           <div className="flex justify-between text-xs text-muted-foreground mb-1.5">
-            <span>Ganancia bruta cubriendo costos fijos</span>
-            <span className="font-semibold">{breakEvenPct.toFixed(1)}%</span>
+            <span>Ventas vs. equilibrio</span>
+            <span className="font-semibold">{progressPct.toFixed(1)}%</span>
           </div>
           <div className="h-4 rounded-full bg-secondary overflow-hidden">
             <div
-              className={`h-full rounded-full transition-all duration-700 ${reached ? 'bg-emerald-500' : 'bg-amber-400'}`}
-              style={{ width: `${Math.max(2, breakEvenPct)}%` }}
+              className={`h-full rounded-full transition-all duration-700 ${
+                reached ? 'bg-emerald-500' : progressPct < 50 ? 'bg-red-400' : 'bg-amber-400'
+              }`}
+              style={{ width: `${Math.max(2, progressPct)}%` }}
             />
           </div>
           <div className="flex justify-between text-[10px] text-muted-foreground mt-1">
-            <span>$0</span>
-            {!reached && (
-              <span className="text-amber-600 font-medium">
-                Faltan ${Math.abs(netProfit).toFixed(2)} para el equilibrio
-              </span>
-            )}
-            {reached && <span className="text-emerald-600 font-medium">¡Punto de equilibrio alcanzado!</span>}
-            <span>${fixedCosts.toFixed(2)}</span>
+            <span>${monthlySales.toFixed(2)}</span>
+            <span>${breakevenRevenue.toFixed(2)}</span>
           </div>
         </div>
+
+        {reached ? (
+          <div className="flex items-center gap-2 rounded-md bg-emerald-50 border border-emerald-200 p-2">
+            <CheckCircle2 className="h-4 w-4 text-emerald-600 flex-shrink-0" />
+            <p className="text-xs text-emerald-700">
+              Equilibrio alcanzado. Excedente: <span className="font-mono font-bold">+${surplus.toFixed(2)}</span>
+            </p>
+          </div>
+        ) : (
+          <div className={`flex items-center gap-2 rounded-md border p-2 ${
+            progressPct < 50 ? 'bg-red-50 border-red-200' : 'bg-amber-50 border-amber-200'
+          }`}>
+            <AlertCircle className={`h-4 w-4 flex-shrink-0 ${progressPct < 50 ? 'text-red-600' : 'text-amber-600'}`} />
+            <p className={`text-xs ${progressPct < 50 ? 'text-red-700' : 'text-amber-700'}`}>
+              Faltan <span className="font-mono font-bold">${missing.toFixed(2)}</span> para cubrir costos fijos.
+            </p>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
