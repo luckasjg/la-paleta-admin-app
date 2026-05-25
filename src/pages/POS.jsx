@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ShoppingCart, Plus, Minus, Trash2, Gift } from 'lucide-react';
+import { ShoppingCart, Plus, Minus, Trash2, Gift, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import moment from 'moment';
 import { useExchangeRate, formatUSD, formatVES } from '@/lib/useExchangeRate';
@@ -190,6 +190,37 @@ export default function POS() {
 
   const total = cart.reduce((sum, i) => sum + i.subtotal, 0);
 
+  // ── Stock warnings: aggregate grams demanded per tray across the cart ──
+  // and compare against current tray stock. Returns one entry per overdrawn tray.
+  const stockWarnings = React.useMemo(() => {
+    const demand = {}; // tray_id -> total grams demanded by the cart
+    for (const item of cart) {
+      const flavorList = (item.flavors && item.flavors.length > 0)
+        ? item.flavors
+        : (item.tray_id ? [{ tray_id: item.tray_id, grams: item.grams || 0 }] : []);
+      for (const fl of flavorList) {
+        if (!fl.tray_id) continue;
+        demand[fl.tray_id] = (demand[fl.tray_id] || 0) + (fl.grams || 0) * item.quantity;
+      }
+    }
+    const warnings = [];
+    for (const [trayId, demanded] of Object.entries(demand)) {
+      const tray = trays.find(t => t.id === trayId);
+      if (!tray) continue;
+      const available = tray.remaining_grams || 0;
+      if (demanded > available) {
+        warnings.push({
+          tray_id: trayId,
+          name: tray.recipe_name,
+          demanded,
+          available,
+          missing: demanded - available,
+        });
+      }
+    }
+    return warnings;
+  }, [cart, trays]);
+
   const getCurrentShift = () => {
     const hour = moment().hour();
     if (hour < 12) return 'manana';
@@ -199,22 +230,35 @@ export default function POS() {
 
   const completeSale = useMutation({
     mutationFn: async ({ payments, exchange_rate }) => {
-      // Deduct from trays for any item that carries a flavors[] array (helado or any product with requires_flavor)
+      // ── Aggregate ALL grams demanded per tray across the ENTIRE cart ────────
+      // Previously we updated each tray multiple times inside the loop, which
+      // overwrote earlier deductions when the same tray appeared in several items.
+      // Now we sum demand per tray_id first, then issue ONE update per tray.
+      const trayDemand = {}; // tray_id -> total grams
       for (const item of cart) {
         const flavorList = (item.flavors && item.flavors.length > 0)
           ? item.flavors
           : (item.tray_id ? [{ tray_id: item.tray_id, grams: item.grams || 0 }] : []);
         for (const fl of flavorList) {
           if (!fl.tray_id) continue;
-          const tray = trays.find(t => t.id === fl.tray_id);
-          if (!tray) continue;
-          const gramsToDeduct = (fl.grams || 0) * item.quantity;
-          const newRemaining = Math.max(0, (tray.remaining_grams || 0) - gramsToDeduct);
-          await base44.entities.Tray.update(tray.id, {
-            remaining_grams: newRemaining,
-            status: newRemaining <= 0 ? 'agotada' : 'activa',
-          });
+          trayDemand[fl.tray_id] = (trayDemand[fl.tray_id] || 0) + (fl.grams || 0) * item.quantity;
         }
+      }
+
+      // Apply tray deductions ONCE per tray. Allow negative remaining_grams so the
+      // full real deduction is recorded (physical audit will reconcile any merma).
+      for (const [trayId, gramsToDeduct] of Object.entries(trayDemand)) {
+        const tray = trays.find(t => t.id === trayId);
+        if (!tray) continue;
+        const newRemaining = (tray.remaining_grams || 0) - gramsToDeduct;
+        await base44.entities.Tray.update(trayId, {
+          remaining_grams: newRemaining,
+          status: newRemaining <= 0 ? 'agotada' : 'activa',
+        });
+      }
+
+      // Deduct supplies / utensils per item (these are not affected by the bug)
+      for (const item of cart) {
         // Deduct supplies for café/merengada
         if ((item.category === 'cafe' || item.category === 'merengada') && item.recipe_id) {
           const recipe = recipes.find(r => r.id === item.recipe_id);
@@ -382,6 +426,23 @@ export default function POS() {
               <span>Inventario se descuenta igual</span>
             </div>
           )}
+          {stockWarnings.length > 0 && (
+            <div className="rounded-lg border-2 border-amber-400 bg-amber-50 p-2.5 space-y-1.5">
+              <div className="flex items-center gap-1.5 text-amber-800 font-semibold text-xs">
+                <AlertTriangle className="h-4 w-4" /> ¡Atención! Stock insuficiente
+              </div>
+              {stockWarnings.map(w => (
+                <div key={w.tray_id} className="text-[11px] text-amber-900 leading-tight">
+                  <span className="font-semibold">{w.name}</span>: faltan{' '}
+                  <span className="font-mono font-bold">{w.missing.toFixed(0)}g</span>
+                  <span className="text-amber-700"> (disponible {w.available.toFixed(0)}g / pedido {w.demanded.toFixed(0)}g)</span>
+                </div>
+              ))}
+              <p className="text-[10px] text-amber-700 italic pt-1 border-t border-amber-200">
+                Puedes continuar la venta. Verifica el inventario físico al cierre.
+              </p>
+            </div>
+          )}
           <div className="flex items-end justify-between">
             <span className="text-lg font-bold">Total</span>
             <div className="text-right">
@@ -413,11 +474,20 @@ export default function POS() {
                       <SelectValue placeholder={`Sabor ${idx + 1}`} />
                     </SelectTrigger>
                     <SelectContent>
-                      {trays.map(t => (
-                        <SelectItem key={t.id} value={t.id}>
-                          {t.recipe_name} ({t.remaining_grams?.toFixed(0)}g)
-                        </SelectItem>
-                      ))}
+                      {trays.map(t => {
+                        const stock = t.remaining_grams || 0;
+                        const isLow = stock < 200;
+                        return (
+                          <SelectItem key={t.id} value={t.id}>
+                            <span className="flex items-center gap-2">
+                              {t.recipe_name}
+                              <span className={`font-mono text-xs ${isLow ? 'text-destructive font-semibold' : 'text-muted-foreground'}`}>
+                                {stock.toFixed(0)}g{isLow ? ' ⚠️' : ''}
+                              </span>
+                            </span>
+                          </SelectItem>
+                        );
+                      })}
                     </SelectContent>
                   </Select>
                 </div>
