@@ -2,33 +2,33 @@ import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, ShoppingCart, Package, BookOpen, Factory,
-  DollarSign, Warehouse, SlidersHorizontal, Menu, X, IceCream, FlaskConical, ClipboardCheck, Percent, Wallet
-} from 'lucide-react';
+  DollarSign, Warehouse, SlidersHorizontal, Menu, X, IceCream, FlaskConical, ClipboardCheck, Percent, Wallet } from
+'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useRole } from '@/lib/useRole';
 
 // adminOnly: true → solo visible para administradores
 const navItems = [
-  { label: 'Dashboard', icon: LayoutDashboard, path: '/', adminOnly: true },
-  { label: 'Punto de Venta', icon: ShoppingCart, path: '/pos' },
-  { label: 'Inventario', icon: Warehouse, path: '/inventario', adminOnly: true },
-  { label: 'Recetas', icon: BookOpen, path: '/recetas', adminOnly: true },
-  { label: 'Preparados', icon: FlaskConical, path: '/preparados', adminOnly: true },
-  { label: 'Producción', icon: Factory, path: '/produccion', adminOnly: true },
-  { label: 'Productos', icon: Package, path: '/productos', adminOnly: true },
-  { label: 'Caja', icon: DollarSign, path: '/caja' },
-  { label: 'Ajustes Inv.', icon: SlidersHorizontal, path: '/ajustes', adminOnly: true },
-  { label: 'Auditorías', icon: ClipboardCheck, path: '/auditorias', adminOnly: true },
-  { label: 'Rentabilidad', icon: Percent, path: '/rentabilidad', adminOnly: true },
-  { label: 'Gastos', icon: Wallet, path: '/gastos', adminOnly: true },
-];
+{ label: 'Dashboard', icon: LayoutDashboard, path: '/', adminOnly: true },
+{ label: 'Punto de Venta', icon: ShoppingCart, path: '/pos' },
+{ label: 'Inventario', icon: Warehouse, path: '/inventario', adminOnly: true },
+{ label: 'Recetas', icon: BookOpen, path: '/recetas', adminOnly: true },
+{ label: 'Preparados', icon: FlaskConical, path: '/preparados', adminOnly: true },
+{ label: 'Producción', icon: Factory, path: '/produccion', adminOnly: true },
+{ label: 'Productos', icon: Package, path: '/productos', adminOnly: true },
+{ label: 'Caja', icon: DollarSign, path: '/caja' },
+{ label: 'Ajustes Inv.', icon: SlidersHorizontal, path: '/ajustes', adminOnly: true },
+{ label: 'Auditorías', icon: ClipboardCheck, path: '/auditorias', adminOnly: true },
+{ label: 'Rentabilidad', icon: Percent, path: '/rentabilidad', adminOnly: true },
+{ label: 'Gastos', icon: Wallet, path: '/gastos', adminOnly: true }];
+
 
 export default function Sidebar() {
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const { isAdmin } = useRole();
-  const visibleItems = navItems.filter(item => !item.adminOnly || isAdmin);
+  const visibleItems = navItems.filter((item) => !item.adminOnly || isAdmin);
 
   return (
     <>
@@ -37,18 +37,18 @@ export default function Sidebar() {
         variant="ghost"
         size="icon"
         className="fixed top-4 left-4 z-50 lg:hidden"
-        onClick={() => setMobileOpen(!mobileOpen)}
-      >
+        onClick={() => setMobileOpen(!mobileOpen)}>
+        
         {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
       </Button>
 
       {/* Overlay */}
-      {mobileOpen && (
-        <div
-          className="fixed inset-0 bg-black/30 z-40 lg:hidden"
-          onClick={() => setMobileOpen(false)}
-        />
-      )}
+      {mobileOpen &&
+      <div
+        className="fixed inset-0 bg-black/30 z-40 lg:hidden"
+        onClick={() => setMobileOpen(false)} />
+
+      }
 
       {/* Sidebar */}
       <aside className={cn(
@@ -57,13 +57,13 @@ export default function Sidebar() {
         mobileOpen ? "translate-x-0" : "-translate-x-full"
       )}>
         {/* Logo */}
-        <div className="p-4 flex items-center justify-center border-b border-border">
+        <div className="p-4 flex items-center justify-center border-b border-border bg-[#761011]">
           <img src="https://media.base44.com/images/public/69e078117e2725c0776d724e/7cc689726_logoPaletaMesadetrabajo8-111.png" alt="La Paleta Café" className="h-32 w-auto object-contain" />
         </div>
 
         {/* Nav */}
         <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-          {visibleItems.map(item => {
+          {visibleItems.map((item) => {
             const isActive = location.pathname === item.path;
             return (
               <Link
@@ -72,15 +72,15 @@ export default function Sidebar() {
                 onClick={() => setMobileOpen(false)}
                 className={cn(
                   "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all",
-                  isActive
-                    ? "bg-primary text-primary-foreground shadow-sm"
-                    : "text-muted-foreground hover:bg-secondary hover:text-foreground"
-                )}
-              >
+                  isActive ?
+                  "bg-primary text-primary-foreground shadow-sm" :
+                  "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                )}>
+                
                 <item.icon className="h-4 w-4 flex-shrink-0" />
                 {item.label}
-              </Link>
-            );
+              </Link>);
+
           })}
         </nav>
 
@@ -88,6 +88,6 @@ export default function Sidebar() {
           <p className="text-xs text-muted-foreground text-center">Gelato & Café v1.0</p>
         </div>
       </aside>
-    </>
-  );
+    </>);
+
 }
