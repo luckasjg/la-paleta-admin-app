@@ -9,7 +9,7 @@ import PageHeader from '@/components/shared/PageHeader';
 import StatCard from '@/components/shared/StatCard';
 import FinancialKPIs from '@/components/dashboard/FinancialKPIs';
 import BreakEvenPanel from '@/components/dashboard/BreakEvenPanel';
-import ProfitMarginChart from '@/components/dashboard/ProfitMarginChart';
+
 import DataSimulator from '@/components/dashboard/DataSimulator';
 import moment from 'moment';
 
@@ -196,9 +196,6 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       )}
-
-      {/* Profit Margin Chart */}
-      <ProfitMarginChart products={products} recipes={recipes} supplies={supplies} />
 
       {/* Charts Row 1 */}
       <div className="grid md:grid-cols-2 gap-4">
