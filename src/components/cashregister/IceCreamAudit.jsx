@@ -42,10 +42,14 @@ export default function IceCreamAudit({ activeTrays = [], todaySales = [], shift
   };
 
   // Derived audit rows
+  // IMPORTANT: tray.remaining_grams is ALREADY the live theoretical stock — every sale
+  // deducts grams from it at checkout time. So the theoretical stock IS the current
+  // remaining_grams of the tray; we must NOT subtract gramsConsumed a second time.
+  // gramsConsumed is kept only as an informational column ("Consumo Teórico del turno").
   const rows = useMemo(() => {
     return activeTrays.map(tray => {
       const gramsConsumed = theoreticalMap[tray.id] || 0;
-      const theoreticalStock = Math.max(0, (tray.remaining_grams || 0) - gramsConsumed);
+      const theoreticalStock = tray.remaining_grams || 0;
       const physicalRaw = physicalWeights[tray.id];
       const physicalWeight = physicalRaw !== undefined && physicalRaw !== '' ? parseFloat(physicalRaw) : null;
       const variance = physicalWeight !== null ? physicalWeight - theoreticalStock : null;
@@ -136,8 +140,7 @@ export default function IceCreamAudit({ activeTrays = [], todaySales = [], shift
             <TableHeader>
               <TableRow>
                 <TableHead>Sabor / Bandeja</TableHead>
-                <TableHead className="text-right">Stock Actual</TableHead>
-                <TableHead className="text-right">Consumo Teórico</TableHead>
+                <TableHead className="text-right">Consumo del turno</TableHead>
                 <TableHead className="text-right font-semibold text-foreground">Stock Teórico</TableHead>
                 <TableHead className="text-right">Peso Físico Real (g)</TableHead>
                 <TableHead className="text-right">Descuadre / Merma</TableHead>
@@ -153,7 +156,6 @@ export default function IceCreamAudit({ activeTrays = [], todaySales = [], shift
                       <div className="font-medium text-sm">{tray.recipe_name}</div>
                       <div className="text-xs text-muted-foreground">Prod: {tray.production_date ? moment(tray.production_date).format('DD/MM/YY') : '—'}</div>
                     </TableCell>
-                    <TableCell className="text-right font-mono text-sm">{(tray.remaining_grams || 0).toFixed(0)}g</TableCell>
                     <TableCell className="text-right font-mono text-sm text-muted-foreground">−{gramsConsumed.toFixed(0)}g</TableCell>
                     <TableCell className="text-right font-mono font-semibold text-sm">{theoreticalStock.toFixed(0)}g</TableCell>
                     <TableCell className="text-right">
