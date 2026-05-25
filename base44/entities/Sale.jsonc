@@ -111,47 +111,31 @@
         "noche"
       ],
       "description": "Turno"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "completed",
+        "voided"
+      ],
+      "default": "completed",
+      "description": "Estado de la venta. 'voided' indica que fue anulada y el inventario fue restituido."
+    },
+    "voided_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Fecha y hora en que se anul\u00f3 la venta"
+    },
+    "voided_by": {
+      "type": "string",
+      "description": "Email del administrador que anul\u00f3 la venta"
+    },
+    "void_reason": {
+      "type": "string",
+      "description": "Motivo de la anulaci\u00f3n"
     }
   },
   "required": [
     "total"
-  ],
-  "rls": {
-    "create": {
-      "$or": [
-        {
-          "user_condition": {
-            "role": "admin"
-          }
-        },
-        {
-          "user_condition": {
-            "role": "user"
-          }
-        }
-      ]
-    },
-    "read": {
-      "$or": [
-        {
-          "created_by": "{{user.email}}"
-        },
-        {
-          "user_condition": {
-            "role": "admin"
-          }
-        }
-      ]
-    },
-    "update": {
-      "user_condition": {
-        "role": "admin"
-      }
-    },
-    "delete": {
-      "user_condition": {
-        "role": "admin"
-      }
-    }
-  }
+  ]
 }

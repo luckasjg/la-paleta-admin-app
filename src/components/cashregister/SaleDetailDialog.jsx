@@ -2,8 +2,9 @@ import React from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Gift } from 'lucide-react';
+import { Gift, Ban } from 'lucide-react';
 import moment from 'moment';
+import VoidSaleButton from '@/components/cashregister/VoidSaleButton';
 
 const PAYMENT_LABELS = {
   efectivo: 'Efectivo',
@@ -15,19 +16,40 @@ const PAYMENT_LABELS = {
 export default function SaleDetailDialog({ sale, supplies = [], open, onOpenChange }) {
   if (!sale) return null;
   const items = sale.items || [];
+  const isVoided = sale.status === 'voided';
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+      <DialogContent className={`max-w-lg max-h-[80vh] overflow-y-auto ${isVoided ? 'opacity-90' : ''}`}>
         <DialogHeader>
-          <DialogTitle>
+          <DialogTitle className={isVoided ? 'line-through text-muted-foreground' : ''}>
             Detalle de Venta — {moment(sale.sale_date).format('DD/MM/YY HH:mm')}
           </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
+          {isVoided && (
+            <div className="rounded-md border border-gray-300 bg-gray-100 p-3 text-sm">
+              <div className="flex items-center gap-2 font-semibold text-gray-700">
+                <Ban className="h-4 w-4" /> Venta Anulada
+              </div>
+              <div className="mt-1 text-xs text-gray-600 space-y-0.5">
+                {sale.voided_at && <div>Anulada el: {moment(sale.voided_at).format('DD/MM/YY HH:mm')}</div>}
+                {sale.voided_by && <div>Por: {sale.voided_by}</div>}
+                {sale.void_reason && <div>Motivo: {sale.void_reason}</div>}
+                <div className="italic">El inventario fue repuesto. Esta venta no cuenta para caja ni reportes.</div>
+              </div>
+            </div>
+          )}
+
+          {!isVoided && (
+            <div className="flex justify-end">
+              <VoidSaleButton sale={sale} />
+            </div>
+          )}
+
           {/* Summary row */}
-          <div className="flex flex-wrap gap-3 text-sm">
+          <div className={`flex flex-wrap gap-3 text-sm ${isVoided ? 'line-through text-muted-foreground' : ''}`}>
             <span className="text-muted-foreground">Método:
               <span className="ml-1 font-medium text-foreground">{PAYMENT_LABELS[sale.payment_method] || sale.payment_method}</span>
             </span>

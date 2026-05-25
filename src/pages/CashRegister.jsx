@@ -20,6 +20,8 @@ import SaleDetailDialog from '@/components/cashregister/SaleDetailDialog';
 import PrintReport from '@/components/cashregister/PrintReport';
 import IceCreamAudit from '@/components/cashregister/IceCreamAudit';
 import ClosingDetailDialog from '@/components/cashregister/ClosingDetailDialog';
+import VoidSaleButton from '@/components/cashregister/VoidSaleButton';
+import { Ban } from 'lucide-react';
 
 export default function CashRegister() {
   const [closeDialog, setCloseDialog] = useState(false);
@@ -82,8 +84,12 @@ export default function CashRegister() {
   );
 
   // Ventas pendientes de cierre (posteriores al último cierre del día) — para totales de caja
+  // IMPORTANTE: excluye las ventas anuladas (status='voided') para que la caja cuadre.
   const openSales = useMemo(
-    () => todaySales.filter(s => !lastCloseTime || moment(s.sale_date).isAfter(lastCloseTime)),
+    () => todaySales.filter(s =>
+      s.status !== 'voided' &&
+      (!lastCloseTime || moment(s.sale_date).isAfter(lastCloseTime))
+    ),
     [todaySales, lastCloseTime]
   );
 
@@ -107,6 +113,7 @@ export default function CashRegister() {
 
     return sales.filter(s => {
       if (!s.sale_date) return false;
+      if (s.status === 'voided') return false;
       if (moment(s.sale_date).format('YYYY-MM-DD') !== regDate) return false;
       if (regCreated && moment(s.sale_date).isAfter(regCreated)) return false;
       if (prevCreated && !moment(s.sale_date).isAfter(prevCreated)) return false;
@@ -203,33 +210,48 @@ export default function CashRegister() {
                     <TableHead>Ítems</TableHead>
                     <TableHead>Método</TableHead>
                     <TableHead className="text-right">Total</TableHead>
+                    <TableHead className="text-right">Acciones</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {todaySales.length === 0 ? (
-                    <TableRow><TableCell colSpan={4} className="text-center py-6 text-muted-foreground">Sin ventas hoy</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={5} className="text-center py-6 text-muted-foreground">Sin ventas hoy</TableCell></TableRow>
                   ) : (
                     todaySales.map(s => {
                       const hasCourtesy = (s.items || []).some(i => i.is_courtesy);
+                      const isVoided = s.status === 'voided';
                       return (
                         <TableRow
                           key={s.id}
-                          className="cursor-pointer hover:bg-secondary/40"
+                          className={`cursor-pointer hover:bg-secondary/40 ${isVoided ? 'opacity-50' : ''}`}
                           onClick={() => setSelectedSale(s)}
                         >
-                          <TableCell className="text-sm">{moment(s.sale_date).format('HH:mm')}</TableCell>
-                          <TableCell className="text-sm text-muted-foreground">
+                          <TableCell className={`text-sm ${isVoided ? 'line-through' : ''}`}>
+                            {moment(s.sale_date).format('HH:mm')}
+                          </TableCell>
+                          <TableCell className={`text-sm text-muted-foreground ${isVoided ? 'line-through' : ''}`}>
                             <div className="flex items-center gap-1.5">
                               <span>{(s.items || []).map(i => i.product_name).join(', ').slice(0, 35) || '—'}</span>
                               {hasCourtesy && <span title="Incluye cortesías" className="text-amber-500 text-xs">🎁</span>}
                             </div>
                           </TableCell>
                           <TableCell>
-                            <Badge variant="secondary" className="text-xs">
-                              {s.payment_method === 'efectivo' ? 'Efectivo' : s.payment_method === 'pago_movil' ? 'P. Móvil' : s.payment_method === 'punto_venta' ? 'Tarjeta' : 'Mixto'}
-                            </Badge>
+                            {isVoided ? (
+                              <Badge className="bg-gray-200 text-gray-600 text-xs">
+                                <Ban className="h-3 w-3 mr-1" /> Anulada
+                              </Badge>
+                            ) : (
+                              <Badge variant="secondary" className="text-xs">
+                                {s.payment_method === 'efectivo' ? 'Efectivo' : s.payment_method === 'pago_movil' ? 'P. Móvil' : s.payment_method === 'punto_venta' ? 'Tarjeta' : 'Mixto'}
+                              </Badge>
+                            )}
                           </TableCell>
-                          <TableCell className="text-right font-mono font-semibold">${s.total?.toFixed(2)}</TableCell>
+                          <TableCell className={`text-right font-mono font-semibold ${isVoided ? 'line-through text-muted-foreground' : ''}`}>
+                            ${s.total?.toFixed(2)}
+                          </TableCell>
+                          <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                            <VoidSaleButton sale={s} />
+                          </TableCell>
                         </TableRow>
                       );
                     })

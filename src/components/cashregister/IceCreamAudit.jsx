@@ -14,13 +14,20 @@ export default function IceCreamAudit({ activeTrays = [], todaySales = [], shift
   const qc = useQueryClient();
   const today = moment().format('YYYY-MM-DD');
 
-  // Build theoretical consumption per tray from today's sales
+  // Build theoretical consumption per tray from today's sales (excluding voided).
+  // For multi-flavor sales we use item.flavors[] when available; otherwise fallback to tray_id/grams.
   const theoreticalMap = useMemo(() => {
     const map = {}; // tray_id -> grams consumed
     for (const sale of todaySales) {
+      if (sale.status === 'voided') continue;
       for (const item of (sale.items || [])) {
-        if (item.tray_id && item.grams) {
-          map[item.tray_id] = (map[item.tray_id] || 0) + (item.grams * (item.quantity || 1));
+        const qty = item.quantity || 1;
+        const flavors = (item.flavors && item.flavors.length > 0)
+          ? item.flavors
+          : (item.tray_id ? [{ tray_id: item.tray_id, grams: item.grams || 0 }] : []);
+        for (const fl of flavors) {
+          if (!fl.tray_id) continue;
+          map[fl.tray_id] = (map[fl.tray_id] || 0) + ((fl.grams || 0) * qty);
         }
       }
     }

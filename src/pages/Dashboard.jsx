@@ -33,9 +33,12 @@ export default function Dashboard() {
     },
   });
 
-  // Exclude any simulator/test data (items prefixed with [TEST]) from analytics
+  // Exclude any simulator/test data ([TEST]) and voided sales from analytics
   const sales = useMemo(
-    () => rawSales.filter(s => !(s.items || []).some(it => it.product_name?.startsWith('[TEST]'))),
+    () => rawSales.filter(s =>
+      s.status !== 'voided' &&
+      !(s.items || []).some(it => it.product_name?.startsWith('[TEST]'))
+    ),
     [rawSales]
   );
 

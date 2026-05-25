@@ -11,7 +11,9 @@ const PAYMENT_LABELS = {
   mixto: 'Mixto',
 };
 
-export default function PrintReport({ date, shift, operator, sales = [], supplies = [], register = null }) {
+export default function PrintReport({ date, shift, operator, sales: rawSales = [], supplies = [], register = null }) {
+  // Excluir ventas anuladas de todos los totales del reporte impreso
+  const sales = rawSales.filter(s => s.status !== 'voided');
   const total = sales.reduce((s, v) => s + (v.total || 0), 0);
   const cashTotal = sales.reduce((s, v) => s + (v.cash_amount || 0), 0);
   const digitalTotal = sales.reduce((s, v) => s + (v.digital_amount || 0), 0);

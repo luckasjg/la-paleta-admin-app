@@ -21,9 +21,11 @@ const PAYMENT_LABELS = {
 export default function ClosingDetailDialog({ register, sales = [], open, onOpenChange }) {
   if (!register) return null;
 
-  const total = sales.reduce((s, v) => s + (v.total || 0), 0);
+  // Excluir ventas anuladas de totales y desglose por método
+  const validSales = sales.filter(s => s.status !== 'voided');
+  const total = validSales.reduce((s, v) => s + (v.total || 0), 0);
   const byMethod = {};
-  sales.forEach(s => {
+  validSales.forEach(s => {
     const m = s.payment_method || 'mixto';
     byMethod[m] = (byMethod[m] || 0) + (s.total || 0);
   });
