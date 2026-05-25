@@ -45,14 +45,19 @@ export default function ExpenseForm({ open, onOpenChange, onSubmit, initialValue
     }
   }, [initialValue, open]);
 
-  const availableCats = categories[form.type] || [];
-
-  // Auto-pick first category if current is invalid
-  useEffect(() => {
-    if (!availableCats.includes(form.category) && availableCats.length > 0) {
-      setForm(f => ({ ...f, category: availableCats[0] }));
-    }
-  }, [form.type, availableCats, form.category]);
+  // Show ALL categories (both "fijo" and "variable" buckets) so the user
+  // can pick any category regardless of the expense type they choose.
+  const availableCats = React.useMemo(() => {
+    const all = [...(categories.fijo || []), ...(categories.variable || [])];
+    // De-duplicate (case-insensitive) preserving order
+    const seen = new Set();
+    return all.filter(c => {
+      const key = c.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [categories]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
