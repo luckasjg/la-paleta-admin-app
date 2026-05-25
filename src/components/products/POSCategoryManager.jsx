@@ -7,7 +7,7 @@ import { Pencil, Trash2, Plus, Check, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { base44 } from '@/api/base44Client';
 
-export default function POSCategoryManager({ open, onOpenChange, categories, products, onProductsRefresh, onHideCategory }) {
+export default function POSCategoryManager({ open, onOpenChange, categories, products, onProductsRefresh, onHideCategory, onAddCategory }) {
   const [newCatInput, setNewCatInput] = useState('');
   const [editingCat, setEditingCat] = useState(null); // { oldName, newName }
 
@@ -18,8 +18,9 @@ export default function POSCategoryManager({ open, onOpenChange, categories, pro
       toast.error('Esa categoría ya existe');
       return;
     }
+    if (onAddCategory) onAddCategory(val);
     setNewCatInput('');
-    toast.success(`Categoría "${val}" lista para usar. Asígnala a un producto para guardarla.`);
+    toast.success(`Categoría "${val}" agregada`);
   };
 
   const handleEdit = async () => {
@@ -28,10 +29,21 @@ export default function POSCategoryManager({ open, onOpenChange, categories, pro
     const trimmed = newName.trim();
     if (!trimmed || trimmed === oldName) { setEditingCat(null); return; }
 
+    if (categories.some(c => c.toLowerCase() === trimmed.toLowerCase() && c.toLowerCase() !== oldName.toLowerCase())) {
+      toast.error('Ya existe una categoría con ese nombre');
+      return;
+    }
+
     const toUpdate = products.filter(p => p.category === oldName);
     await Promise.all(toUpdate.map(p =>
       base44.entities.Product.update(p.id, { category: trimmed })
     ));
+
+    // Hide the old name from the list so the renamed one fully replaces it
+    // (necessary when oldName is a default category that lives in code, not DB).
+    if (onHideCategory) onHideCategory(oldName);
+    // Make sure the new name is visible even if no products reference it yet.
+    if (onAddCategory) onAddCategory(trimmed);
 
     toast.success(toUpdate.length > 0
       ? `"${oldName}" → "${trimmed}": ${toUpdate.length} producto(s) actualizado(s)`

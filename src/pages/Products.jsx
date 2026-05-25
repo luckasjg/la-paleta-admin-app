@@ -16,6 +16,7 @@ import POSCategoryManager from '@/components/products/POSCategoryManager';
 
 const DEFAULT_CATEGORIES = ['helado', 'cafe', 'merengada', 'adicional', 'otro'];
 const HIDDEN_CATS_KEY = 'pos_hidden_categories';
+const EXTRA_CATS_KEY = 'pos_extra_categories';
 
 const emptyProduct = { name: '', category: '', size_label: '', grams_per_serving: 0, recipe_id: '', utensil_supply_id: '', price: 0, is_active: true, requires_flavor: false, max_flavors: 1 };
 
@@ -27,11 +28,19 @@ export default function Products() {
   const [hiddenCats, setHiddenCats] = useState(() => {
     try { return JSON.parse(localStorage.getItem(HIDDEN_CATS_KEY) || '[]'); } catch { return []; }
   });
+  const [extraCats, setExtraCats] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(EXTRA_CATS_KEY) || '[]'); } catch { return []; }
+  });
   const qc = useQueryClient();
 
   const persistHiddenCats = (next) => {
     setHiddenCats(next);
     try { localStorage.setItem(HIDDEN_CATS_KEY, JSON.stringify(next)); } catch { /* ignore */ }
+  };
+
+  const persistExtraCats = (next) => {
+    setExtraCats(next);
+    try { localStorage.setItem(EXTRA_CATS_KEY, JSON.stringify(next)); } catch { /* ignore */ }
   };
 
   const { data: products = [] } = useQuery({
@@ -61,10 +70,17 @@ export default function Products() {
     });
     products.forEach(p => {
       const c = (p.category || '').trim();
-      if (c && !seen.has(c.toLowerCase())) seen.set(c.toLowerCase(), c);
+      if (c && !hiddenSet.has(c.toLowerCase()) && !seen.has(c.toLowerCase())) {
+        seen.set(c.toLowerCase(), c);
+      }
+    });
+    extraCats.forEach(c => {
+      if (!hiddenSet.has(c.toLowerCase()) && !seen.has(c.toLowerCase())) {
+        seen.set(c.toLowerCase(), c);
+      }
     });
     return Array.from(seen.values());
-  }, [products, hiddenCats]);
+  }, [products, hiddenCats, extraCats]);
 
   const createMut = useMutation({
     mutationFn: (d) => base44.entities.Product.create(d),
@@ -219,7 +235,18 @@ export default function Products() {
         categories={dynamicCategories}
         products={products}
         hiddenCats={hiddenCats}
-        onHideCategory={(cat) => persistHiddenCats([...new Set([...hiddenCats, cat])])}
+        onHideCategory={(cat) => {
+          persistHiddenCats([...new Set([...hiddenCats, cat])]);
+          // also remove from user-added extras if present
+          persistExtraCats(extraCats.filter(c => c.toLowerCase() !== cat.toLowerCase()));
+        }}
+        onAddCategory={(cat) => {
+          // un-hide if it was hidden, and add to extras for persistence
+          persistHiddenCats(hiddenCats.filter(c => c.toLowerCase() !== cat.toLowerCase()));
+          if (!extraCats.some(c => c.toLowerCase() === cat.toLowerCase())) {
+            persistExtraCats([...extraCats, cat]);
+          }
+        }}
         onProductsRefresh={() => qc.invalidateQueries({ queryKey: ['products'] })}
       />
 
