@@ -16,7 +16,7 @@ const isIceCreamRecipe = (r) => {
 const ICE_CREAM_PRODUCT_CATEGORIES = new Set([
   'helado', 'helados',
   'barquilla', 'barquillas',
-  'para llevar',
+  'llevar',
   'tina', 'tinas',
   'cono', 'conos',
   'paleta', 'paletas',
