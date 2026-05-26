@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Card, CardContent } from '@/components/ui/card';
@@ -60,7 +60,49 @@ export default function Products() {
     queryFn: () => base44.entities.Supply.list(),
   });
 
+  // ── Migración automática (Regla 1): garantiza que todo producto tenga
+  // linked_supplies como array. Si tiene utensil_supply_id legacy y el array
+  // está vacío, lo convierte a una línea {supply_id, quantity:1} y limpia el
+  // campo viejo. Se ejecuta UNA sola vez por carga, después de tener products
+  // y supplies en memoria.
+  const migratedRef = useRef(false);
+  useEffect(() => {
+    if (migratedRef.current) return;
+    if (!products.length || !supplies.length) return;
+    migratedRef.current = true;
 
+    const toFix = products.filter(p => {
+      const hasArray = Array.isArray(p.linked_supplies);
+      const hasLegacy = !!p.utensil_supply_id;
+      return !hasArray || (hasArray && p.linked_supplies.length === 0 && hasLegacy);
+    });
+    if (toFix.length === 0) return;
+
+    (async () => {
+      for (const p of toFix) {
+        let linked = Array.isArray(p.linked_supplies) ? p.linked_supplies : [];
+        if (linked.length === 0 && p.utensil_supply_id) {
+          const legacy = supplies.find(s => s.id === p.utensil_supply_id);
+          if (legacy) {
+            linked = [{
+              supply_id: p.utensil_supply_id,
+              quantity: 1,
+              type: legacy.sector || 'utensilio',
+            }];
+          }
+        }
+        try {
+          await base44.entities.Product.update(p.id, {
+            linked_supplies: linked,
+            utensil_supply_id: '',
+          });
+        } catch (e) {
+          console.error('Migración producto fallida:', p.id, e);
+        }
+      }
+      qc.invalidateQueries({ queryKey: ['products'] });
+    })();
+  }, [products, supplies, qc]);
 
   // Dynamic categories: defaults + every unique category that exists in DB (case-insensitive de-dup)
   // minus any the user has hidden from the manager.
@@ -101,10 +143,10 @@ export default function Products() {
 
   const openEdit = (p) => {
     setEditing(p);
-    // Migración suave: si no hay linked_supplies pero sí utensil_supply_id legacy,
-    // pre-cargamos una línea para que el usuario la vea y edite.
-    let linked = Array.isArray(p.linked_supplies) ? [...p.linked_supplies] : [];
-    if (linked.length === 0 && p.utensil_supply_id) {
+    // Renderizado seguro (Regla 2): blindaje contra productos heredados.
+    // Usamos ?? y validación de array para evitar que React colapse.
+    let linked = Array.isArray(p?.linked_supplies) ? [...p.linked_supplies] : [];
+    if (linked.length === 0 && p?.utensil_supply_id) {
       const legacySupply = supplies.find(s => s.id === p.utensil_supply_id);
       linked = [{
         supply_id: p.utensil_supply_id,
@@ -113,12 +155,16 @@ export default function Products() {
       }];
     }
     setForm({
-      name: p.name, category: p.category, size_label: p.size_label || '',
-      grams_per_serving: p.grams_per_serving || 0, recipe_id: p.recipe_id || '',
+      name: p?.name ?? '',
+      category: p?.category ?? '',
+      size_label: p?.size_label ?? '',
+      grams_per_serving: p?.grams_per_serving ?? 0,
+      recipe_id: p?.recipe_id ?? '',
       linked_supplies: linked,
-      price: p.price, is_active: p.is_active !== false,
-      requires_flavor: p.requires_flavor === true || p.category === 'helado',
-      max_flavors: p.max_flavors || p.flavor_count || 1,
+      price: p?.price ?? 0,
+      is_active: p?.is_active !== false,
+      requires_flavor: p?.requires_flavor === true || p?.category === 'helado',
+      max_flavors: p?.max_flavors ?? p?.flavor_count ?? 1,
     });
     setDialogOpen(true);
   };
@@ -126,7 +172,7 @@ export default function Products() {
   const handleSave = () => {
     if (!form.name || form.price === undefined || form.price === null) return;
     // Filtramos líneas incompletas y limpiamos el campo legacy para evitar duplicidad de descuento.
-    const cleanedLinked = (form.linked_supplies || []).filter(l => l.supply_id && (l.quantity ?? 0) > 0);
+    const cleanedLinked = (form.linked_supplies ?? []).filter(l => l?.supply_id && (l?.quantity ?? 0) > 0);
     const payload = { ...form, linked_supplies: cleanedLinked, utensil_supply_id: '' };
     if (editing) updateMut.mutate({ id: editing.id, data: payload });
     else createMut.mutate(payload);
@@ -280,11 +326,11 @@ export default function Products() {
       />
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-2xl flex flex-col max-h-[90vh] p-0">
-          <DialogHeader className="px-6 pt-6 pb-0">
+        <DialogContent className="w-[90vw] sm:max-w-2xl overflow-x-hidden flex flex-col max-h-[90vh] p-0">
+          <DialogHeader className="px-6 pt-6 pb-0 flex-shrink-0">
             <DialogTitle>{editing ? 'Editar Producto' : 'Nuevo Producto'}</DialogTitle>
           </DialogHeader>
-          <div className="grid gap-4 py-4 px-6 overflow-y-auto overflow-x-hidden flex-1">
+          <div className="grid gap-4 py-4 px-6 overflow-y-auto overflow-x-hidden flex-1 min-w-0">
             <div><Label>Nombre</Label><Input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} /></div>
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -304,12 +350,14 @@ export default function Products() {
               <div><Label>Gramos/Porción</Label><Input type="number" value={form.grams_per_serving} onChange={e => setForm({ ...form, grams_per_serving: parseFloat(e.target.value) || 0 })} /></div>
             </div>
 
-            {/* Insumos vinculados (múltiples) */}
-            <LinkedSuppliesEditor
-              value={form.linked_supplies || []}
-              onChange={(next) => setForm({ ...form, linked_supplies: next })}
-              supplies={supplies}
-            />
+            {/* Insumos vinculados (múltiples) — contenedor con scroll vertical propio */}
+            <div className="max-h-[50vh] overflow-y-auto overflow-x-hidden pr-2 -mr-2">
+              <LinkedSuppliesEditor
+                value={form.linked_supplies ?? []}
+                onChange={(next) => setForm({ ...form, linked_supplies: next })}
+                supplies={supplies}
+              />
+            </div>
 
             {(form.category === 'cafe' || form.category === 'merengada') && (
               <div>

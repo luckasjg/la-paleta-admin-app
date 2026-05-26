@@ -23,31 +23,35 @@ const SECTOR_ICON = {
  * Permite agregar múltiples líneas (supply_id + quantity + type).
  */
 export default function LinkedSuppliesEditor({ value = [], onChange, supplies = [] }) {
+  // Blindaje: garantizamos arrays válidos aunque lleguen undefined/null.
+  const safeValue = Array.isArray(value) ? value : [];
+  const safeSupplies = Array.isArray(supplies) ? supplies : [];
+
   // Ordenamos alfabéticamente y armamos las opciones para el combobox una sola vez.
   const supplyOptions = useMemo(
     () =>
-      [...supplies]
+      [...safeSupplies]
         .sort((a, b) =>
-          (a.name || '').localeCompare(b.name || '', undefined, { sensitivity: 'base' })
+          (a?.name || '').localeCompare(b?.name || '', undefined, { sensitivity: 'base' })
         )
         .map(s => ({
           value: s.id,
           label: s.name,
-          sublabel: `${SECTOR_LABEL[s.sector] || s.sector} · ${s.unit}`,
+          sublabel: `${SECTOR_LABEL[s.sector] || s.sector || ''} · ${s.unit || ''}`,
         })),
-    [supplies]
+    [safeSupplies]
   );
 
   const addLine = () => {
-    onChange([...value, { supply_id: '', quantity: 1, type: 'materia_prima' }]);
+    onChange([...safeValue, { supply_id: '', quantity: 1, type: 'materia_prima' }]);
   };
 
   const removeLine = (idx) => {
-    onChange(value.filter((_, i) => i !== idx));
+    onChange(safeValue.filter((_, i) => i !== idx));
   };
 
   const updateLine = (idx, patch) => {
-    onChange(value.map((l, i) => (i === idx ? { ...l, ...patch } : l)));
+    onChange(safeValue.map((l, i) => (i === idx ? { ...l, ...patch } : l)));
   };
 
   const handleSupplyChange = (idx, supplyId) => {
@@ -67,21 +71,22 @@ export default function LinkedSuppliesEditor({ value = [], onChange, supplies = 
         </Button>
       </div>
 
-      {value.length === 0 && (
+      {safeValue.length === 0 && (
         <p className="text-xs text-muted-foreground italic">
           Sin insumos vinculados. Agrega los que se descuentan al vender (materia prima y/o utensilios).
         </p>
       )}
 
       <div className="space-y-2">
-        {value.map((line, idx) => {
-          const supply = supplies.find(s => s.id === line.supply_id);
-          const Icon = SECTOR_ICON[line.type] || Package;
+        {(safeValue ?? []).map((line, idx) => {
+          const safeLine = line ?? {};
+          const supply = safeSupplies.find(s => s?.id === safeLine.supply_id);
+          const Icon = SECTOR_ICON[safeLine.type] || Package;
           return (
-            <div key={idx} className="flex items-start gap-2 bg-card border border-border rounded-md p-2">
+            <div key={idx} className="flex items-start gap-2 bg-card border border-border rounded-md p-2 min-w-0">
               <div className="flex-1 min-w-0 space-y-1">
                 <SearchableCombobox
-                  value={line.supply_id || ''}
+                  value={safeLine.supply_id ?? ''}
                   onChange={(v) => handleSupplyChange(idx, v)}
                   options={supplyOptions}
                   placeholder="Seleccionar insumo..."
@@ -90,28 +95,28 @@ export default function LinkedSuppliesEditor({ value = [], onChange, supplies = 
                   triggerClassName="h-8 text-sm"
                 />
                 {supply && (
-                  <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                  <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground flex-wrap">
                     <Icon className="h-3 w-3" />
-                    <span>{SECTOR_LABEL[supply.sector]}</span>
+                    <span>{SECTOR_LABEL[supply.sector] ?? ''}</span>
                     <Badge variant="secondary" className="text-[9px] px-1 py-0">
-                      stock: {supply.stock_current ?? 0} {supply.unit}
+                      stock: {supply.stock_current ?? 0} {supply.unit ?? ''}
                     </Badge>
                   </div>
                 )}
               </div>
 
-              <div className="flex-shrink-0 w-24">
+              <div className="flex-shrink-0 w-20">
                 <Input
                   type="number"
                   step="any"
                   min={0}
                   className="h-8 text-sm text-right"
-                  value={line.quantity ?? 0}
+                  value={safeLine.quantity ?? 0}
                   onChange={e => updateLine(idx, { quantity: parseFloat(e.target.value) || 0 })}
                   placeholder="Cant."
                 />
                 {supply && (
-                  <p className="text-[10px] text-muted-foreground text-right mt-0.5">{supply.unit}</p>
+                  <p className="text-[10px] text-muted-foreground text-right mt-0.5">{supply.unit ?? ''}</p>
                 )}
               </div>
 
