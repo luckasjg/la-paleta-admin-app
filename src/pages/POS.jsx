@@ -138,6 +138,26 @@ export default function POS() {
     setSelectedFlavors(prev => prev.map((f, i) => i === idx ? { ...f, [field]: value } : f));
   };
 
+  // Devuelve el surcharge_per_gram de la receta vinculada a una bandeja
+  const traySurchargePerGram = (trayId) => {
+    const tray = trays.find(t => t.id === trayId);
+    if (!tray) return 0;
+    const recipe = recipes.find(r =>
+      (tray.recipe_id && r.id === tray.recipe_id) || r.name === tray.recipe_name
+    );
+    if (!recipe || (recipe.flavor_tag || 'Regular') === 'Regular') return 0;
+    return recipe.surcharge_per_gram || 0;
+  };
+
+  // Recargo total para la selección actual de sabores (suma gramos × $/g de cada sabor)
+  const computeFlavorSurcharge = (flavors) =>
+    flavors.reduce((sum, f) => {
+      if (!f.tray_id) return sum;
+      return sum + (parseFloat(f.grams) || 0) * traySurchargePerGram(f.tray_id);
+    }, 0);
+
+  const previewSurcharge = flavorDialog ? computeFlavorSurcharge(selectedFlavors) : 0;
+
   const addIceCreamToCart = () => {
     if (!flavorDialog || !allFlavorsFilled) return;
     const product = flavorDialog;
@@ -145,6 +165,9 @@ export default function POS() {
       const tray = trays.find(t => t.id === f.tray_id);
       return tray ? tray.recipe_name : '';
     }).join(' + ');
+
+    const surcharge = computeFlavorSurcharge(selectedFlavors);
+    const finalPrice = +(product.price + surcharge).toFixed(2);
 
     setCart(prev => [...prev, {
       product_id: product.id,
@@ -161,8 +184,10 @@ export default function POS() {
       linked_supplies: Array.isArray(product.linked_supplies) ? product.linked_supplies : [],
       grams: targetGrams,
       quantity: 1,
-      unit_price: product.price,
-      subtotal: product.price,
+      base_price: product.price,
+      flavor_surcharge: +surcharge.toFixed(2),
+      unit_price: finalPrice,
+      subtotal: finalPrice,
       is_courtesy: false,
     }]);
 
@@ -419,6 +444,11 @@ export default function POS() {
                   {item.is_courtesy && <Gift className="h-3.5 w-3.5 text-amber-500 flex-shrink-0" />}
                 </div>
                 {item.flavor && <p className="text-xs text-muted-foreground">{item.flavor} · {item.grams}g</p>}
+                {item.flavor_surcharge > 0 && (
+                  <p className="text-[10px] text-amber-700 font-medium">
+                    Base ${item.base_price?.toFixed(2)} + recargo ${item.flavor_surcharge.toFixed(2)}
+                  </p>
+                )}
                 {item.is_courtesy && <p className="text-xs text-amber-600 font-medium">Cortesía</p>}
               </div>
               <div className="flex items-center gap-1">
@@ -562,6 +592,26 @@ export default function POS() {
 
             {!flavorGramsOk && (
               <p className="text-xs text-destructive">Los gramos deben sumar exactamente {targetGrams}g</p>
+            )}
+
+            {/* Resumen de precio con recargo proporcional */}
+            {flavorDialog && (
+              <div className="rounded-md border border-border bg-muted/40 p-2.5 text-xs space-y-1 font-mono">
+                <div className="flex justify-between text-muted-foreground">
+                  <span>Precio base</span>
+                  <span>${(flavorDialog.price || 0).toFixed(2)}</span>
+                </div>
+                {previewSurcharge > 0 && (
+                  <div className="flex justify-between text-amber-700">
+                    <span>Recargo sabor</span>
+                    <span>+${previewSurcharge.toFixed(2)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between font-bold text-primary border-t pt-1">
+                  <span>Precio final</span>
+                  <span>${((flavorDialog.price || 0) + previewSurcharge).toFixed(2)}</span>
+                </div>
+              </div>
             )}
           </div>
           <DialogFooter>

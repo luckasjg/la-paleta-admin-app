@@ -37,8 +37,19 @@ export default function RecipeDetailCard({ recipe, supplies, onEdit, onDelete, o
         <div className="flex items-start justify-between">
           <div>
             <CardTitle className="text-base">{recipe.name}</CardTitle>
-            <div className="flex items-center gap-2 mt-1">
+            <div className="flex items-center gap-2 mt-1 flex-wrap">
               <Badge variant="secondary">{TYPES.find(t => t.value === recipe.type)?.label}</Badge>
+              {recipe.flavor_tag && recipe.flavor_tag !== 'Regular' && (
+                <Badge
+                  className={
+                    recipe.flavor_tag === 'Premium'
+                      ? 'bg-amber-100 text-amber-700 border-amber-300'
+                      : 'bg-blue-100 text-blue-700 border-blue-300'
+                  }
+                >
+                  {recipe.flavor_tag} +${(recipe.surcharge_per_gram || 0).toFixed(4)}/g
+                </Badge>
+              )}
               <span className="text-xs text-muted-foreground">
                 Rinde: {recipe.yield_amount}{recipe.yield_unit}
               </span>

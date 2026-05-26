@@ -22,7 +22,13 @@ const TYPES = [
   { value: 'otro', label: 'Otro' },
 ];
 
-const emptyRecipe = { name: '', type: 'helado', yield_amount: 1000, yield_unit: 'ml', ingredients: [], sale_price: 0, is_active: true };
+const FLAVOR_TAGS = ['Regular', 'Premium', 'Sorbete'];
+
+const emptyRecipe = {
+  name: '', type: 'helado', yield_amount: 1000, yield_unit: 'ml',
+  ingredients: [], sale_price: 0, is_active: true,
+  flavor_tag: 'Regular', ref_surcharge_amount: 0, ref_surcharge_grams: 0,
+};
 
 const normalize = (s) => (s || '').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
@@ -95,6 +101,9 @@ export default function Recipes() {
       name: r.name, type: r.type, yield_amount: mix,
       yield_unit: r.yield_unit || 'ml', ingredients: ingsWithPct,
       sale_price: r.sale_price || 0, is_active: r.is_active !== false,
+      flavor_tag: r.flavor_tag || 'Regular',
+      ref_surcharge_amount: r.ref_surcharge_amount || 0,
+      ref_surcharge_grams: r.ref_surcharge_grams || 0,
     });
     setDialogOpen(true);
   };
@@ -163,14 +172,30 @@ export default function Recipes() {
 
   const handleSave = () => {
     if (!form.name) return;
-    // Strip the auxiliary "percentage" field; persist only absolute quantities for costing
+    // Auto-calcular surcharge_per_gram a partir del recargo de referencia
+    const tag = form.flavor_tag || 'Regular';
+    const amt = parseFloat(form.ref_surcharge_amount) || 0;
+    const grams = parseFloat(form.ref_surcharge_grams) || 0;
+    const surchargePerGram = (tag !== 'Regular' && amt > 0 && grams > 0) ? (amt / grams) : 0;
+
     const payload = {
       ...form,
       ingredients: form.ingredients.map(({ percentage, ...rest }) => rest),
+      flavor_tag: tag,
+      ref_surcharge_amount: tag === 'Regular' ? 0 : amt,
+      ref_surcharge_grams: tag === 'Regular' ? 0 : grams,
+      surcharge_per_gram: surchargePerGram,
     };
     if (editing) updateMut.mutate({ id: editing.id, data: payload });
     else createMut.mutate(payload);
   };
+
+  // Cálculo en vivo para mostrar al usuario en el formulario
+  const livePerGram = (() => {
+    const amt = parseFloat(form.ref_surcharge_amount) || 0;
+    const grams = parseFloat(form.ref_surcharge_grams) || 0;
+    return (form.flavor_tag !== 'Regular' && amt > 0 && grams > 0) ? (amt / grams) : 0;
+  })();
 
   return (
     <div className="space-y-6">
@@ -251,6 +276,59 @@ export default function Recipes() {
               </div>
               <div><Label>Precio Venta ($)</Label><Input type="number" step="0.01" value={form.sale_price} onChange={e => setForm({ ...form, sale_price: parseFloat(e.target.value) || 0 })} /></div>
             </div>
+
+            {/* Clasificación de sabor y recargo proporcional */}
+            <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-3">
+              <div className="grid grid-cols-2 gap-3 items-end">
+                <div>
+                  <Label className="text-xs">Clasificación del sabor</Label>
+                  <Select
+                    value={form.flavor_tag || 'Regular'}
+                    onValueChange={v => setForm({ ...form, flavor_tag: v })}
+                  >
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {FLAVOR_TAGS.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <p className="text-[11px] text-muted-foreground leading-tight">
+                  Premium/Sorbete aplican un recargo proporcional automático en el POS según los gramos servidos.
+                </p>
+              </div>
+
+              {form.flavor_tag && form.flavor_tag !== 'Regular' && (
+                <>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label className="text-xs">Recargo Ref. ($)</Label>
+                      <Input
+                        type="number" step="0.01" min="0"
+                        value={form.ref_surcharge_amount || ''}
+                        onChange={e => setForm({ ...form, ref_surcharge_amount: parseFloat(e.target.value) || 0 })}
+                        placeholder="3.00"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Gramos Ref.</Label>
+                      <Input
+                        type="number" step="1" min="0"
+                        value={form.ref_surcharge_grams || ''}
+                        onChange={e => setForm({ ...form, ref_surcharge_grams: parseFloat(e.target.value) || 0 })}
+                        placeholder="150"
+                      />
+                    </div>
+                  </div>
+                  <div className="text-[11px] flex items-center justify-between bg-background border border-border rounded-md px-2.5 py-1.5">
+                    <span className="text-muted-foreground">Recargo por gramo (auto)</span>
+                    <span className="font-mono font-bold text-primary">
+                      ${livePerGram.toFixed(4)}/g
+                    </span>
+                  </div>
+                </>
+              )}
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label>Mix Deseado (g/ml)</Label>

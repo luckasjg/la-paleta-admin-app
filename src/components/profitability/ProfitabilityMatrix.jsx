@@ -135,9 +135,23 @@ export default function ProfitabilityMatrix({ recipes, products, supplies, fixed
                 return (
                   <TableRow key={flavor.id}>
                     <TableCell className="sticky left-0 bg-card z-10 font-medium text-sm border-r">
-                      <div>{flavor.name}</div>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span>{flavor.name}</span>
+                        {flavor.flavor_tag && flavor.flavor_tag !== 'Regular' && (
+                          <span className={`text-[9px] px-1.5 py-0.5 rounded font-semibold ${
+                            flavor.flavor_tag === 'Premium'
+                              ? 'bg-amber-100 text-amber-700'
+                              : 'bg-blue-100 text-blue-700'
+                          }`}>
+                            {flavor.flavor_tag}
+                          </span>
+                        )}
+                      </div>
                       <div className="text-[10px] text-muted-foreground font-mono">
                         ${costPerGram.toFixed(4)}/g
+                        {flavor.surcharge_per_gram > 0 && (
+                          <span className="text-amber-700"> · +${flavor.surcharge_per_gram.toFixed(4)}/g</span>
+                        )}
                       </div>
                     </TableCell>
                     {presentations.map(p => {
@@ -150,7 +164,13 @@ export default function ProfitabilityMatrix({ recipes, products, supplies, fixed
                         : supplyCost(p.utensil_supply_id);
                       const fixedCost = linkedCost + fixedServiceCosts;
                       const totalCost = iceCreamCost + fixedCost;
-                      const basePrice = p.price / (1 + IVA_RATE);
+
+                      // Recargo proporcional Premium/Sorbete: precio final POS = precio base + (gramos × $/g)
+                      const tag = flavor.flavor_tag || 'Regular';
+                      const surchargePerGram = tag !== 'Regular' ? (flavor.surcharge_per_gram || 0) : 0;
+                      const surcharge = surchargePerGram * grams;
+                      const finalPrice = p.price + surcharge;
+                      const basePrice = finalPrice / (1 + IVA_RATE);
                       const aporte = basePrice - totalCost;
                       const isProfit = aporte >= 0;
 
@@ -169,6 +189,12 @@ export default function ProfitabilityMatrix({ recipes, products, supplies, fixed
                               <span>Costo:</span>
                               <span>${totalCost.toFixed(2)}</span>
                             </div>
+                            {surcharge > 0 && (
+                              <div className="flex justify-between text-amber-700">
+                                <span>Recargo:</span>
+                                <span>+${surcharge.toFixed(2)}</span>
+                              </div>
+                            )}
                             <div className="flex justify-between text-foreground">
                               <span>Venta s/IVA:</span>
                               <span>${basePrice.toFixed(2)}</span>
