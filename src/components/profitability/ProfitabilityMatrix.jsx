@@ -119,8 +119,12 @@ export default function ProfitabilityMatrix({ recipes, products, supplies, fixed
                     {presentations.map(p => {
                       const grams = p.grams_per_serving || 0;
                       const iceCreamCost = costPerGram * grams;
-                      const utensilCost = supplyCost(p.utensil_supply_id);
-                      const fixedCost = utensilCost + fixedServiceCosts;
+                      // Sumar costo de todos los linked_supplies (con fallback a legacy utensil_supply_id)
+                      const linked = Array.isArray(p.linked_supplies) ? p.linked_supplies : [];
+                      const linkedCost = linked.length > 0
+                        ? linked.reduce((sum, ls) => sum + supplyCost(ls.supply_id) * (ls.quantity || 0), 0)
+                        : supplyCost(p.utensil_supply_id);
+                      const fixedCost = linkedCost + fixedServiceCosts;
                       const totalCost = iceCreamCost + fixedCost;
                       const basePrice = p.price / (1 + IVA_RATE);
                       const aporte = basePrice - totalCost;

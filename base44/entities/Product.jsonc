@@ -39,7 +39,33 @@
     },
     "utensil_supply_id": {
       "type": "string",
-      "description": "ID del insumo utensilio vinculado (se descuenta 1 unidad por venta)"
+      "description": "(LEGACY) ID del insumo utensilio vinculado. Se mantiene por retrocompatibilidad; usar linked_supplies para nuevos productos."
+    },
+    "linked_supplies": {
+      "type": "array",
+      "description": "Lista de insumos/utensilios vinculados al producto. Cada uno se descuenta del inventario por venta.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "supply_id": {
+            "type": "string",
+            "description": "ID del insumo en inventario"
+          },
+          "quantity": {
+            "type": "number",
+            "description": "Cantidad a descontar por unidad vendida (en la unidad base del insumo)"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "materia_prima",
+              "utensilio",
+              "venta_directa"
+            ],
+            "description": "Tipo del insumo (snapshot del sector para mostrar en UI)"
+          }
+        }
+      }
     },
     "price": {
       "type": "number",

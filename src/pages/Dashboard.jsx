@@ -138,8 +138,17 @@ export default function Dashboard() {
         }
         if (item.product_id) {
           const product = products.find(p => p.id === item.product_id);
-          if (product?.utensil_supply_id) {
-            total += (supplyCost[product.utensil_supply_id] || 0) * (item.quantity || 1);
+          if (product) {
+            const linked = Array.isArray(product.linked_supplies) ? product.linked_supplies : [];
+            if (linked.length > 0) {
+              // Sumar costo de TODOS los insumos vinculados (materia prima + utensilios)
+              for (const ls of linked) {
+                total += (supplyCost[ls.supply_id] || 0) * (ls.quantity || 0) * (item.quantity || 1);
+              }
+            } else if (product.utensil_supply_id) {
+              // Fallback legacy
+              total += (supplyCost[product.utensil_supply_id] || 0) * (item.quantity || 1);
+            }
           }
         }
       });

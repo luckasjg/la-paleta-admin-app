@@ -94,6 +94,7 @@ export default function POS() {
           category: product.category,
           recipe_id: product.recipe_id,
           utensil_supply_id: product.utensil_supply_id || '',
+          linked_supplies: Array.isArray(product.linked_supplies) ? product.linked_supplies : [],
           grams: product.grams_per_serving || 0,
           quantity: 1,
           unit_price: product.price,
@@ -151,6 +152,7 @@ export default function POS() {
       }),
       tray_id: selectedFlavors[0].tray_id,
       utensil_supply_id: product.utensil_supply_id || '',
+      linked_supplies: Array.isArray(product.linked_supplies) ? product.linked_supplies : [],
       grams: targetGrams,
       quantity: 1,
       unit_price: product.price,
@@ -257,32 +259,47 @@ export default function POS() {
         });
       }
 
-      // Deduct supplies / utensils per item (these are not affected by the bug)
+      // ── Aggregate supply deductions across the ENTIRE cart ────────────────
+      // Combines: (1) ingredientes de recetas (café/merengada),
+      //           (2) linked_supplies del producto (múltiples insumos/utensilios),
+      //           (3) utensil_supply_id legacy (sólo si no hay linked_supplies).
+      // Una sola actualización por insumo evita sobrescrituras.
+      const supplyDemand = {}; // supply_id -> cantidad total a descontar
+      const addDemand = (supplyId, qty) => {
+        if (!supplyId || !(qty > 0)) return;
+        supplyDemand[supplyId] = (supplyDemand[supplyId] || 0) + qty;
+      };
+
       for (const item of cart) {
-        // Deduct supplies for café/merengada
+        // (1) Recetas (café/merengada)
         if ((item.category === 'cafe' || item.category === 'merengada') && item.recipe_id) {
           const recipe = recipes.find(r => r.id === item.recipe_id);
           if (recipe) {
             for (const ing of (recipe.ingredients || [])) {
-              const supply = supplies.find(s => s.id === ing.supply_id);
-              if (supply && !supply.is_infinite) {
-                const needed = (ing.quantity || 0) * item.quantity;
-                await base44.entities.Supply.update(supply.id, {
-                  stock_current: Math.max(0, supply.stock_current - needed),
-                });
-              }
+              addDemand(ing.supply_id, (ing.quantity || 0) * item.quantity);
             }
           }
         }
-        // Deduct utensilio vinculado (always, even if courtesy)
-        if (item.utensil_supply_id) {
-          const utensil = supplies.find(s => s.id === item.utensil_supply_id);
-          if (utensil && !utensil.is_infinite) {
-            await base44.entities.Supply.update(utensil.id, {
-              stock_current: Math.max(0, (utensil.stock_current || 0) - item.quantity),
-            });
+
+        // (2) linked_supplies (nuevo: múltiples insumos)
+        const linked = Array.isArray(item.linked_supplies) ? item.linked_supplies : [];
+        if (linked.length > 0) {
+          for (const ls of linked) {
+            addDemand(ls.supply_id, (ls.quantity || 0) * item.quantity);
           }
+        } else if (item.utensil_supply_id) {
+          // (3) Fallback legacy: utensil_supply_id (1 unidad por venta)
+          addDemand(item.utensil_supply_id, item.quantity);
         }
+      }
+
+      // Aplicar descuentos UNA sola vez por insumo
+      for (const [supplyId, qtyToDeduct] of Object.entries(supplyDemand)) {
+        const supply = supplies.find(s => s.id === supplyId);
+        if (!supply || supply.is_infinite) continue;
+        await base44.entities.Supply.update(supplyId, {
+          stock_current: Math.max(0, (supply.stock_current || 0) - qtyToDeduct),
+        });
       }
 
       // Derive legacy summary fields for backwards compatibility with reports/cash register

@@ -13,12 +13,13 @@ import { Plus, Pencil, Trash2, Package, Settings, ArrowUp, ArrowDown } from 'luc
 import PageHeader from '@/components/shared/PageHeader';
 import { toast } from 'sonner';
 import POSCategoryManager from '@/components/products/POSCategoryManager';
+import LinkedSuppliesEditor from '@/components/products/LinkedSuppliesEditor';
 
 const DEFAULT_CATEGORIES = ['helado', 'cafe', 'merengada', 'adicional', 'otro'];
 const HIDDEN_CATS_KEY = 'pos_hidden_categories';
 const EXTRA_CATS_KEY = 'pos_extra_categories';
 
-const emptyProduct = { name: '', category: '', size_label: '', grams_per_serving: 0, recipe_id: '', utensil_supply_id: '', price: 0, is_active: true, requires_flavor: false, max_flavors: 1 };
+const emptyProduct = { name: '', category: '', size_label: '', grams_per_serving: 0, recipe_id: '', linked_supplies: [], price: 0, is_active: true, requires_flavor: false, max_flavors: 1 };
 
 export default function Products() {
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -58,7 +59,7 @@ export default function Products() {
     queryFn: () => base44.entities.Supply.list(),
   });
 
-  const linkableSupplies = supplies.filter(s => s.sector === 'utensilio' || s.sector === 'venta_directa');
+
 
   // Dynamic categories: defaults + every unique category that exists in DB (case-insensitive de-dup)
   // minus any the user has hidden from the manager.
@@ -99,10 +100,21 @@ export default function Products() {
 
   const openEdit = (p) => {
     setEditing(p);
+    // Migración suave: si no hay linked_supplies pero sí utensil_supply_id legacy,
+    // pre-cargamos una línea para que el usuario la vea y edite.
+    let linked = Array.isArray(p.linked_supplies) ? [...p.linked_supplies] : [];
+    if (linked.length === 0 && p.utensil_supply_id) {
+      const legacySupply = supplies.find(s => s.id === p.utensil_supply_id);
+      linked = [{
+        supply_id: p.utensil_supply_id,
+        quantity: 1,
+        type: legacySupply?.sector || 'utensilio',
+      }];
+    }
     setForm({
       name: p.name, category: p.category, size_label: p.size_label || '',
       grams_per_serving: p.grams_per_serving || 0, recipe_id: p.recipe_id || '',
-      utensil_supply_id: p.utensil_supply_id || '',
+      linked_supplies: linked,
       price: p.price, is_active: p.is_active !== false,
       requires_flavor: p.requires_flavor === true || p.category === 'helado',
       max_flavors: p.max_flavors || p.flavor_count || 1,
@@ -112,8 +124,11 @@ export default function Products() {
 
   const handleSave = () => {
     if (!form.name || form.price === undefined || form.price === null) return;
-    if (editing) updateMut.mutate({ id: editing.id, data: form });
-    else createMut.mutate(form);
+    // Filtramos líneas incompletas y limpiamos el campo legacy para evitar duplicidad de descuento.
+    const cleanedLinked = (form.linked_supplies || []).filter(l => l.supply_id && (l.quantity ?? 0) > 0);
+    const payload = { ...form, linked_supplies: cleanedLinked, utensil_supply_id: '' };
+    if (editing) updateMut.mutate({ id: editing.id, data: payload });
+    else createMut.mutate(payload);
   };
 
   // Fail-safe grouping: every product in DB gets shown under its category (or "Sin categoría")
@@ -183,11 +198,24 @@ export default function Products() {
                       <Badge variant="secondary" className="text-xs">{p.grams_per_serving}g</Badge>
                     )}
                   </div>
-                  {p.utensil_supply_id && (
-                    <p className="text-xs text-muted-foreground mt-1 truncate">
-                      📦 {supplies.find(s => s.id === p.utensil_supply_id)?.name || 'Utensilio'}
-                    </p>
-                  )}
+                  {(() => {
+                    const linked = Array.isArray(p.linked_supplies) ? p.linked_supplies : [];
+                    if (linked.length > 0) {
+                      return (
+                        <p className="text-xs text-muted-foreground mt-1 truncate" title={linked.map(l => supplies.find(s => s.id === l.supply_id)?.name).filter(Boolean).join(', ')}>
+                          📦 {linked.length} insumo{linked.length > 1 ? 's' : ''} vinculado{linked.length > 1 ? 's' : ''}
+                        </p>
+                      );
+                    }
+                    if (p.utensil_supply_id) {
+                      return (
+                        <p className="text-xs text-muted-foreground mt-1 truncate">
+                          📦 {supplies.find(s => s.id === p.utensil_supply_id)?.name || 'Utensilio'} <span className="italic">(legacy)</span>
+                        </p>
+                      );
+                    }
+                    return null;
+                  })()}
                   {!p.is_active && <Badge className="mt-2 bg-yellow-100 text-yellow-700">Inactivo</Badge>}
 
                   {/* Orden de visualización en POS */}
@@ -275,22 +303,12 @@ export default function Products() {
               <div><Label>Gramos/Porción</Label><Input type="number" value={form.grams_per_serving} onChange={e => setForm({ ...form, grams_per_serving: parseFloat(e.target.value) || 0 })} /></div>
             </div>
 
-            {/* Insumo vinculado (utensilio o venta directa) */}
-            <div>
-              <Label>Insumo Vinculado <span className="font-normal text-muted-foreground">(opcional)</span></Label>
-              <Select value={form.utensil_supply_id || '__none__'} onValueChange={v => setForm({ ...form, utensil_supply_id: v === '__none__' ? '' : v })}>
-                <SelectTrigger><SelectValue placeholder="Ninguno" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__">Ninguno</SelectItem>
-                  {linkableSupplies.map(s => (
-                    <SelectItem key={s.id} value={s.id}>
-                      {s.name} ({s.sector === 'venta_directa' ? 'Venta directa' : 'Utensilio'} · stock: {s.stock_current} {s.unit})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground mt-1">Se descuenta 1 unidad por cada venta de este producto.</p>
-            </div>
+            {/* Insumos vinculados (múltiples) */}
+            <LinkedSuppliesEditor
+              value={form.linked_supplies || []}
+              onChange={(next) => setForm({ ...form, linked_supplies: next })}
+              supplies={supplies}
+            />
 
             {(form.category === 'cafe' || form.category === 'merengada') && (
               <div>
