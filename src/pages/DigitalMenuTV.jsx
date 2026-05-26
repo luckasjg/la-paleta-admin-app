@@ -146,8 +146,8 @@ export default function DigitalMenuTV() {
 
       {/* Footer sutil */}
       <footer className="px-12 py-3 border-t border-amber-500/20 bg-black/40 text-center">
-        <p className="text-xs text-amber-300/50 uppercase tracking-[0.4em]">
-          ¡Buen provecho!
+        <p className="text-xs text-amber-300/50 uppercase tracking-[0.4em]">Sigue
+
         </p>
       </footer>
     </div>);
