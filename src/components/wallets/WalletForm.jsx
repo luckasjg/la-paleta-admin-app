@@ -99,16 +99,20 @@ export default function WalletForm({ open, onOpenChange, wallet, onSave, isEditi
               Los pagos por estos métodos se depositarán automáticamente aquí
             </p>
             <div className="space-y-1.5 border border-border rounded-lg p-2">
-              {compatibleMethods.map(m => (
-                <label key={m.value} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-secondary/50 cursor-pointer">
-                  <Checkbox
-                    checked={(form.payment_methods || []).includes(m.value)}
-                    onCheckedChange={() => toggleMethod(m.value)}
-                  />
-                  <m.icon className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span className="text-sm">{m.label}</span>
-                </label>
-              ))}
+              {compatibleMethods.map(m => {
+                const checked = (form.payment_methods || []).includes(m.value);
+                return (
+                  <div
+                    key={m.value}
+                    className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-secondary/50 cursor-pointer"
+                    onClick={() => toggleMethod(m.value)}
+                  >
+                    <Checkbox checked={checked} onCheckedChange={() => toggleMethod(m.value)} onClick={(e) => e.stopPropagation()} />
+                    <m.icon className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span className="text-sm">{m.label}</span>
+                  </div>
+                );
+              })}
               {compatibleMethods.length === 0 && (
                 <p className="text-xs text-muted-foreground p-2">No hay métodos para esta moneda</p>
               )}
