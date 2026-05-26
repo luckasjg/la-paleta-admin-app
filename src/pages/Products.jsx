@@ -14,6 +14,7 @@ import PageHeader from '@/components/shared/PageHeader';
 import { toast } from 'sonner';
 import POSCategoryManager from '@/components/products/POSCategoryManager';
 import LinkedSuppliesEditor from '@/components/products/LinkedSuppliesEditor';
+import SearchableCombobox from '@/components/shared/SearchableCombobox';
 
 const DEFAULT_CATEGORIES = ['helado', 'cafe', 'merengada', 'adicional', 'otro'];
 const HIDDEN_CATS_KEY = 'pos_hidden_categories';
@@ -313,10 +314,16 @@ export default function Products() {
             {(form.category === 'cafe' || form.category === 'merengada') && (
               <div>
                 <Label>Receta Asociada</Label>
-                <Select value={form.recipe_id} onValueChange={v => setForm({ ...form, recipe_id: v })}>
-                  <SelectTrigger><SelectValue placeholder="Seleccionar receta" /></SelectTrigger>
-                  <SelectContent>{recipes.filter(r => r.type === form.category).map(r => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}</SelectContent>
-                </Select>
+                <SearchableCombobox
+                  value={form.recipe_id}
+                  onChange={v => setForm({ ...form, recipe_id: v })}
+                  options={recipes
+                    .filter(r => r.type === form.category)
+                    .map(r => ({ value: r.id, label: r.name }))}
+                  placeholder="Seleccionar receta"
+                  searchPlaceholder="Buscar receta..."
+                  emptyText="Sin recetas"
+                />
               </div>
             )}
 

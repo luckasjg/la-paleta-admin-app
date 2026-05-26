@@ -1,10 +1,10 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Plus, Trash2, Wrench, Package } from 'lucide-react';
+import SearchableCombobox from '@/components/shared/SearchableCombobox';
 
 const SECTOR_LABEL = {
   materia_prima: 'Materia prima',
@@ -21,13 +21,23 @@ const SECTOR_ICON = {
 /**
  * Editor dinámico de insumos vinculados a un producto.
  * Permite agregar múltiples líneas (supply_id + quantity + type).
- *
- * props:
- *  - value: array de { supply_id, quantity, type }
- *  - onChange: (next) => void
- *  - supplies: catálogo completo de insumos
  */
 export default function LinkedSuppliesEditor({ value = [], onChange, supplies = [] }) {
+  // Ordenamos alfabéticamente y armamos las opciones para el combobox una sola vez.
+  const supplyOptions = useMemo(
+    () =>
+      [...supplies]
+        .sort((a, b) =>
+          (a.name || '').localeCompare(b.name || '', undefined, { sensitivity: 'base' })
+        )
+        .map(s => ({
+          value: s.id,
+          label: s.name,
+          sublabel: `${SECTOR_LABEL[s.sector] || s.sector} · ${s.unit}`,
+        })),
+    [supplies]
+  );
+
   const addLine = () => {
     onChange([...value, { supply_id: '', quantity: 1, type: 'materia_prima' }]);
   };
@@ -70,26 +80,15 @@ export default function LinkedSuppliesEditor({ value = [], onChange, supplies = 
           return (
             <div key={idx} className="flex items-start gap-2 bg-card border border-border rounded-md p-2">
               <div className="flex-1 min-w-0 space-y-1">
-                <Select
+                <SearchableCombobox
                   value={line.supply_id || ''}
-                  onValueChange={(v) => handleSupplyChange(idx, v)}
-                >
-                  <SelectTrigger className="text-sm h-8">
-                    <SelectValue placeholder="Seleccionar insumo..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {supplies.map(s => (
-                      <SelectItem key={s.id} value={s.id}>
-                        <span className="flex items-center gap-2">
-                          <span>{s.name}</span>
-                          <span className="text-[10px] text-muted-foreground">
-                            ({SECTOR_LABEL[s.sector] || s.sector} · {s.unit})
-                          </span>
-                        </span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  onChange={(v) => handleSupplyChange(idx, v)}
+                  options={supplyOptions}
+                  placeholder="Seleccionar insumo..."
+                  searchPlaceholder="Buscar insumo..."
+                  emptyText="Sin insumos"
+                  triggerClassName="h-8 text-sm"
+                />
                 {supply && (
                   <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
                     <Icon className="h-3 w-3" />

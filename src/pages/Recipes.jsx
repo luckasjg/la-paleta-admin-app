@@ -13,6 +13,7 @@ import PageHeader from '@/components/shared/PageHeader';
 import { toast } from 'sonner';
 import RecipeDetailCard from '@/components/recipes/RecipeDetailCard';
 import { exportRecipesToCSV } from '@/lib/exportRecipesCSV';
+import SearchableCombobox from '@/components/shared/SearchableCombobox';
 
 const TYPES = [
   { value: 'helado', label: 'Helado' },
@@ -287,10 +288,16 @@ export default function Recipes() {
               <div className="space-y-2">
                 {form.ingredients.map((ing, idx) => (
                   <div key={idx} className="grid grid-cols-[1fr,72px,90px,32px] gap-2 items-center">
-                    <Select value={ing.supply_id} onValueChange={v => updateIngredient(idx, 'supply_id', v)}>
-                      <SelectTrigger><SelectValue placeholder="Insumo" /></SelectTrigger>
-                      <SelectContent>{supplies.filter(s => s.sector === 'materia_prima').map(s => <SelectItem key={s.id} value={s.id}>{s.name} ({s.unit})</SelectItem>)}</SelectContent>
-                    </Select>
+                    <SearchableCombobox
+                      value={ing.supply_id}
+                      onChange={v => updateIngredient(idx, 'supply_id', v)}
+                      options={supplies
+                        .filter(s => s.sector === 'materia_prima')
+                        .map(s => ({ value: s.id, label: s.name, sublabel: `(${s.unit})` }))}
+                      placeholder="Insumo"
+                      searchPlaceholder="Buscar insumo..."
+                      emptyText="Sin insumos"
+                    />
                     <Input
                       type="number"
                       step="0.01"

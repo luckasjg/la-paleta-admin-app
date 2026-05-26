@@ -13,6 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { Plus, Pencil, Trash2, FlaskConical, Factory, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import PageHeader from '@/components/shared/PageHeader';
 import { toast } from 'sonner';
+import SearchableCombobox from '@/components/shared/SearchableCombobox';
 
 const emptyPrep = {
   name: '',
@@ -41,8 +42,11 @@ export default function Preparations() {
   });
 
   // Raw materials only (exclude self-linked supplies to prevent circular reference)
+  // Sorted alphabetically for selector UX.
   const rawMaterials = useMemo(() =>
-    supplies.filter(s => s.sector === 'materia_prima' && s.category !== 'Preparado Propio'),
+    supplies
+      .filter(s => s.sector === 'materia_prima' && s.category !== 'Preparado Propio')
+      .sort((a, b) => (a.name || '').localeCompare(b.name || '', undefined, { sensitivity: 'base' })),
     [supplies]
   );
 
@@ -363,12 +367,18 @@ export default function Preparations() {
               <div className="space-y-2">
                 {form.ingredients.map((ing, idx) => (
                   <div key={idx} className="grid grid-cols-[1fr,72px,90px,32px] gap-2 items-center">
-                    <Select value={ing.supply_id} onValueChange={v => updateIngredient(idx, 'supply_id', v)}>
-                      <SelectTrigger><SelectValue placeholder="Insumo" /></SelectTrigger>
-                      <SelectContent>
-                        {rawMaterials.map(s => <SelectItem key={s.id} value={s.id}>{s.name} ({s.unit})</SelectItem>)}
-                      </SelectContent>
-                    </Select>
+                    <SearchableCombobox
+                      value={ing.supply_id}
+                      onChange={v => updateIngredient(idx, 'supply_id', v)}
+                      options={rawMaterials.map(s => ({
+                        value: s.id,
+                        label: s.name,
+                        sublabel: `(${s.unit})`,
+                      }))}
+                      placeholder="Insumo"
+                      searchPlaceholder="Buscar insumo..."
+                      emptyText="Sin insumos"
+                    />
                     <Input type="number" step="0.01" placeholder="%" value={ing.percentage ?? ''} onChange={e => updateIngredient(idx, 'percentage', e.target.value)} className="text-right" />
                     <div className="relative">
                       <Input type="number" step="0.01" placeholder="0" value={ing.quantity || ''} onChange={e => updateIngredient(idx, 'quantity', e.target.value)} className="text-right pr-7" />

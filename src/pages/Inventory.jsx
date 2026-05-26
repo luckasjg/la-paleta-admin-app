@@ -16,6 +16,7 @@ import PageHeader from '@/components/shared/PageHeader';
 import { toast } from 'sonner';
 import CategoryManager from '@/components/inventory/CategoryManager';
 import PurchaseFormatPanel, { getPackageUnit } from '@/components/inventory/PurchaseFormatPanel';
+import SearchableCombobox from '@/components/shared/SearchableCombobox';
 
 const SECTORS = [
   { value: 'materia_prima', label: 'Materia Prima', description: 'Ingredientes para producción de helados' },
@@ -257,6 +258,18 @@ export default function Inventory() {
 
   const categoriesForSector = activeCategories[form.sector] || [];
 
+  // Proveedores únicos detectados en el inventario (ordenados A-Z) para autocompletar.
+  const supplierOptions = useMemo(() => {
+    const set = new Set();
+    supplies.forEach(s => {
+      const v = (s.supplier || '').trim();
+      if (v) set.add(v);
+    });
+    return Array.from(set)
+      .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
+      .map(s => ({ value: s, label: s }));
+  }, [supplies]);
+
   const filtered = useMemo(() =>
     supplies.filter(s =>
       (s.sector || 'materia_prima') === activeSector &&
@@ -414,15 +427,17 @@ export default function Inventory() {
               </Select>
             </div>
 
-            {/* Category: strict select from managed list */}
+            {/* Category: strict select from managed list (con búsqueda) */}
             <div>
               <Label>Categoría</Label>
-              <Select value={form.category} onValueChange={v => setForm({ ...form, category: v })}>
-                <SelectTrigger><SelectValue placeholder="Seleccionar categoría..." /></SelectTrigger>
-                <SelectContent>
-                  {categoriesForSector.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <SearchableCombobox
+                value={form.category}
+                onChange={v => setForm({ ...form, category: v })}
+                options={categoriesForSector.map(c => ({ value: c, label: c }))}
+                placeholder="Seleccionar categoría..."
+                searchPlaceholder="Buscar categoría..."
+                emptyText="Sin categorías"
+              />
               <p className="text-xs text-muted-foreground mt-1">Para agregar categorías usa "Gestionar Categorías".</p>
             </div>
 
@@ -446,7 +461,33 @@ export default function Inventory() {
                   <p className="text-[10px] text-muted-foreground mt-1">Se deriva del formato de compra</p>
                 </div>
               )}
-              <div><Label>Proveedor</Label><Input value={form.supplier} onChange={e => setForm({ ...form, supplier: e.target.value })} /></div>
+              <div>
+                <Label>Proveedor</Label>
+                {supplierOptions.length > 0 ? (
+                  <div className="space-y-1">
+                    <SearchableCombobox
+                      value={form.supplier}
+                      onChange={v => setForm({ ...form, supplier: v })}
+                      options={supplierOptions}
+                      placeholder="Elegir o escribir abajo..."
+                      searchPlaceholder="Buscar proveedor..."
+                      emptyText="Sin coincidencias"
+                    />
+                    <Input
+                      value={form.supplier}
+                      onChange={e => setForm({ ...form, supplier: e.target.value })}
+                      placeholder="O escribir uno nuevo"
+                      className="h-8 text-xs"
+                    />
+                  </div>
+                ) : (
+                  <Input
+                    value={form.supplier}
+                    onChange={e => setForm({ ...form, supplier: e.target.value })}
+                    placeholder="Nombre del proveedor"
+                  />
+                )}
+              </div>
             </div>
 
             {form.sector === 'materia_prima' ? (() => {
