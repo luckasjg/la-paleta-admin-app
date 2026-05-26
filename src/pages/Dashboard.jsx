@@ -12,6 +12,7 @@ import DataSimulator from '@/components/dashboard/DataSimulator';
 import AnnualSalesChart from '@/components/dashboard/AnnualSalesChart';
 import MonthDetailCharts from '@/components/dashboard/MonthDetailCharts';
 import MonthKPIs from '@/components/dashboard/MonthKPIs';
+import CurrencyExposurePanel from '@/components/dashboard/CurrencyExposurePanel';
 import moment from 'moment';
 
 const MONTH_NAMES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
@@ -181,6 +182,9 @@ export default function Dashboard() {
         <StatCard title="Bandejas Activas" value={trays.length} icon={IceCream} />
         <StatCard title="Alertas Stock" value={lowStockSupplies.length} icon={AlertTriangle} subtitle={lowStockSupplies.length > 0 ? 'Insumos bajos' : 'Todo OK'} />
       </div>
+
+      {/* Currency Exposure Panel */}
+      <CurrencyExposurePanel />
 
       {/* Annual interactive chart */}
       <AnnualSalesChart

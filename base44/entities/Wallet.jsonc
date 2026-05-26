@@ -1,0 +1,73 @@
+{
+  "name": "Wallet",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Nombre de la billetera/cuenta (ej. Caja Fuerte USD, Banco VES Pago M\u00f3vil, Zelle)"
+    },
+    "currency": {
+      "type": "string",
+      "enum": [
+        "USD",
+        "VES"
+      ],
+      "description": "Moneda nativa de la cuenta"
+    },
+    "balance": {
+      "type": "number",
+      "default": 0,
+      "description": "Saldo actual en la moneda nativa"
+    },
+    "payment_methods": {
+      "type": "array",
+      "description": "M\u00e9todos de pago del POS que depositan autom\u00e1ticamente en esta billetera",
+      "items": {
+        "type": "string",
+        "enum": [
+          "efectivo_usd",
+          "efectivo_ves",
+          "pago_movil",
+          "punto_venta",
+          "zelle"
+        ]
+      },
+      "default": []
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true,
+      "description": "Si la billetera est\u00e1 activa"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Notas o descripci\u00f3n"
+    }
+  },
+  "required": [
+    "name",
+    "currency"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

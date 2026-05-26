@@ -13,6 +13,7 @@ import moment from 'moment';
 import { useExchangeRate, formatUSD, formatVES } from '@/lib/useExchangeRate';
 import ExchangeRateInput from '@/components/pos/ExchangeRateInput';
 import MixedPaymentDialog from '@/components/pos/MixedPaymentDialog';
+import { depositSalePaymentsToWallets } from '@/lib/walletHelpers';
 
 export default function POS() {
   const [cart, setCart] = useState([]);
@@ -41,6 +42,11 @@ export default function POS() {
   const { data: supplies = [] } = useQuery({
     queryKey: ['supplies'],
     queryFn: () => base44.entities.Supply.list(),
+  });
+
+  const { data: wallets = [] } = useQuery({
+    queryKey: ['wallets'],
+    queryFn: () => base44.entities.Wallet.list(),
   });
 
   const activeProducts = products.filter(p => p.is_active !== false);
@@ -313,7 +319,7 @@ export default function POS() {
         ? 'mixto'
         : (payments[0]?.method || 'efectivo_usd');
 
-      await base44.entities.Sale.create({
+      const sale = await base44.entities.Sale.create({
         items: cart,
         total,
         exchange_rate,
@@ -324,11 +330,25 @@ export default function POS() {
         sale_date: new Date().toISOString(),
         shift: getCurrentShift(),
       });
+
+      // Depositar pagos en las billeteras vinculadas (no bloquea si falla)
+      try {
+        await depositSalePaymentsToWallets({
+          payments,
+          exchange_rate,
+          sale_id: sale?.id,
+          wallets,
+        });
+      } catch (e) {
+        console.error('Error depositando en billeteras:', e);
+      }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['trays'] });
       qc.invalidateQueries({ queryKey: ['supplies'] });
       qc.invalidateQueries({ queryKey: ['sales'] });
+      qc.invalidateQueries({ queryKey: ['wallets'] });
+      qc.invalidateQueries({ queryKey: ['wallet_transactions'] });
       setCart([]);
       setPayDialog(false);
       toast.success('¡Venta registrada!');
