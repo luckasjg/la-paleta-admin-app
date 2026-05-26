@@ -1,38 +1,47 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { LEGACY_METHODS, getIconComponent } from '@/lib/paymentMethods';
 
+// Lock GLOBAL fuera de React: garantiza que el seed corra UNA sola vez por sesión,
+// aunque el hook se monte en múltiples componentes en paralelo.
+let seedPromise = null;
+
+async function ensureSeed(qc) {
+  if (seedPromise) return seedPromise;
+  seedPromise = (async () => {
+    // Re-leer en el momento del seed (no fiarse de cache) para evitar duplicados.
+    const fresh = await base44.entities.PaymentMethod.list();
+    const existingValues = new Set((fresh || []).map(m => m.value));
+    for (const m of LEGACY_METHODS) {
+      if (!existingValues.has(m.value)) {
+        await base44.entities.PaymentMethod.create(m);
+        existingValues.add(m.value);
+      }
+    }
+    qc.invalidateQueries({ queryKey: ['payment_methods'] });
+  })().catch((e) => {
+    console.error('Seed PaymentMethod falló:', e);
+    seedPromise = null; // permitir reintento si falló
+  });
+  return seedPromise;
+}
+
 // Hook centralizado para consumir los métodos de pago.
-// - Carga desde la entidad PaymentMethod.
-// - Si la BD está vacía, hace seed automático de los 5 legacy (una sola vez).
-// - Expone también el shape clásico {value,label,icon,defaultCurrency} para el POS.
 export function usePaymentMethods({ activeOnly = false } = {}) {
   const qc = useQueryClient();
-  const seededRef = useRef(false);
 
   const query = useQuery({
     queryKey: ['payment_methods'],
     queryFn: () => base44.entities.PaymentMethod.list('sort_order'),
   });
 
-  // Seed: si está cargado y no hay registros, creamos los legacy.
+  // Seed sólo si terminó de cargar y la BD está realmente vacía.
   useEffect(() => {
-    if (seededRef.current) return;
     if (query.isLoading) return;
     if (!Array.isArray(query.data)) return;
     if (query.data.length > 0) return;
-    seededRef.current = true;
-    (async () => {
-      try {
-        for (const m of LEGACY_METHODS) {
-          await base44.entities.PaymentMethod.create(m);
-        }
-        qc.invalidateQueries({ queryKey: ['payment_methods'] });
-      } catch (e) {
-        console.error('Seed PaymentMethod falló:', e);
-      }
-    })();
+    ensureSeed(qc);
   }, [query.isLoading, query.data, qc]);
 
   const list = Array.isArray(query.data) ? query.data : [];

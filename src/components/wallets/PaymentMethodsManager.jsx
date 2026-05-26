@@ -42,7 +42,21 @@ export default function PaymentMethodsManager({ open, onOpenChange }) {
   const saveMut = useMutation({
     mutationFn: async (data) => {
       if (editing) {
-        await base44.entities.PaymentMethod.update(editing.id, data);
+        // Si se renombra un método legacy, generamos un value único nuevo
+        // para que el histórico siga apuntando al value original y el método
+        // renombrado pase a ser independiente.
+        const labelChanged = data.label?.trim() !== editing.label;
+        if (editing.is_legacy && labelChanged) {
+          const existingValues = methods.map(m => m.value);
+          const newValue = slugifyValue(data.label, existingValues);
+          await base44.entities.PaymentMethod.update(editing.id, {
+            ...data,
+            value: newValue,
+            is_legacy: false,
+          });
+        } else {
+          await base44.entities.PaymentMethod.update(editing.id, data);
+        }
       } else {
         const existingValues = methods.map(m => m.value);
         const value = slugifyValue(data.label, existingValues);
