@@ -20,10 +20,26 @@ const empty = {
 
 export default function WalletForm({ open, onOpenChange, wallet, onSave, isEditing }) {
   const [form, setForm] = useState(empty);
-  const { posMethods } = usePaymentMethods({ activeOnly: true });
+  // Listamos TODOS los métodos (no solo activos) para mostrar también los
+  // ya vinculados aunque hayan sido desactivados/renombrados.
+  const { methods: allMethods, posMethods } = usePaymentMethods();
 
   useEffect(() => {
-    if (open) setForm(wallet ? { ...empty, ...wallet } : empty);
+    if (open) {
+      if (wallet) {
+        // Mapeo explícito asegurando que payment_methods llega como array
+        // de strings (los value identifiers).
+        setForm({
+          ...empty,
+          ...wallet,
+          payment_methods: Array.isArray(wallet.payment_methods)
+            ? [...wallet.payment_methods]
+            : [],
+        });
+      } else {
+        setForm(empty);
+      }
+    }
   }, [open, wallet]);
 
   const toggleMethod = (m) => {
@@ -36,14 +52,30 @@ export default function WalletForm({ open, onOpenChange, wallet, onSave, isEditi
     });
   };
 
-  // Solo mostrar métodos compatibles con la moneda seleccionada
-  const compatibleMethods = posMethods.filter(m => m.defaultCurrency === form.currency);
+  // Métodos visibles para la moneda actual:
+  // - todos los ACTIVOS de esa moneda
+  // - PLUS cualquier método ya vinculado (aunque esté inactivo/renombrado) para que
+  //   no desaparezca de la UI al editar una billetera existente.
+  const compatibleMethods = (() => {
+    const linked = new Set(form.payment_methods || []);
+    const activeOfCurrency = posMethods.filter(m => m.defaultCurrency === form.currency);
+    const linkedNotActive = allMethods
+      .filter(m => linked.has(m.value) && m.currency === form.currency && !activeOfCurrency.find(a => a.value === m.value))
+      .map(m => ({ value: m.value, label: m.label + ' (inactivo)', icon: posMethods.find(p => p.value === m.value)?.icon || (() => null), defaultCurrency: m.currency }));
+    return [...activeOfCurrency, ...linkedNotActive];
+  })();
 
   const handleSave = () => {
     if (!form.name?.trim()) return;
+    // Enviamos el id explícitamente para que la mutación decida CREATE vs UPDATE.
     onSave({
-      ...form,
+      id: wallet?.id,
+      name: form.name,
+      currency: form.currency,
       balance: parseFloat(form.balance) || 0,
+      payment_methods: form.payment_methods || [],
+      is_active: form.is_active !== false,
+      notes: form.notes || '',
     });
   };
 

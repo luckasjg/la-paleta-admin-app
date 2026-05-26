@@ -21,8 +21,9 @@ export const LEGACY_METHODS = [
   { value: 'zelle',        label: 'Zelle',            currency: 'USD', icon: 'Send',       sort_order: 5, is_legacy: true, is_active: true },
 ];
 
-// Slugifica un label en un `value` válido y único.
-export function slugifyValue(text, existing = []) {
+// Slugifica un label en un `value` válido y único respecto a `existing`.
+// `excludeValue` permite ignorar el value del propio registro cuando se edita.
+export function slugifyValue(text, existing = [], excludeValue = null) {
   let base = (text || '')
     .toLowerCase()
     .normalize('NFD')
@@ -30,9 +31,9 @@ export function slugifyValue(text, existing = []) {
     .replace(/[^a-z0-9]+/g, '_')
     .replace(/^_+|_+$/g, '');
   if (!base) base = 'metodo';
+  const set = new Set(existing.filter(v => v !== excludeValue));
   let candidate = base;
   let i = 2;
-  const set = new Set(existing);
   while (set.has(candidate)) {
     candidate = `${base}_${i++}`;
   }

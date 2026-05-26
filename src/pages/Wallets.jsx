@@ -47,10 +47,13 @@ export default function Wallets() {
 
   const saveMutation = useMutation({
     mutationFn: async (data) => {
-      if (editing) {
-        await base44.entities.Wallet.update(editing.id, data);
+      // CRÍTICO: decidir por el id que viene en `data`, no por el closure `editing`.
+      // Esto evita crear duplicados si el estado `editing` se limpia antes de la mutación.
+      const { id, ...payload } = data;
+      if (id) {
+        await base44.entities.Wallet.update(id, payload);
       } else {
-        await base44.entities.Wallet.create(data);
+        await base44.entities.Wallet.create(payload);
       }
     },
     onSuccess: () => {
