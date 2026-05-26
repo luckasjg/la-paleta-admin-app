@@ -11,6 +11,23 @@ const isIceCreamRecipe = (r) => {
   return t === 'helado' || t === 'sorbete' || c === 'helado' || c === 'sorbete';
 };
 
+// Categorías de productos que SÍ son recipientes/porciones de helado.
+// La matriz cruza sólo estos productos con las recetas de helado/sorbete.
+const ICE_CREAM_PRODUCT_CATEGORIES = new Set([
+  'helado', 'helados',
+  'barquilla', 'barquillas',
+  'para llevar',
+  'tina', 'tinas',
+  'cono', 'conos',
+  'paleta', 'paletas',
+  'copa', 'copas',
+]);
+
+const isIceCreamProduct = (p) => {
+  const cat = (p.category || '').trim().toLowerCase();
+  return ICE_CREAM_PRODUCT_CATEGORIES.has(cat);
+};
+
 function recipeCostPerGram(recipe, supplies) {
   if (!recipe?.ingredients?.length) return 0;
   const totalIngredientCost = recipe.ingredients.reduce((sum, ing) => {
@@ -28,9 +45,16 @@ export default function ProfitabilityMatrix({ recipes, products, supplies, fixed
     [recipes]
   );
 
+  // Sólo productos que son recipientes/porciones de helado y tienen gramos > 0
+  // (descarta café, toppings, pastelería, bebidas, adicionales sin gramos, etc.)
   const presentations = useMemo(
     () => products
-      .filter(p => p.grams_per_serving && p.is_active !== false && p.price > 0)
+      .filter(p =>
+        isIceCreamProduct(p) &&
+        (p.grams_per_serving || 0) > 0 &&
+        p.is_active !== false &&
+        p.price > 0
+      )
       .sort((a, b) => (a.grams_per_serving || 0) - (b.grams_per_serving || 0)),
     [products]
   );
@@ -60,7 +84,7 @@ export default function ProfitabilityMatrix({ recipes, products, supplies, fixed
           <p className="text-sm text-muted-foreground text-center py-6">
             {flavors.length === 0
               ? 'No hay recetas de helado/sorbete activas.'
-              : 'No hay productos con "Requiere sabor" activado.'}
+              : 'No hay productos de helado (categorías: helado, barquilla, tina, cono, paleta, copa, para llevar) con gramos por porción definidos.'}
           </p>
         </CardContent>
       </Card>
