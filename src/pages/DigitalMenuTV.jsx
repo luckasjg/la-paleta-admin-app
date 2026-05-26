@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { base44 } from '@/api/base44Client';
 import { formatUSD } from '@/lib/useExchangeRate';
-import { IceCream } from 'lucide-react';
+import { Palette } from 'lucide-react';
 
 const POLL_MS = 30000; // 30 segundos
 
@@ -56,7 +56,7 @@ export default function DigitalMenuTV() {
       <header className="flex items-center justify-between px-12 py-6 border-b border-amber-500/20 bg-black/30 backdrop-blur-sm">
         <div className="flex items-center gap-4">
           <div className="w-14 h-14 rounded-full bg-gradient-to-br from-amber-400 to-amber-700 flex items-center justify-center shadow-lg shadow-amber-500/30">
-            <IceCream className="w-8 h-8 text-white" />
+            <Palette className="w-8 h-8 text-white" />
           </div>
           <div>
             <h1 className="text-5xl font-black tracking-tight bg-gradient-to-r from-amber-200 to-amber-500 bg-clip-text text-transparent">LA PALETA CAFE
