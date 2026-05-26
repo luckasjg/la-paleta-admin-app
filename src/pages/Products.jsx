@@ -280,11 +280,11 @@ export default function Products() {
       />
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
+        <DialogContent className="max-w-2xl flex flex-col max-h-[90vh] p-0">
+          <DialogHeader className="px-6 pt-6 pb-0">
             <DialogTitle>{editing ? 'Editar Producto' : 'Nuevo Producto'}</DialogTitle>
           </DialogHeader>
-          <div className="grid gap-4 py-2">
+          <div className="grid gap-4 py-4 px-6 overflow-y-auto overflow-x-hidden flex-1">
             <div><Label>Nombre</Label><Input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} /></div>
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -356,7 +356,7 @@ export default function Products() {
               <Label>Activo en POS</Label>
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="px-6 py-4 border-t bg-background sticky bottom-0 flex-shrink-0">
             <Button variant="outline" onClick={close}>Cancelar</Button>
             <Button onClick={handleSave}>{editing ? 'Guardar' : 'Crear'}</Button>
           </DialogFooter>
