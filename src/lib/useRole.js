@@ -4,6 +4,7 @@ import { useAuth } from '@/lib/AuthContext';
 // Agrega o quita correos aquí para cambiar los administradores.
 export const ADMIN_EMAILS = [
   'luckasjimenez@gmail.com',
+  'alimentos_smh9@outlook.com',
 ];
 
 /**
