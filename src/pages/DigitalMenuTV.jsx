@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { base44 } from '@/api/base44Client';
 import { formatUSD } from '@/lib/useExchangeRate';
-import { Palette } from 'lucide-react';
+
 
 const POLL_MS = 30000; // 30 segundos
 
@@ -55,9 +55,7 @@ export default function DigitalMenuTV() {
       {/* Header */}
       <header className="flex items-center justify-between px-12 py-6 border-b border-amber-500/20 bg-black/30 backdrop-blur-sm">
         <div className="flex items-center gap-4">
-          <div className="w-14 h-14 rounded-full bg-gradient-to-br from-amber-400 to-amber-700 flex items-center justify-center shadow-lg shadow-amber-500/30">
-            <Palette className="w-8 h-8 text-white" />
-          </div>
+          <img src="https://media.base44.com/images/public/69e078117e2725c0776d724e/649909b33_logoPaletaMesadetrabajo8-111.png" alt="Logo" className="h-16 w-auto drop-shadow-lg" />
           <div>
             <h1 className="text-5xl font-black tracking-tight bg-gradient-to-r from-amber-200 to-amber-500 bg-clip-text text-transparent">LA PALETA CAFE
 
