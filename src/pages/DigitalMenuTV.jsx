@@ -60,8 +60,8 @@ export default function DigitalMenuTV() {
             <h1 className="text-5xl font-black tracking-tight bg-gradient-to-r from-amber-200 to-amber-500 bg-clip-text text-transparent">LA PALETA CAFE
 
             </h1>
-            <p className="text-amber-300/70 text-sm uppercase tracking-[0.3em] font-light">
-              Sabores artesanales
+            <p className="text-amber-300/70 text-sm uppercase tracking-[0.3em] font-light">H ARTESANALE
+
             </p>
           </div>
         </div>
