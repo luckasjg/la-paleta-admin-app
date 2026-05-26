@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, ShoppingCart, Package, BookOpen, Factory,
-  DollarSign, Warehouse, SlidersHorizontal, Menu, X, IceCream, FlaskConical, ClipboardCheck, Percent, Wallet, Coins } from
+  DollarSign, Warehouse, SlidersHorizontal, Menu, X, IceCream, FlaskConical, ClipboardCheck, Percent, Wallet, Coins, Settings as SettingsIcon } from
 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -22,7 +22,8 @@ const navItems = [
 { label: 'Auditorías', icon: ClipboardCheck, path: '/auditorias', adminOnly: true },
 { label: 'Rentabilidad', icon: Percent, path: '/rentabilidad', adminOnly: true },
 { label: 'Gastos', icon: Wallet, path: '/gastos', adminOnly: true },
-{ label: 'Billeteras', icon: Coins, path: '/billeteras', adminOnly: true }];
+{ label: 'Billeteras', icon: Coins, path: '/billeteras', adminOnly: true },
+{ label: 'Configuración', icon: SettingsIcon, path: '/configuracion', adminOnly: true }];
 
 
 export default function Sidebar() {

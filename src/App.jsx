@@ -21,6 +21,7 @@ import AuditHistory from '@/pages/AuditHistory.jsx';
 import ProfitabilityAnalysis from '@/pages/ProfitabilityAnalysis.jsx';
 import ExpensesManager from '@/pages/ExpensesManager.jsx';
 import Wallets from '@/pages/Wallets.jsx';
+import Settings from '@/pages/Settings.jsx';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -61,6 +62,7 @@ const AuthenticatedApp = () => {
         <Route path="/rentabilidad" element={<RequireAdmin><ProfitabilityAnalysis /></RequireAdmin>} />
         <Route path="/gastos" element={<RequireAdmin><ExpensesManager /></RequireAdmin>} />
         <Route path="/billeteras" element={<RequireAdmin><Wallets /></RequireAdmin>} />
+        <Route path="/configuracion" element={<RequireAdmin><Settings /></RequireAdmin>} />
       </Route>
       <Route path="*" element={<PageNotFound />} />
     </Routes>
