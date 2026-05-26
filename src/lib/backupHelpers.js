@@ -15,6 +15,7 @@ export const BACKUP_ENTITIES = [
   'IceCreamAudit',
   'Wallet',
   'WalletTransaction',
+  'PaymentMethod',
 ];
 
 // Disparador de descarga genérico desde un Blob.

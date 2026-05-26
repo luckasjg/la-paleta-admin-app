@@ -54,13 +54,7 @@
         "properties": {
           "method": {
             "type": "string",
-            "enum": [
-              "efectivo_usd",
-              "efectivo_ves",
-              "pago_movil",
-              "punto_venta",
-              "zelle"
-            ]
+            "description": "Identificador del PaymentMethod (value). Soporta los legacy y cualquier m\u00e9todo personalizado."
           },
           "amount_usd": {
             "type": "number",
@@ -79,16 +73,7 @@
     },
     "payment_method": {
       "type": "string",
-      "enum": [
-        "efectivo",
-        "pago_movil",
-        "punto_venta",
-        "mixto",
-        "efectivo_usd",
-        "efectivo_ves",
-        "zelle"
-      ],
-      "description": "M\u00e9todo de pago resumen (legacy/compatibilidad)"
+      "description": "M\u00e9todo de pago resumen (legacy/compatibilidad). Puede ser 'mixto', un value legacy o un m\u00e9todo personalizado."
     },
     "cash_amount": {
       "type": "number",

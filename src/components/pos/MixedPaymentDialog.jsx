@@ -4,24 +4,16 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Trash2, Banknote, DollarSign, Smartphone, CreditCard, Send } from 'lucide-react';
+import { Plus, Trash2 } from 'lucide-react';
 import { formatUSD, formatVES } from '@/lib/useExchangeRate';
+import { usePaymentMethods } from '@/lib/usePaymentMethods';
 
-export const PAYMENT_METHODS = [
-  { value: 'efectivo_usd', label: 'Efectivo Divisas', icon: DollarSign, defaultCurrency: 'USD' },
-  { value: 'efectivo_ves', label: 'Efectivo VES', icon: Banknote, defaultCurrency: 'VES' },
-  { value: 'pago_movil', label: 'Pago Móvil', icon: Smartphone, defaultCurrency: 'VES' },
-  { value: 'punto_venta', label: 'Punto de Venta', icon: CreditCard, defaultCurrency: 'VES' },
-  { value: 'zelle', label: 'Zelle', icon: Send, defaultCurrency: 'USD' },
-];
-
-const getMethod = (v) => PAYMENT_METHODS.find(m => m.value === v) || PAYMENT_METHODS[0];
-
-const makeRow = (method = 'efectivo_usd', amount = '') => {
-  const m = getMethod(method);
+const makeRow = (methods, method, amount = '') => {
+  const fallback = methods[0] || { value: 'efectivo_usd', defaultCurrency: 'USD' };
+  const m = methods.find(x => x.value === method) || fallback;
   return {
     id: Math.random().toString(36).slice(2),
-    method,
+    method: m.value,
     currency: m.defaultCurrency,
     amount: amount === '' ? '' : String(amount),
   };
@@ -35,19 +27,28 @@ const prefillAmount = (usdAmount, currency, rate) => {
 };
 
 export default function MixedPaymentDialog({ open, onOpenChange, totalUSD, exchangeRate, onConfirm, isProcessing }) {
+  // Métodos dinámicos desde la entidad PaymentMethod (sólo activos).
+  const { posMethods } = usePaymentMethods({ activeOnly: true });
+  const PAYMENT_METHODS = posMethods.length > 0 ? posMethods : [
+    { value: 'efectivo_usd', label: 'Efectivo', defaultCurrency: 'USD' },
+  ];
+  const getMethod = (v) => PAYMENT_METHODS.find(m => m.value === v) || PAYMENT_METHODS[0];
+
   // Lock the exchange rate at the moment the dialog opens so prefills and conversions
   // stay consistent even if the user edits the rate elsewhere mid-checkout.
   const [lockedRate, setLockedRate] = useState(exchangeRate);
 
+  const defaultMethodValue = PAYMENT_METHODS.find(m => m.defaultCurrency === 'USD')?.value || PAYMENT_METHODS[0].value;
+
   const [rows, setRows] = useState(() => [
-    makeRow('efectivo_usd', prefillAmount(totalUSD, 'USD', exchangeRate)),
+    makeRow(PAYMENT_METHODS, defaultMethodValue, prefillAmount(totalUSD, 'USD', exchangeRate)),
   ]);
 
   // On open: snapshot the current rate and reset rows pre-filled with full total
   useEffect(() => {
     if (open) {
       setLockedRate(exchangeRate);
-      setRows([makeRow('efectivo_usd', prefillAmount(totalUSD, 'USD', exchangeRate))]);
+      setRows([makeRow(PAYMENT_METHODS, defaultMethodValue, prefillAmount(totalUSD, 'USD', exchangeRate))]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
@@ -70,9 +71,11 @@ export default function MixedPaymentDialog({ open, onOpenChange, totalUSD, excha
   const addRow = () => {
     // Compute remaining amount based on current rows (USD equivalent)
     const remainingUSD = Math.max(0, totalUSD - receivedUSD);
-    const newMethod = 'pago_movil';
+    // Elegimos un método VES por defecto para complementar el primero (USD).
+    const vesMethod = PAYMENT_METHODS.find(m => m.defaultCurrency === 'VES');
+    const newMethod = vesMethod?.value || PAYMENT_METHODS[0].value;
     const newCurrency = getMethod(newMethod).defaultCurrency;
-    setRows(rs => [...rs, makeRow(newMethod, prefillAmount(remainingUSD, newCurrency, lockedRate))]);
+    setRows(rs => [...rs, makeRow(PAYMENT_METHODS, newMethod, prefillAmount(remainingUSD, newCurrency, lockedRate))]);
   };
   const removeRow = (id) => setRows(rs => rs.length > 1 ? rs.filter(r => r.id !== id) : rs);
   const updateRow = (id, patch) => setRows(rs => rs.map(r => {

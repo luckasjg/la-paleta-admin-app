@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
-import { PAYMENT_METHODS } from '@/components/pos/MixedPaymentDialog';
+import { usePaymentMethods } from '@/lib/usePaymentMethods';
 
 const empty = {
   name: '',
@@ -20,6 +20,7 @@ const empty = {
 
 export default function WalletForm({ open, onOpenChange, wallet, onSave, isEditing }) {
   const [form, setForm] = useState(empty);
+  const { posMethods } = usePaymentMethods({ activeOnly: true });
 
   useEffect(() => {
     if (open) setForm(wallet ? { ...empty, ...wallet } : empty);
@@ -36,7 +37,7 @@ export default function WalletForm({ open, onOpenChange, wallet, onSave, isEditi
   };
 
   // Solo mostrar métodos compatibles con la moneda seleccionada
-  const compatibleMethods = PAYMENT_METHODS.filter(m => m.defaultCurrency === form.currency);
+  const compatibleMethods = posMethods.filter(m => m.defaultCurrency === form.currency);
 
   const handleSave = () => {
     if (!form.name?.trim()) return;

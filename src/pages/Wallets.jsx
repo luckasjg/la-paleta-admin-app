@@ -4,7 +4,8 @@ import { base44 } from '@/api/base44Client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Pencil, Trash2, ArrowRightLeft, Wallet as WalletIcon, History, RefreshCw } from 'lucide-react';
+import { Plus, Pencil, Trash2, ArrowRightLeft, Wallet as WalletIcon, History, RefreshCw, CreditCard } from 'lucide-react';
+import PaymentMethodsManager from '@/components/wallets/PaymentMethodsManager';
 import { toast } from 'sonner';
 import moment from 'moment';
 import PageHeader from '@/components/shared/PageHeader';
@@ -32,6 +33,7 @@ export default function Wallets() {
   const [conversionOpen, setConversionOpen] = useState(false);
   const [historyWallet, setHistoryWallet] = useState(null);
   const [migrating, setMigrating] = useState(false);
+  const [methodsOpen, setMethodsOpen] = useState(false);
 
   const { data: wallets = [] } = useQuery({
     queryKey: ['wallets'],
@@ -189,6 +191,9 @@ export default function Wallets() {
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
+            <Button variant="outline" size="sm" onClick={() => setMethodsOpen(true)}>
+              <CreditCard className="h-4 w-4 mr-1" /> Métodos de Pago
+            </Button>
             <Button variant="outline" size="sm" onClick={() => setConversionOpen(true)} disabled={wallets.length < 2}>
               <ArrowRightLeft className="h-4 w-4 mr-1" /> Conversión
             </Button>
@@ -296,6 +301,8 @@ export default function Wallets() {
           qc.invalidateQueries({ queryKey: ['wallet_transactions'] });
         }}
       />
+
+      <PaymentMethodsManager open={methodsOpen} onOpenChange={setMethodsOpen} />
 
       <Dialog open={!!historyWallet} onOpenChange={(o) => !o && setHistoryWallet(null)}>
         <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col p-0">
