@@ -85,9 +85,9 @@ export default function SearchableCombobox({
         className={cn('p-0 w-[--radix-popover-trigger-width] min-w-[240px]', className)}
         align="start"
       >
-        <Command>
+        <Command className="overflow-visible">
           <CommandInput placeholder={searchPlaceholder} />
-          <CommandList>
+          <CommandList className="max-h-60 overflow-y-auto overscroll-contain">
             <CommandEmpty>{emptyText}</CommandEmpty>
             <CommandGroup>
               {sortedOptions.map(opt => (
