@@ -124,7 +124,31 @@ export default function SelectiveCleanupCard() {
       }
     };
 
-    // Procesa una entidad con concurrencia controlada (lotes pequeños)
+    // Lista TODOS los registros de una entidad paginando (el SDK trae 100 por defecto).
+    // Sin esto, entidades con muchos registros (ej. Sale) dejaban remanente fantasma
+    // que el Dashboard sí podía leer porque pagina hasta 25k.
+    const listAll = async (entity, entityName) => {
+      const PAGE_SIZE = 500;
+      const all = [];
+      let page = 0;
+      while (page < 200) { // tope de seguridad: 100k registros
+        let batch;
+        try {
+          batch = await entity.list('-created_date', PAGE_SIZE, page * PAGE_SIZE);
+        } catch (e) {
+          errors.push(`${entityName}: ${e.message || 'error de listado'} (página ${page})`);
+          break;
+        }
+        if (!batch || batch.length === 0) break;
+        all.push(...batch);
+        if (batch.length < PAGE_SIZE) break;
+        page += 1;
+      }
+      return all;
+    };
+
+    // Procesa una entidad con concurrencia controlada (lotes pequeños).
+    // Itera hasta vaciarla por completo (re-lista al final por si quedaron registros).
     const purgeEntity = async (entityName) => {
       // Blindaje: bloquear cualquier intento de borrar entidades protegidas
       if (PROTECTED_ENTITIES.includes(entityName)) {
@@ -136,25 +160,25 @@ export default function SelectiveCleanupCard() {
         errors.push(`${entityName}: entidad no encontrada`);
         return;
       }
-      let records = [];
-      try {
-        records = await entity.list();
-      } catch (e) {
-        errors.push(`${entityName}: ${e.message || 'error de listado'}`);
-        return;
-      }
 
-      const BATCH_SIZE = 4; // 4 borrados en paralelo
-      const PAUSE_BETWEEN_BATCHES = 150; // ms
+      const BATCH_SIZE = 4;
+      const PAUSE_BETWEEN_BATCHES = 150;
 
-      for (let i = 0; i < records.length; i += BATCH_SIZE) {
-        const batch = records.slice(i, i + BATCH_SIZE);
-        const results = await Promise.all(
-          batch.map(r => deleteWithRetry(entity, r.id, entityName))
-        );
-        totalDeleted += results.filter(Boolean).length;
-        if (i + BATCH_SIZE < records.length) {
-          await new Promise(r => setTimeout(r, PAUSE_BETWEEN_BATCHES));
+      // Bucle de barrido: lista todo, borra, vuelve a listar hasta que quede vacío.
+      // Esto cubre el caso en que falle algún DELETE y queden remanentes.
+      for (let pass = 0; pass < 10; pass++) {
+        const records = await listAll(entity, entityName);
+        if (records.length === 0) break;
+
+        for (let i = 0; i < records.length; i += BATCH_SIZE) {
+          const batch = records.slice(i, i + BATCH_SIZE);
+          const results = await Promise.all(
+            batch.map(r => deleteWithRetry(entity, r.id, entityName))
+          );
+          totalDeleted += results.filter(Boolean).length;
+          if (i + BATCH_SIZE < records.length) {
+            await new Promise(r => setTimeout(r, PAUSE_BETWEEN_BATCHES));
+          }
         }
       }
     };
@@ -175,37 +199,22 @@ export default function SelectiveCleanupCard() {
       // montos fantasma acumulados de ventas borradas.
       const salesSelected = selectedDepartments.some(d => d.id === 'sales');
       if (salesSelected) {
-        // 1. Borrar TODOS los WalletTransaction (saltea el blindaje genérico
+        // 1. Borrar TODOS los WalletTransaction paginando (saltea el blindaje genérico
         //    porque aquí es una operación financiera intencional vinculada a Sales)
         try {
-          const txs = await base44.entities.WalletTransaction.list();
-          const BATCH_SIZE = 4;
-          for (let i = 0; i < txs.length; i += BATCH_SIZE) {
-            const batch = txs.slice(i, i + BATCH_SIZE);
-            const results = await Promise.all(
-              batch.map(async (t) => {
-                let attempt = 0;
-                while (attempt < 5) {
-                  try {
-                    await base44.entities.WalletTransaction.delete(t.id);
-                    return true;
-                  } catch (e) {
-                    const status = e?.response?.status || e?.status;
-                    if (status === 429 && attempt < 4) {
-                      await new Promise(r => setTimeout(r, 500 * Math.pow(2, attempt)));
-                      attempt += 1;
-                      continue;
-                    }
-                    errors.push(`WalletTransaction (${t.id}): ${e.message || 'error'}`);
-                    return false;
-                  }
-                }
-                return false;
-              })
-            );
-            totalDeleted += results.filter(Boolean).length;
-            if (i + BATCH_SIZE < txs.length) {
-              await new Promise(r => setTimeout(r, 150));
+          for (let pass = 0; pass < 10; pass++) {
+            const txs = await listAll(base44.entities.WalletTransaction, 'WalletTransaction');
+            if (txs.length === 0) break;
+            const BATCH_SIZE = 4;
+            for (let i = 0; i < txs.length; i += BATCH_SIZE) {
+              const batch = txs.slice(i, i + BATCH_SIZE);
+              const results = await Promise.all(
+                batch.map(t => deleteWithRetry(base44.entities.WalletTransaction, t.id, 'WalletTransaction'))
+              );
+              totalDeleted += results.filter(Boolean).length;
+              if (i + BATCH_SIZE < txs.length) {
+                await new Promise(r => setTimeout(r, 150));
+              }
             }
           }
         } catch (e) {
