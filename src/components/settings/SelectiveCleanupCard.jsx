@@ -35,14 +35,14 @@ const DEPARTMENTS = [
   {
     id: 'production',
     label: 'Producción y Vitrina',
-    description: 'Vacía bandejas de helado (Tray) y productos elaborados (Product).',
-    entities: ['Tray', 'Product'],
+    description: 'Vacía únicamente las bandejas de helado en vitrina (Tray). NO afecta recetas ni productos del menú.',
+    entities: ['Tray'],
   },
   {
     id: 'sales',
     label: 'Historial de Ventas y Caja',
-    description: 'Vacía ventas (Sale), cierres de caja (CashRegister) y movimientos de billeteras (WalletTransaction).',
-    entities: ['Sale', 'CashRegister', 'WalletTransaction'],
+    description: 'Vacía ventas (Sale) y cierres de caja (CashRegister). NO afecta productos del menú.',
+    entities: ['Sale', 'CashRegister'],
   },
   {
     id: 'expenses',
@@ -65,6 +65,10 @@ const DEPARTMENTS = [
 ];
 
 const CONFIRMATION_PHRASE = 'BORRAR DEPARTAMENTOS';
+
+// Entidades blindadas: NUNCA pueden ser borradas por la limpieza selectiva,
+// sin importar la configuración. Última línea de defensa contra mapeos erróneos.
+const PROTECTED_ENTITIES = ['Product', 'Wallet', 'PaymentMethod', 'User', 'WalletTransaction'];
 
 export default function SelectiveCleanupCard() {
   const [selected, setSelected] = useState({});
@@ -116,6 +120,11 @@ export default function SelectiveCleanupCard() {
 
     // Procesa una entidad con concurrencia controlada (lotes pequeños)
     const purgeEntity = async (entityName) => {
+      // Blindaje: bloquear cualquier intento de borrar entidades protegidas
+      if (PROTECTED_ENTITIES.includes(entityName)) {
+        errors.push(`${entityName}: entidad protegida, no se puede borrar`);
+        return;
+      }
       const entity = base44.entities[entityName];
       if (!entity) {
         errors.push(`${entityName}: entidad no encontrada`);
