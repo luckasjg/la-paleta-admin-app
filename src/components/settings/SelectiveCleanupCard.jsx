@@ -40,9 +40,15 @@ const DEPARTMENTS = [
   },
   {
     id: 'sales',
-    label: 'Historial de Ventas y Caja',
-    description: 'Vacía ventas (Sale) y cierres de caja (CashRegister). NO afecta productos del menú.',
-    entities: ['Sale', 'CashRegister'],
+    label: 'Historial de Ventas',
+    description: 'Vacía todas las ventas registradas (Sale). Resetea saldos y movimientos de billetera. NO afecta productos del menú.',
+    entities: ['Sale'],
+  },
+  {
+    id: 'cash_register',
+    label: 'Historial de Cierres de Caja',
+    description: 'Borra todos los cierres de caja pasados (CashRegister). NO afecta ventas ni saldos.',
+    entities: ['CashRegister'],
   },
   {
     id: 'expenses',
@@ -58,8 +64,8 @@ const DEPARTMENTS = [
   },
   {
     id: 'audits',
-    label: 'Auditorías',
-    description: 'Borra datos de auditorías y sus históricos (IceCreamAudit).',
+    label: 'Historial de Auditorías',
+    description: 'Borra todas las auditorías pasadas de vitrina (IceCreamAudit).',
     entities: ['IceCreamAudit'],
   },
 ];
