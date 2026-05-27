@@ -1,20 +1,17 @@
 import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Badge } from '@/components/ui/badge';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, ArrowRight, ArrowLeft, ArrowLeftRight, AlertTriangle } from 'lucide-react';
+import { Plus, ArrowLeftRight, AlertTriangle } from 'lucide-react';
 import PageHeader from '@/components/shared/PageHeader';
 import { toast } from 'sonner';
-import moment from 'moment';
 import SearchableCombobox from '@/components/shared/SearchableCombobox';
 import { getStockAt, buildTransferDelta, LOCATION_LABEL } from '@/lib/stockHelpers';
+import TransferHistory from '@/components/transfers/TransferHistory';
 
 export default function Transfers() {
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -109,58 +106,7 @@ export default function Transfers() {
         }
       />
 
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-semibold">Historial de Transferencias</CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Fecha</TableHead>
-                <TableHead>Insumo</TableHead>
-                <TableHead className="text-right">Cantidad</TableHead>
-                <TableHead>Movimiento</TableHead>
-                <TableHead>Notas</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {transfers.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8">
-                    <ArrowLeftRight className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
-                    <p className="text-muted-foreground text-sm">No hay transferencias registradas</p>
-                  </TableCell>
-                </TableRow>
-              ) : (
-                transfers.map((t) => (
-                  <TableRow key={t.id}>
-                    <TableCell className="text-sm">
-                      {moment(t.transfer_date || t.created_date).format('DD/MM/YY HH:mm')}
-                    </TableCell>
-                    <TableCell className="font-medium">{t.supply_name}</TableCell>
-                    <TableCell className="text-right font-mono">
-                      {t.quantity} {t.unit}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1.5 text-sm">
-                        <Badge variant="secondary">{LOCATION_LABEL[t.from_location] || t.from_location}</Badge>
-                        <ArrowRight className="h-3 w-3 text-muted-foreground" />
-                        <Badge className="bg-primary/10 text-primary hover:bg-primary/10">
-                          {LOCATION_LABEL[t.to_location] || t.to_location}
-                        </Badge>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground max-w-32 truncate">
-                      {t.notes || '—'}
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+      <TransferHistory transfers={transfers} />
 
       <Dialog open={dialogOpen} onOpenChange={(o) => (o ? setDialogOpen(true) : close())}>
         <DialogContent className="max-w-md">
