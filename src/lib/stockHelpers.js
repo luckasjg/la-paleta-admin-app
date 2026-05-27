@@ -21,12 +21,20 @@ export const LOCATION_LABEL = {
 
 /**
  * Lee el stock disponible en una ubicación específica.
- * Si la ubicación no existe (datos legacy sin migrar), usa stock_current como fallback.
+ *
+ * MIGRACIÓN SILENCIOSA: si el insumo todavía no tiene las columnas nuevas
+ * (stock_warehouse / stock_production son undefined), asumimos que TODO el
+ * stock_current vigente está físicamente en el Almacén. Esto refleja la
+ * realidad operativa previa (no había separación entre depósito y producción)
+ * y evita que el inventario migrado "aparezca" en cero.
  */
 export function getStockAt(supply, location) {
   if (!supply) return 0;
+  const hasNew =
+    Number.isFinite(supply.stock_warehouse) || Number.isFinite(supply.stock_production);
   if (location === 'warehouse') {
-    return Number.isFinite(supply.stock_warehouse) ? supply.stock_warehouse : 0;
+    if (Number.isFinite(supply.stock_warehouse)) return supply.stock_warehouse;
+    return hasNew ? 0 : (supply.stock_current || 0);
   }
   if (location === 'production') {
     return Number.isFinite(supply.stock_production) ? supply.stock_production : 0;
