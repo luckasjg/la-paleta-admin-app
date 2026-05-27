@@ -13,7 +13,8 @@ import { base44 } from '@/api/base44Client';
  * @param {string} [params.cashRegisterId] - ID del cierre (si aplica)
  * @param {string} [params.closedBy] - email/nombre del operario
  * @param {string} [params.notes] - Observaciones
- * @returns {Promise<Object>} El registro WalletConsolidation creado
+ * @param {boolean} [params.skipAudit] - Si es true, NO crea registro de auditoría ni WalletTransaction. Sólo resetea el saldo a 0.
+ * @returns {Promise<Object|null>} El registro WalletConsolidation creado, o null si skipAudit=true
  */
 export async function consolidateWallet({
   wallet,
@@ -24,9 +25,10 @@ export async function consolidateWallet({
   cashRegisterId,
   closedBy,
   notes,
+  skipAudit = false,
 }) {
   if (!wallet?.id) throw new Error('Billetera inválida');
-  if (!destination || !destination.trim()) throw new Error('Destino requerido');
+  if (!skipAudit && (!destination || !destination.trim())) throw new Error('Destino requerido');
 
   const rate = Number(exchangeRate) > 0 ? Number(exchangeRate) : 1;
   const amount = Math.max(0, Number(amountNative) || 0);
@@ -42,41 +44,45 @@ export async function consolidateWallet({
     amount_usd = rate > 0 ? amount / rate : 0;
   }
 
-  // 1. Crear el registro de consolidación (auditoría)
-  const record = await base44.entities.WalletConsolidation.create({
-    date: new Date().toISOString(),
-    wallet_id: wallet.id,
-    wallet_name: wallet.name,
-    wallet_currency: wallet.currency,
-    amount_native: amount,
-    amount_usd: parseFloat(amount_usd.toFixed(4)),
-    amount_ves: parseFloat(amount_ves.toFixed(2)),
-    exchange_rate: rate,
-    destination: destination.trim(),
-    source,
-    cash_register_id: cashRegisterId,
-    closed_by: closedBy || '',
-    notes: notes || '',
-  });
+  let record = null;
 
-  // 2. Crear movimiento contraparte en WalletTransaction (salida) para que
-  //    el historial de la billetera muestre la liquidación.
-  try {
-    await base44.entities.WalletTransaction.create({
+  if (!skipAudit) {
+    // 1. Crear el registro de consolidación (auditoría)
+    record = await base44.entities.WalletConsolidation.create({
+      date: new Date().toISOString(),
       wallet_id: wallet.id,
       wallet_name: wallet.name,
-      type: 'manual_adjust',
-      amount_native: -amount, // negativo = salida
-      amount_usd_equivalent: -amount_usd,
+      wallet_currency: wallet.currency,
+      amount_native: amount,
+      amount_usd: parseFloat(amount_usd.toFixed(4)),
+      amount_ves: parseFloat(amount_ves.toFixed(2)),
       exchange_rate: rate,
-      notes: `Consolidación → ${destination.trim()}`,
-      transaction_date: new Date().toISOString(),
+      destination: destination.trim(),
+      source,
+      cash_register_id: cashRegisterId,
+      closed_by: closedBy || '',
+      notes: notes || '',
     });
-  } catch (_) {
-    // No bloqueamos el flujo si la tx falla: la consolidación queda igualmente registrada.
+
+    // 2. Crear movimiento contraparte en WalletTransaction (salida) para que
+    //    el historial de la billetera muestre la liquidación.
+    try {
+      await base44.entities.WalletTransaction.create({
+        wallet_id: wallet.id,
+        wallet_name: wallet.name,
+        type: 'manual_adjust',
+        amount_native: -amount, // negativo = salida
+        amount_usd_equivalent: -amount_usd,
+        exchange_rate: rate,
+        notes: `Consolidación → ${destination.trim()}`,
+        transaction_date: new Date().toISOString(),
+      });
+    } catch (_) {
+      // No bloqueamos el flujo si la tx falla: la consolidación queda igualmente registrada.
+    }
   }
 
-  // 3. Resetear el saldo de la billetera a 0
+  // 3. Resetear el saldo de la billetera a 0 (siempre)
   await base44.entities.Wallet.update(wallet.id, {
     balance: 0,
     historical_usd_value: 0,
