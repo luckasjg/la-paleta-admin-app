@@ -4,13 +4,16 @@ import { base44 } from '@/api/base44Client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Pencil, Trash2, ArrowRightLeft, Wallet as WalletIcon, History, RefreshCw, CreditCard } from 'lucide-react';
+import { Plus, Pencil, Trash2, ArrowRightLeft, Wallet as WalletIcon, History, RefreshCw, CreditCard, ArrowDownToLine } from 'lucide-react';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import PaymentMethodsManager from '@/components/wallets/PaymentMethodsManager';
 import { toast } from 'sonner';
 import moment from 'moment';
 import PageHeader from '@/components/shared/PageHeader';
 import WalletForm from '@/components/wallets/WalletForm';
 import ConversionDialog from '@/components/wallets/ConversionDialog';
+import ConsolidateWalletDialog from '@/components/wallets/ConsolidateWalletDialog';
+import ConsolidationHistory from '@/components/wallets/ConsolidationHistory';
 import { formatUSD, formatVES } from '@/lib/useExchangeRate';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
@@ -32,6 +35,7 @@ export default function Wallets() {
   const [editing, setEditing] = useState(null);
   const [conversionOpen, setConversionOpen] = useState(false);
   const [historyWallet, setHistoryWallet] = useState(null);
+  const [consolidateWallet, setConsolidateWallet] = useState(null);
   const [migrating, setMigrating] = useState(false);
   const [methodsOpen, setMethodsOpen] = useState(false);
 
@@ -207,22 +211,29 @@ export default function Wallets() {
         }
       />
 
-      <div className="grid grid-cols-2 gap-3">
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground uppercase tracking-wide">Total USD</p>
-            <p className="text-2xl font-bold font-mono">{formatUSD(totalsUSD)}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground uppercase tracking-wide">Total VES</p>
-            <p className="text-2xl font-bold font-mono">{formatVES(totalsVES)}</p>
-          </CardContent>
-        </Card>
-      </div>
+      <Tabs defaultValue="wallets" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="wallets">Billeteras</TabsTrigger>
+          <TabsTrigger value="audit">Auditoría de Fondos</TabsTrigger>
+        </TabsList>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+        <TabsContent value="wallets" className="space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <Card>
+              <CardContent className="p-4">
+                <p className="text-xs text-muted-foreground uppercase tracking-wide">Total USD</p>
+                <p className="text-2xl font-bold font-mono">{formatUSD(totalsUSD)}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <p className="text-xs text-muted-foreground uppercase tracking-wide">Total VES</p>
+                <p className="text-2xl font-bold font-mono">{formatVES(totalsVES)}</p>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
         {wallets.map(w => (
           <Card key={w.id} className={w.is_active === false ? 'opacity-50' : ''}>
             <CardHeader className="pb-2">
@@ -252,6 +263,16 @@ export default function Wallets() {
                 <Button variant="ghost" size="sm" className="flex-1 h-7 text-xs" onClick={() => setHistoryWallet(w)}>
                   <History className="h-3 w-3 mr-1" /> Movimientos
                 </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 text-amber-700 hover:text-amber-800 hover:bg-amber-50"
+                  title="Ajustar a 0 / Descargar saldo"
+                  onClick={() => setConsolidateWallet(w)}
+                  disabled={!w.balance}
+                >
+                  <ArrowDownToLine className="h-3 w-3" />
+                </Button>
                 <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditing(w); setFormOpen(true); }}>
                   <Pencil className="h-3 w-3" />
                 </Button>
@@ -278,14 +299,20 @@ export default function Wallets() {
             </CardContent>
           </Card>
         ))}
-        {wallets.length === 0 && (
-          <div className="col-span-full text-center py-12 text-muted-foreground">
-            <WalletIcon className="h-10 w-10 mx-auto mb-3 opacity-30" />
-            <p>No hay billeteras configuradas</p>
-            <p className="text-xs">Crea una para comenzar a registrar el flujo de dinero</p>
+            {wallets.length === 0 && (
+              <div className="col-span-full text-center py-12 text-muted-foreground">
+                <WalletIcon className="h-10 w-10 mx-auto mb-3 opacity-30" />
+                <p>No hay billeteras configuradas</p>
+                <p className="text-xs">Crea una para comenzar a registrar el flujo de dinero</p>
+              </div>
+            )}
           </div>
-        )}
-      </div>
+        </TabsContent>
+
+        <TabsContent value="audit">
+          <ConsolidationHistory />
+        </TabsContent>
+      </Tabs>
 
       <WalletForm
         open={formOpen}
@@ -306,6 +333,12 @@ export default function Wallets() {
       />
 
       <PaymentMethodsManager open={methodsOpen} onOpenChange={setMethodsOpen} />
+
+      <ConsolidateWalletDialog
+        wallet={consolidateWallet}
+        open={!!consolidateWallet}
+        onOpenChange={(o) => !o && setConsolidateWallet(null)}
+      />
 
       <Dialog open={!!historyWallet} onOpenChange={(o) => !o && setHistoryWallet(null)}>
         <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col p-0">

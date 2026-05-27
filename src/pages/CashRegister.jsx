@@ -22,6 +22,8 @@ import IceCreamAudit from '@/components/cashregister/IceCreamAudit';
 import ClosingDetailDialog from '@/components/cashregister/ClosingDetailDialog';
 import VoidSaleButton from '@/components/cashregister/VoidSaleButton';
 import { Ban } from 'lucide-react';
+import { consolidateWallet as consolidateWalletFn } from '@/lib/consolidationHelpers';
+import { useExchangeRate } from '@/lib/useExchangeRate';
 
 export default function CashRegister() {
   const [closeDialog, setCloseDialog] = useState(false);
@@ -32,6 +34,7 @@ export default function CashRegister() {
   const [viewingRegister, setViewingRegister] = useState(null);
   const [printContext, setPrintContext] = useState(null);
   const qc = useQueryClient();
+  const { rate } = useExchangeRate();
 
   const { data: sales = [] } = useQuery({
     queryKey: ['sales'],
@@ -128,7 +131,8 @@ export default function CashRegister() {
 
   const closeMut = useMutation({
     mutationFn: async () => {
-      await base44.entities.CashRegister.create({
+      // 1) Crear el registro de cierre de caja
+      const register = await base44.entities.CashRegister.create({
         date: today,
         shift,
         system_cash: systemCash,
@@ -141,12 +145,63 @@ export default function CashRegister() {
         status: 'cerrada',
         operator: me?.email || me?.full_name || '',
       });
+
+      // 2) Consolidación automática de billeteras vinculadas a las ventas del turno.
+      //    Identificamos los métodos de pago usados en `openSales` y vaciamos las
+      //    billeteras que los tengan vinculados, dejando un registro de auditoría.
+      const usedMethods = new Set();
+      for (const s of openSales) {
+        for (const p of (s.payments || [])) {
+          if (p?.method) usedMethods.add(p.method);
+        }
+      }
+
+      let consolidated = 0;
+      try {
+        const wallets = await base44.entities.Wallet.list();
+        const closedBy = me?.email || me?.full_name || '';
+        for (const w of wallets) {
+          if (w.is_active === false) continue;
+          const balance = Number(w.balance) || 0;
+          if (balance <= 0) continue;
+          // Sólo consolidar billeteras que reciben dinero de las ventas del turno
+          const linked = (w.payment_methods || []).some(m => usedMethods.has(m));
+          if (!linked) continue;
+          try {
+            await consolidateWalletFn({
+              wallet: w,
+              amountNative: balance,
+              destination: 'Liquidado por Cierre de Turno',
+              exchangeRate: rate,
+              source: 'cash_register_close',
+              cashRegisterId: register?.id,
+              closedBy,
+              notes: `Turno ${shift} — ${today}`,
+            });
+            consolidated++;
+          } catch (e) {
+            console.error(`Error consolidando ${w.name}:`, e);
+          }
+        }
+      } catch (e) {
+        console.error('Error listando billeteras para consolidar:', e);
+      }
+
+      return { register, consolidated };
     },
-    onSuccess: () => {
+    onSuccess: ({ consolidated }) => {
       qc.invalidateQueries({ queryKey: ['cash_registers'] });
+      qc.invalidateQueries({ queryKey: ['wallets'] });
+      qc.invalidateQueries({ queryKey: ['wallet_transactions'] });
+      qc.invalidateQueries({ queryKey: ['wallet_consolidations'] });
       setCloseDialog(false);
-      toast.success('Caja cerrada exitosamente');
+      if (consolidated > 0) {
+        toast.success(`Caja cerrada. ${consolidated} billetera(s) liquidada(s) automáticamente.`);
+      } else {
+        toast.success('Caja cerrada exitosamente');
+      }
     },
+    onError: (e) => toast.error(e.message || 'Error al cerrar caja'),
   });
 
   const printToday = () => {
@@ -406,6 +461,12 @@ export default function CashRegister() {
             <div>
               <Label>Observaciones</Label>
               <Textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Notas adicionales..." />
+            </div>
+            <div className="rounded-lg border border-amber-300 bg-amber-50 p-2.5 text-[11px] text-amber-800 flex items-start gap-2">
+              <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" />
+              <span>
+                Al confirmar, las billeteras vinculadas a las ventas de este turno se <strong>liquidarán a 0</strong> y quedará registro en <strong>Auditoría de Fondos</strong>.
+              </span>
             </div>
           </div>
           <DialogFooter>
