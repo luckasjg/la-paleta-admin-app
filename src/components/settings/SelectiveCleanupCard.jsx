@@ -91,31 +91,67 @@ export default function SelectiveCleanupCard() {
     const errors = [];
     let totalDeleted = 0;
 
+    // Helper: delete con reintentos y backoff exponencial para evitar 429
+    const deleteWithRetry = async (entity, id, entityName, maxRetries = 5) => {
+      let attempt = 0;
+      while (true) {
+        try {
+          await entity.delete(id);
+          return true;
+        } catch (e) {
+          const status = e?.response?.status || e?.status;
+          const isRateLimit = status === 429;
+          if (isRateLimit && attempt < maxRetries) {
+            // Backoff exponencial: 500ms, 1s, 2s, 4s, 8s
+            const wait = 500 * Math.pow(2, attempt);
+            await new Promise(r => setTimeout(r, wait));
+            attempt += 1;
+            continue;
+          }
+          errors.push(`${entityName} (${id}): ${e.message || 'error'}`);
+          return false;
+        }
+      }
+    };
+
+    // Procesa una entidad con concurrencia controlada (lotes pequeños)
+    const purgeEntity = async (entityName) => {
+      const entity = base44.entities[entityName];
+      if (!entity) {
+        errors.push(`${entityName}: entidad no encontrada`);
+        return;
+      }
+      let records = [];
+      try {
+        records = await entity.list();
+      } catch (e) {
+        errors.push(`${entityName}: ${e.message || 'error de listado'}`);
+        return;
+      }
+
+      const BATCH_SIZE = 4; // 4 borrados en paralelo
+      const PAUSE_BETWEEN_BATCHES = 150; // ms
+
+      for (let i = 0; i < records.length; i += BATCH_SIZE) {
+        const batch = records.slice(i, i + BATCH_SIZE);
+        const results = await Promise.all(
+          batch.map(r => deleteWithRetry(entity, r.id, entityName))
+        );
+        totalDeleted += results.filter(Boolean).length;
+        if (i + BATCH_SIZE < records.length) {
+          await new Promise(r => setTimeout(r, PAUSE_BETWEEN_BATCHES));
+        }
+      }
+    };
+
     try {
-      // Recolectar todas las entidades únicas a purgar
       const entitiesToPurge = Array.from(
         new Set(selectedDepartments.flatMap(d => d.entities))
       );
 
+      // Procesar entidades secuencialmente (cada una con sus propios lotes)
       for (const entityName of entitiesToPurge) {
-        try {
-          const entity = base44.entities[entityName];
-          if (!entity) {
-            errors.push(`${entityName}: entidad no encontrada`);
-            continue;
-          }
-          const records = await entity.list();
-          for (const r of records) {
-            try {
-              await entity.delete(r.id);
-              totalDeleted += 1;
-            } catch (e) {
-              errors.push(`${entityName} (${r.id}): ${e.message || 'error'}`);
-            }
-          }
-        } catch (e) {
-          errors.push(`${entityName}: ${e.message || 'error de listado'}`);
-        }
+        await purgeEntity(entityName);
       }
 
       // Refrescar todas las queries para que la UI muestre estado vacío
