@@ -14,6 +14,8 @@ import { Switch } from '@/components/ui/switch';
 import PageHeader from '@/components/shared/PageHeader';
 import { toast } from 'sonner';
 import moment from 'moment';
+import StockLocationSelector from '@/components/shared/StockLocationSelector';
+import { getStockAt, buildStockDelta, LOCATION_LABEL } from '@/lib/stockHelpers';
 
 export default function Production() {
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -24,6 +26,8 @@ export default function Production() {
   // sólo admins ven este switch. Cuando exista el rol ENCARGADO_PRODUCCION,
   // envolver el bloque del Switch en {canUseBypass && (...)} para ocultarlo.
   const [skipInventoryDeduction, setSkipInventoryDeduction] = useState(false);
+  // Origen de Materia Prima: 'production' (Laboratorio) por defecto, o 'warehouse' (Almacén).
+  const [sourceLocation, setSourceLocation] = useState('production');
   const [editTray, setEditTray] = useState(null); // tray being edited
   const [editForm, setEditForm] = useState({ recipe_id: '', recipe_name: '', remaining_grams: 0 });
   const [consumableDialog, setConsumableDialog] = useState(false);
@@ -68,7 +72,8 @@ export default function Production() {
     return (selectedRecipe.ingredients || []).map(ing => {
       const supply = resolveSupply(ing);
       const needed = (ing.quantity || 0) * multiplier;
-      const available = supply?.stock_current || 0;
+      // El stock disponible se mide ESTRICTAMENTE en la ubicación de origen seleccionada.
+      const available = supply ? getStockAt(supply, sourceLocation) : 0;
       const isInfinite = supply?.is_infinite === true;
       const missing = !supply || (!isInfinite && available < needed);
       return {
@@ -82,7 +87,7 @@ export default function Production() {
         relinked: supply && ing.supply_id && supply.id !== ing.supply_id,
       };
     });
-  }, [selectedRecipe, grams, supplies, resolveSupply]);
+  }, [selectedRecipe, grams, supplies, resolveSupply, sourceLocation]);
 
   const missingIngredients = ingredientCheck.filter(i => i.missing);
   // En modo bypass (carga inicial) no se valida disponibilidad de materia prima.
@@ -115,7 +120,8 @@ export default function Production() {
       const resolved = ingredients.map(ing => ({ ing, supply: resolveSupply(ing) }));
       const relinked = resolved.filter(r => r.supply && r.ing.supply_id && r.supply.id !== r.ing.supply_id);
 
-      // Final validation (defensive — UI already blocks this)
+      // Final validation (defensive — UI already blocks this).
+      // Validamos contra el stock de la ubicación de origen elegida.
       const missing = [];
       for (const { ing, supply } of resolved) {
         if (!supply) {
@@ -124,8 +130,9 @@ export default function Production() {
         }
         if (supply.is_infinite) continue;
         const needed = (ing.quantity || 0) * multiplier;
-        if (supply.stock_current < needed) {
-          missing.push(`${supply.name}: faltan ${(needed - supply.stock_current).toFixed(0)}${supply.unit}`);
+        const avail = getStockAt(supply, sourceLocation);
+        if (avail < needed) {
+          missing.push(`${supply.name}: faltan ${(needed - avail).toFixed(0)}${supply.unit} en ${LOCATION_LABEL[sourceLocation]}`);
         }
       }
       if (missing.length > 0) {
@@ -141,13 +148,14 @@ export default function Production() {
         await base44.entities.Recipe.update(recipe.id, { ingredients: fixedIngredients });
       }
 
-      // Deduct supplies (skip infinite ones)
+      // Deduct supplies (skip infinite ones) from the SELECTED location.
       for (const { ing, supply } of resolved) {
         if (!supply || supply.is_infinite) continue;
         const needed = (ing.quantity || 0) * multiplier;
-        await base44.entities.Supply.update(supply.id, {
-          stock_current: supply.stock_current - needed
-        });
+        await base44.entities.Supply.update(
+          supply.id,
+          buildStockDelta(supply, sourceLocation, -needed)
+        );
       }
 
       // Create tray — 1:1 con el peso real procesado
@@ -204,10 +212,12 @@ export default function Production() {
     mutationFn: async () => {
       const utensil = supplies.find(s => s.id === selectedUtensil);
       if (!utensil) throw new Error('Utensilio no encontrado');
-      if ((utensil.stock_current || 0) < 1) throw new Error(`Sin stock de ${utensil.name}`);
-      await base44.entities.Supply.update(utensil.id, {
-        stock_current: (utensil.stock_current || 0) - 1,
-      });
+      const avail = getStockAt(utensil, sourceLocation);
+      if (avail < 1) throw new Error(`Sin stock de ${utensil.name} en ${LOCATION_LABEL[sourceLocation]}`);
+      await base44.entities.Supply.update(
+        utensil.id,
+        buildStockDelta(utensil, sourceLocation, -1)
+      );
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['supplies'] });
@@ -359,7 +369,8 @@ export default function Production() {
             <DialogTitle>Registrar Paquete Gastado</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-2">
-            <p className="text-sm text-muted-foreground">Selecciona el utensilio consumido. Se descontará 1 unidad del stock.</p>
+            <p className="text-sm text-muted-foreground">Selecciona el utensilio consumido. Se descontará 1 unidad del stock en la ubicación elegida.</p>
+            <StockLocationSelector value={sourceLocation} onChange={setSourceLocation} />
             <div>
               <Label>Utensilio</Label>
               <Select value={selectedUtensil} onValueChange={setSelectedUtensil}>
@@ -367,7 +378,7 @@ export default function Production() {
                 <SelectContent>
                   {utensilios.map(s => (
                     <SelectItem key={s.id} value={s.id}>
-                      {s.name} — stock: {s.stock_current} {s.unit}
+                      {s.name} — {LOCATION_LABEL[sourceLocation]}: {getStockAt(s, sourceLocation)} {s.unit}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -419,6 +430,11 @@ export default function Production() {
                 <SelectContent>{iceRecipes.map(r => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}</SelectContent>
               </Select>
             </div>
+
+            {!skipInventoryDeduction && (
+              <StockLocationSelector value={sourceLocation} onChange={setSourceLocation} />
+            )}
+
             <div>
               <Label>Peso Neto a producir (g)</Label>
               <Input type="number" value={grams} onChange={e => setGrams(parseFloat(e.target.value) || 0)} />

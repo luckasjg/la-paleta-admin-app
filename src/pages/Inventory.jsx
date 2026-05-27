@@ -17,6 +17,8 @@ import { toast } from 'sonner';
 import CategoryManager from '@/components/inventory/CategoryManager';
 import PurchaseFormatPanel, { getPackageUnit } from '@/components/inventory/PurchaseFormatPanel';
 import SearchableCombobox from '@/components/shared/SearchableCombobox';
+import { getStockAt, getStockTotal } from '@/lib/stockHelpers';
+import { Warehouse as WarehouseIcon, FlaskConical } from 'lucide-react';
 
 const SECTORS = [
   { value: 'materia_prima', label: 'Materia Prima', description: 'Ingredientes para producción de helados' },
@@ -49,12 +51,13 @@ const loadCategoriesFromStorage = () => {
   }
 };
 
-const emptySupply = { name: '', sector: 'materia_prima', category: '', unit: 'g', stock_current: 0, stock_minimum: 0, cost_per_unit: 0, supplier: '', is_infinite: false };
+const emptySupply = { name: '', sector: 'materia_prima', category: '', unit: 'g', stock_warehouse: 0, stock_production: 0, stock_minimum: 0, cost_per_unit: 0, supplier: '', is_infinite: false };
 const emptyCalc = { purchase_price: '', yield_amount: '' };
 const emptyPurchase = { presentation: '', purchase_price: '', net_content: '', package_unit: 'kg' };
 
 // Stock inputs (en empaques) — separados del form (que guarda en unidad base)
-const emptyStockPkg = { stock_current_pkg: '', stock_minimum_pkg: '' };
+// Ahora separados por ubicación: almacén y producción.
+const emptyStockPkg = { stock_warehouse_pkg: '', stock_production_pkg: '', stock_minimum_pkg: '' };
 
 export default function Inventory() {
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -118,9 +121,13 @@ export default function Inventory() {
 
   const openEdit = (s) => {
     setEditing(s);
+    // Migración silenciosa al editar: si stock_warehouse y stock_production no existen
+    // todavía, asumimos que TODO el stock_current vigente está en el Almacén (decisión del usuario).
+    const wh = Number.isFinite(s.stock_warehouse) ? s.stock_warehouse : (s.stock_current || 0);
+    const pr = Number.isFinite(s.stock_production) ? s.stock_production : 0;
     setForm({
       name: s.name, sector: s.sector || 'materia_prima', category: s.category || '',
-      unit: s.unit, stock_current: s.stock_current, stock_minimum: s.stock_minimum,
+      unit: s.unit, stock_warehouse: wh, stock_production: pr, stock_minimum: s.stock_minimum,
       cost_per_unit: s.cost_per_unit, supplier: s.supplier || '', is_infinite: s.is_infinite || false
     });
     setCalc(emptyCalc);
@@ -147,11 +154,12 @@ export default function Inventory() {
     };
 
     if ((s.sector || 'materia_prima') === 'materia_prima') {
-      const curPkg = baseTotal > 0 ? safeDiv(s.stock_current || 0, baseTotal) : null;
+      const whPkg = baseTotal > 0 ? safeDiv(wh, baseTotal) : null;
+      const prPkg = baseTotal > 0 ? safeDiv(pr, baseTotal) : null;
       const minPkg = baseTotal > 0 ? safeDiv(s.stock_minimum || 0, baseTotal) : null;
       setStockPkg({
-        // Si no se puede convertir, mostrar el valor base como fallback (nunca vacío)
-        stock_current_pkg: curPkg !== null ? String(curPkg) : String(s.stock_current ?? 0),
+        stock_warehouse_pkg: whPkg !== null ? String(whPkg) : String(wh),
+        stock_production_pkg: prPkg !== null ? String(prPkg) : String(pr),
         stock_minimum_pkg: minPkg !== null ? String(minPkg) : String(s.stock_minimum ?? 0),
       });
     } else {
@@ -172,10 +180,11 @@ export default function Inventory() {
 
   const handleSave = () => {
     if (!form.name) return;
-    const { name, sector, category, unit, stock_current, stock_minimum, cost_per_unit, supplier, is_infinite } = form;
+    const { name, sector, category, unit, stock_warehouse, stock_production, stock_minimum, cost_per_unit, supplier, is_infinite } = form;
 
     let finalUnit = unit;
-    let finalStockCurrent = stock_current;
+    let finalStockWarehouse = stock_warehouse || 0;
+    let finalStockProduction = stock_production || 0;
     let finalStockMinimum = stock_minimum;
     let packageFormatPayload = undefined;
 
@@ -185,19 +194,26 @@ export default function Inventory() {
       const net = parseFloat(purchase.net_content);
       const baseTotal = Number.isFinite(net) && net > 0 ? net * pkgU.multiplier : 0;
 
-      // Protección: si los inputs de stock están vacíos o no es posible convertir,
-      // preservar los valores originales del item para NO borrar el stock real.
-      const curRaw = stockPkg.stock_current_pkg;
+      const whRaw = stockPkg.stock_warehouse_pkg;
+      const prRaw = stockPkg.stock_production_pkg;
       const minRaw = stockPkg.stock_minimum_pkg;
-      const curEmpty = curRaw === '' || curRaw === null || curRaw === undefined;
+      const whEmpty = whRaw === '' || whRaw === null || whRaw === undefined;
+      const prEmpty = prRaw === '' || prRaw === null || prRaw === undefined;
       const minEmpty = minRaw === '' || minRaw === null || minRaw === undefined;
-      const sCurPkg = parseFloat(curRaw);
+      const sWhPkg = parseFloat(whRaw);
+      const sPrPkg = parseFloat(prRaw);
       const sMinPkg = parseFloat(minRaw);
 
-      if (baseTotal > 0 && !curEmpty && Number.isFinite(sCurPkg)) {
-        finalStockCurrent = sCurPkg * baseTotal;
+      if (baseTotal > 0 && !whEmpty && Number.isFinite(sWhPkg)) {
+        finalStockWarehouse = sWhPkg * baseTotal;
       } else {
-        finalStockCurrent = editing?.stock_current ?? form.stock_current ?? 0;
+        finalStockWarehouse = editing?.stock_warehouse ?? form.stock_warehouse ?? 0;
+      }
+
+      if (baseTotal > 0 && !prEmpty && Number.isFinite(sPrPkg)) {
+        finalStockProduction = sPrPkg * baseTotal;
+      } else {
+        finalStockProduction = editing?.stock_production ?? form.stock_production ?? 0;
       }
 
       if (baseTotal > 0 && !minEmpty && Number.isFinite(sMinPkg)) {
@@ -219,7 +235,9 @@ export default function Inventory() {
 
     const payload = {
       name, sector, category, unit: finalUnit,
-      stock_current: finalStockCurrent,
+      stock_warehouse: finalStockWarehouse,
+      stock_production: finalStockProduction,
+      stock_current: finalStockWarehouse + finalStockProduction, // espejo
       stock_minimum: finalStockMinimum,
       cost_per_unit, supplier, is_infinite,
       ...(packageFormatPayload ? { package_format: packageFormatPayload } : {}),
@@ -352,7 +370,13 @@ export default function Inventory() {
                       <TableHeader>
                         <TableRow>
                           <TableHead>Nombre</TableHead>
-                          <TableHead className="text-right">Stock</TableHead>
+                          <TableHead className="text-right">
+                            <span className="inline-flex items-center gap-1"><WarehouseIcon className="h-3 w-3" /> Almacén</span>
+                          </TableHead>
+                          <TableHead className="text-right">
+                            <span className="inline-flex items-center gap-1"><FlaskConical className="h-3 w-3" /> Producción</span>
+                          </TableHead>
+                          <TableHead className="text-right">Total</TableHead>
                           <TableHead className="text-right">Mínimo</TableHead>
                           <TableHead className="text-right">Costo/Ud</TableHead>
                           <TableHead>Proveedor</TableHead>
@@ -361,18 +385,30 @@ export default function Inventory() {
                       </TableHeader>
                       <TableBody>
                         {items.map(s => {
-                          const isLow = s.stock_minimum && s.stock_current <= s.stock_minimum;
+                          const wh = getStockAt(s, 'warehouse');
+                          const pr = getStockAt(s, 'production');
+                          const total = getStockTotal(s);
+                          const minimum = s.stock_minimum || 0;
+                          const whLow = minimum > 0 && wh <= minimum;
+                          const prLow = minimum > 0 && pr <= minimum;
+                          const anyLow = whLow || prLow;
                           return (
                             <TableRow key={s.id}>
                               <TableCell className="font-medium">
                                 <div className="flex items-center gap-2">
-                                  {isLow && <AlertTriangle className="h-4 w-4 text-destructive flex-shrink-0" />}
+                                  {anyLow && <AlertTriangle className="h-4 w-4 text-destructive flex-shrink-0" />}
                                   {s.name}
                                   {s.is_infinite && <Infinity className="h-3.5 w-3.5 text-primary" title="Stock infinito" />}
                                 </div>
                               </TableCell>
-                              <TableCell className={`text-right font-mono ${isLow ? 'text-destructive font-bold' : ''}`}>
-                                {s.stock_current} {s.unit}
+                              <TableCell className={`text-right font-mono ${whLow ? 'text-destructive font-bold' : ''}`}>
+                                {wh} {s.unit}
+                              </TableCell>
+                              <TableCell className={`text-right font-mono ${prLow ? 'text-destructive font-bold' : ''}`}>
+                                {pr} {s.unit}
+                              </TableCell>
+                              <TableCell className="text-right font-mono text-muted-foreground">
+                                {total} {s.unit}
                               </TableCell>
                               <TableCell className="text-right font-mono text-muted-foreground">{s.stock_minimum} {s.unit}</TableCell>
                               <TableCell className="text-right font-mono">${s.cost_per_unit?.toFixed(4)}</TableCell>
@@ -492,27 +528,44 @@ export default function Inventory() {
 
             {form.sector === 'materia_prima' ? (() => {
               const presentation = (purchase.presentation || '').trim();
-              // Pluralize simple: "Saco" → "Sacos"
               const plural = presentation
                 ? (presentation.endsWith('s') ? presentation : `${presentation}s`)
                 : 'Empaques';
               const pkgU = getPackageUnit(purchase.package_unit);
               const net = parseFloat(purchase.net_content) || 0;
               const baseTotal = net * pkgU.multiplier;
-              const sCur = parseFloat(stockPkg.stock_current_pkg) || 0;
+              const sWh = parseFloat(stockPkg.stock_warehouse_pkg) || 0;
+              const sPr = parseFloat(stockPkg.stock_production_pkg) || 0;
               const sMin = parseFloat(stockPkg.stock_minimum_pkg) || 0;
               return (
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label>Stock Actual (en {plural})</Label>
-                    <Input
-                      type="number" step="0.01" min="0" placeholder="ej. 1.5"
-                      value={stockPkg.stock_current_pkg}
-                      onChange={e => setStockPkg(s => ({ ...s, stock_current_pkg: e.target.value }))}
-                    />
-                    {baseTotal > 0 && sCur > 0 && (
-                      <p className="text-[10px] text-muted-foreground mt-1 font-mono">= {sCur * baseTotal} {pkgU.baseUnit}</p>
-                    )}
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="flex items-center gap-1.5">
+                        <WarehouseIcon className="h-3.5 w-3.5" /> Almacén (en {plural})
+                      </Label>
+                      <Input
+                        type="number" step="0.01" min="0" placeholder="ej. 1.5"
+                        value={stockPkg.stock_warehouse_pkg}
+                        onChange={e => setStockPkg(s => ({ ...s, stock_warehouse_pkg: e.target.value }))}
+                      />
+                      {baseTotal > 0 && sWh > 0 && (
+                        <p className="text-[10px] text-muted-foreground mt-1 font-mono">= {sWh * baseTotal} {pkgU.baseUnit}</p>
+                      )}
+                    </div>
+                    <div>
+                      <Label className="flex items-center gap-1.5">
+                        <FlaskConical className="h-3.5 w-3.5" /> Producción (en {plural})
+                      </Label>
+                      <Input
+                        type="number" step="0.01" min="0" placeholder="ej. 0.5"
+                        value={stockPkg.stock_production_pkg}
+                        onChange={e => setStockPkg(s => ({ ...s, stock_production_pkg: e.target.value }))}
+                      />
+                      {baseTotal > 0 && sPr > 0 && (
+                        <p className="text-[10px] text-muted-foreground mt-1 font-mono">= {sPr * baseTotal} {pkgU.baseUnit}</p>
+                      )}
+                    </div>
                   </div>
                   <div>
                     <Label>Stock Mínimo Alerta (en {plural})</Label>
@@ -522,15 +575,31 @@ export default function Inventory() {
                       onChange={e => setStockPkg(s => ({ ...s, stock_minimum_pkg: e.target.value }))}
                     />
                     {baseTotal > 0 && sMin > 0 && (
-                      <p className="text-[10px] text-muted-foreground mt-1 font-mono">= {sMin * baseTotal} {pkgU.baseUnit}</p>
+                      <p className="text-[10px] text-muted-foreground mt-1 font-mono">= {sMin * baseTotal} {pkgU.baseUnit} (se compara con ambas columnas independientemente)</p>
                     )}
                   </div>
                 </div>
               );
             })() : (
-              <div className="grid grid-cols-2 gap-4">
-                <div><Label>Stock Actual</Label><Input type="number" value={form.stock_current} onChange={e => setForm({ ...form, stock_current: parseFloat(e.target.value) || 0 })} /></div>
-                <div><Label>Stock Mínimo</Label><Input type="number" value={form.stock_minimum} onChange={e => setForm({ ...form, stock_minimum: parseFloat(e.target.value) || 0 })} /></div>
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="flex items-center gap-1.5">
+                      <WarehouseIcon className="h-3.5 w-3.5" /> Almacén
+                    </Label>
+                    <Input type="number" value={form.stock_warehouse} onChange={e => setForm({ ...form, stock_warehouse: parseFloat(e.target.value) || 0 })} />
+                  </div>
+                  <div>
+                    <Label className="flex items-center gap-1.5">
+                      <FlaskConical className="h-3.5 w-3.5" /> Producción
+                    </Label>
+                    <Input type="number" value={form.stock_production} onChange={e => setForm({ ...form, stock_production: parseFloat(e.target.value) || 0 })} />
+                  </div>
+                </div>
+                <div>
+                  <Label>Stock Mínimo</Label>
+                  <Input type="number" value={form.stock_minimum} onChange={e => setForm({ ...form, stock_minimum: parseFloat(e.target.value) || 0 })} />
+                </div>
               </div>
             )}
 

@@ -14,6 +14,8 @@ import { useExchangeRate, formatUSD, formatVES } from '@/lib/useExchangeRate';
 import ExchangeRateInput from '@/components/pos/ExchangeRateInput';
 import MixedPaymentDialog from '@/components/pos/MixedPaymentDialog';
 import { depositSalePaymentsToWallets } from '@/lib/walletHelpers';
+import StockLocationSelector from '@/components/shared/StockLocationSelector';
+import { buildStockDelta, getStockAt, LOCATION_LABEL } from '@/lib/stockHelpers';
 
 export default function POS() {
   const [cart, setCart] = useState([]);
@@ -21,6 +23,8 @@ export default function POS() {
   const [flavorDialog, setFlavorDialog] = useState(null);
   const [selectedFlavors, setSelectedFlavors] = useState([]);
   const [payDialog, setPayDialog] = useState(false);
+  // Origen de Materia Prima para esta venta (aplica a toda la orden).
+  const [sourceLocation, setSourceLocation] = useState('production');
   const { rate: exchangeRate, setRate: setExchangeRate } = useExchangeRate();
   const qc = useQueryClient();
 
@@ -324,13 +328,17 @@ export default function POS() {
         }
       }
 
-      // Aplicar descuentos UNA sola vez por insumo
+      // Aplicar descuentos UNA sola vez por insumo desde la ubicación de origen elegida.
       for (const [supplyId, qtyToDeduct] of Object.entries(supplyDemand)) {
         const supply = supplies.find(s => s.id === supplyId);
         if (!supply || supply.is_infinite) continue;
-        await base44.entities.Supply.update(supplyId, {
-          stock_current: Math.max(0, (supply.stock_current || 0) - qtyToDeduct),
-        });
+        // Limitamos al disponible en la ubicación para no dejar negativos.
+        const avail = getStockAt(supply, sourceLocation);
+        const effective = Math.min(avail, qtyToDeduct);
+        await base44.entities.Supply.update(
+          supplyId,
+          buildStockDelta(supply, sourceLocation, -effective)
+        );
       }
 
       // Derive legacy summary fields for backwards compatibility with reports/cash register
@@ -487,6 +495,11 @@ export default function POS() {
         </div>
 
         <div className="p-4 border-t border-border space-y-3">
+          <StockLocationSelector
+            value={sourceLocation}
+            onChange={setSourceLocation}
+            label={`Origen Insumos (${LOCATION_LABEL[sourceLocation]})`}
+          />
           {cart.some(i => i.is_courtesy) && (
             <div className="flex items-center justify-between text-xs text-amber-600">
               <span className="flex items-center gap-1"><Gift className="h-3 w-3" /> Cortesías incluidas</span>

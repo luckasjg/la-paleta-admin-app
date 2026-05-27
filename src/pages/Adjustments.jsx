@@ -14,6 +14,8 @@ import { Plus, SlidersHorizontal, Pencil } from 'lucide-react';
 import PageHeader from '@/components/shared/PageHeader';
 import { toast } from 'sonner';
 import moment from 'moment';
+import StockLocationSelector from '@/components/shared/StockLocationSelector';
+import { buildStockDelta, getStockAt, LOCATION_LABEL } from '@/lib/stockHelpers';
 
 const REASONS = [
   { value: 'derrame', label: 'Derrame' },
@@ -30,6 +32,8 @@ export default function Adjustments() {
   const [qtyChange, setQtyChange] = useState(0);
   const [reason, setReason] = useState('conteo_fisico');
   const [adjNotes, setAdjNotes] = useState('');
+  // Origen de Materia Prima: solo aplica a ajustes tipo 'supply'.
+  const [sourceLocation, setSourceLocation] = useState('production');
 
   // Edit state
   const [editAdj, setEditAdj] = useState(null); // adjustment being edited
@@ -63,9 +67,16 @@ export default function Adjustments() {
         const supply = supplies.find(s => s.id === refId);
         if (supply) {
           refName = supply.name;
-          await base44.entities.Supply.update(supply.id, {
-            stock_current: Math.max(0, (supply.stock_current || 0) + qtyChange),
-          });
+          // Si es negativo, no permitimos dejar la ubicación bajo cero.
+          let effectiveDelta = qtyChange;
+          if (qtyChange < 0) {
+            const avail = getStockAt(supply, sourceLocation);
+            effectiveDelta = -Math.min(avail, -qtyChange);
+          }
+          await base44.entities.Supply.update(
+            supply.id,
+            buildStockDelta(supply, sourceLocation, effectiveDelta)
+          );
         }
       } else {
         const tray = trays.find(t => t.id === refId);
@@ -85,7 +96,9 @@ export default function Adjustments() {
         reference_name: refName,
         quantity_change: qtyChange,
         reason,
-        notes: adjNotes,
+        notes: adjustType === 'supply'
+          ? `[${LOCATION_LABEL[sourceLocation]}] ${adjNotes || ''}`.trim()
+          : adjNotes,
       });
     },
     onSuccess: () => {
@@ -117,9 +130,18 @@ export default function Adjustments() {
         if (editAdj.type === 'supply') {
           const supply = supplies.find(s => s.id === editAdj.reference_id);
           if (supply) {
-            await base44.entities.Supply.update(supply.id, {
-              stock_current: Math.max(0, (supply.stock_current || 0) + diff),
-            });
+            // Detectar la ubicación original a partir del prefijo en las notas; default = production.
+            const prefix = (editAdj.notes || '').match(/^\[([^\]]+)\]/);
+            const origLoc = prefix && /almac/i.test(prefix[1]) ? 'warehouse' : 'production';
+            let effectiveDelta = diff;
+            if (diff < 0) {
+              const avail = getStockAt(supply, origLoc);
+              effectiveDelta = -Math.min(avail, -diff);
+            }
+            await base44.entities.Supply.update(
+              supply.id,
+              buildStockDelta(supply, origLoc, effectiveDelta)
+            );
           }
         } else {
           const tray = trays.find(t => t.id === editAdj.reference_id);
@@ -240,13 +262,20 @@ export default function Adjustments() {
                 </SelectContent>
               </Select>
             </div>
+            {adjustType === 'supply' && (
+              <StockLocationSelector value={sourceLocation} onChange={setSourceLocation} label="Ubicación a Ajustar" />
+            )}
             <div>
               <Label>{adjustType === 'supply' ? 'Insumo' : 'Bandeja'}</Label>
               <Select value={refId} onValueChange={setRefId}>
                 <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
                 <SelectContent>
                   {adjustType === 'supply'
-                    ? supplies.map(s => <SelectItem key={s.id} value={s.id}>{s.name} ({s.stock_current} {s.unit})</SelectItem>)
+                    ? supplies.map(s => (
+                        <SelectItem key={s.id} value={s.id}>
+                          {s.name} — {LOCATION_LABEL[sourceLocation]}: {getStockAt(s, sourceLocation)} {s.unit}
+                        </SelectItem>
+                      ))
                     : trays.map(t => <SelectItem key={t.id} value={t.id}>{t.recipe_name} ({t.remaining_grams?.toFixed(0)}g)</SelectItem>)
                   }
                 </SelectContent>

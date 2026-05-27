@@ -17,6 +17,7 @@ import Production from '@/pages/Production';
 import Products from '@/pages/Products';
 import CashRegister from '@/pages/CashRegister';
 import Adjustments from '@/pages/Adjustments';
+import Transfers from '@/pages/Transfers.jsx';
 import AuditHistory from '@/pages/AuditHistory.jsx';
 import ProfitabilityAnalysis from '@/pages/ProfitabilityAnalysis.jsx';
 import ExpensesManager from '@/pages/ExpensesManager.jsx';
@@ -61,6 +62,7 @@ const AuthenticatedApp = () => {
         <Route path="/productos" element={<RequireAdmin><Products /></RequireAdmin>} />
         <Route path="/caja" element={<CashRegister />} />
         <Route path="/ajustes" element={<RequireAdmin><Adjustments /></RequireAdmin>} />
+        <Route path="/transferencias" element={<RequireAdmin><Transfers /></RequireAdmin>} />
         <Route path="/auditorias" element={<RequireAdmin><AuditHistory /></RequireAdmin>} />
         <Route path="/rentabilidad" element={<RequireAdmin><ProfitabilityAnalysis /></RequireAdmin>} />
         <Route path="/gastos" element={<RequireAdmin><ExpensesManager /></RequireAdmin>} />

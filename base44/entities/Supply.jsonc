@@ -31,7 +31,17 @@
     },
     "stock_current": {
       "type": "number",
-      "description": "Stock actual en la unidad base (g, ml o unidad)"
+      "description": "ESPEJO (calculado): stock_warehouse + stock_production. Se mantiene por retrocompatibilidad con auditor\u00edas, dashboard, etc."
+    },
+    "stock_warehouse": {
+      "type": "number",
+      "default": 0,
+      "description": "Cantidad disponible en el Almac\u00e9n/Dep\u00f3sito Principal (unidad base)"
+    },
+    "stock_production": {
+      "type": "number",
+      "default": 0,
+      "description": "Cantidad disponible en el Laboratorio de Producci\u00f3n (unidad base)"
     },
     "stock_minimum": {
       "type": "number",
@@ -80,23 +90,5 @@
   "required": [
     "name",
     "unit"
-  ],
-  "rls": {
-    "create": {
-      "user_condition": {
-        "role": "admin"
-      }
-    },
-    "read": {},
-    "update": {
-      "user_condition": {
-        "role": "admin"
-      }
-    },
-    "delete": {
-      "user_condition": {
-        "role": "admin"
-      }
-    }
-  }
+  ]
 }

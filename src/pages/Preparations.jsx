@@ -15,6 +15,8 @@ import { Switch } from '@/components/ui/switch';
 import PageHeader from '@/components/shared/PageHeader';
 import { toast } from 'sonner';
 import SearchableCombobox from '@/components/shared/SearchableCombobox';
+import StockLocationSelector from '@/components/shared/StockLocationSelector';
+import { getStockAt, buildStockDelta, LOCATION_LABEL } from '@/lib/stockHelpers';
 
 const emptyPrep = {
   name: '',
@@ -35,6 +37,8 @@ export default function Preparations() {
   // sólo admins ven este switch. Para bloquear ENCARGADO_PRODUCCION en el futuro,
   // envolver el bloque del Switch en una condición de rol.
   const [skipInventoryDeduction, setSkipInventoryDeduction] = useState(false);
+  // Origen de Materia Prima: por defecto Laboratorio de Producción.
+  const [sourceLocation, setSourceLocation] = useState('production');
   // Carga inicial al crear un preparado: suma el yield al stock del insumo vinculado
   // sin descontar materias primas (útil para sembrar inventario existente).
   const [loadInitialStock, setLoadInitialStock] = useState(false);
@@ -119,6 +123,7 @@ export default function Preparations() {
       };
 
       // Stock inicial: sólo aplica al crear (no en edición) y cuando el switch está activo.
+      // La carga inicial se asigna al ALMACÉN por defecto (el usuario podrá transferir luego).
       const initialStock = (!editing && loadInitialStock)
         ? (parseFloat(formData.yield_amount) || 0)
         : 0;
@@ -126,7 +131,12 @@ export default function Preparations() {
       if (linkedSupplyId) {
         await base44.entities.Supply.update(linkedSupplyId, supplyPayload);
       } else {
-        const newSupply = await base44.entities.Supply.create({ ...supplyPayload, stock_current: initialStock });
+        const newSupply = await base44.entities.Supply.create({
+          ...supplyPayload,
+          stock_warehouse: initialStock,
+          stock_production: 0,
+          stock_current: initialStock,
+        });
         linkedSupplyId = newSupply.id;
       }
 
@@ -177,11 +187,12 @@ export default function Preparations() {
       const supply = supplies.find(s => s.id === ing.supply_id);
       if (!supply) return { name: ing.supply_name || 'Desconocido', needed: ing.quantity || 0, available: 0, unit: ing.unit || '', missing: true, notFound: true, isInfinite: false };
       const needed = ing.quantity || 0;
-      const available = supply.stock_current || 0;
+      // Disponibilidad medida en la ubicación de origen seleccionada.
+      const available = getStockAt(supply, sourceLocation);
       const isInfinite = !!supply.is_infinite;
       return { name: supply.name, needed, available, unit: supply.unit, missing: !isInfinite && available < needed, notFound: false, isInfinite };
     });
-  }, [produceDialog, supplies]);
+  }, [produceDialog, supplies, sourceLocation]);
 
   const missingIngredients = ingredientCheck.filter(i => i.missing);
   // En modo bypass no se requieren ingredientes ni stock — sólo suma rendimiento al insumo vinculado.
@@ -204,6 +215,8 @@ export default function Preparations() {
           category: 'Preparado Propio',
           unit: prep.yield_unit || 'g',
           cost_per_unit: prep.computed_cost_per_unit || 0,
+          stock_warehouse: 0,
+          stock_production: 0,
           stock_current: 0,
           stock_minimum: 0,
         });
@@ -219,15 +232,24 @@ export default function Preparations() {
         for (const ing of prep.ingredients) {
           const supply = supplies.find(s => s.id === ing.supply_id);
           if (supply && !supply.is_infinite) {
-            const newStock = (supply.stock_current || 0) - (ing.quantity || 0);
-            await base44.entities.Supply.update(supply.id, { stock_current: newStock });
+            // Descontar de la ubicación de origen seleccionada.
+            await base44.entities.Supply.update(
+              supply.id,
+              buildStockDelta(supply, sourceLocation, -(ing.quantity || 0))
+            );
           }
         }
       }
 
-      // Add yield to linked supply (siempre, también en carga inicial)
-      const newLinkedStock = (linked.stock_current || 0) + (parseFloat(prep.yield_amount) || 0);
-      await base44.entities.Supply.update(linkedId, { stock_current: newLinkedStock });
+      // Add yield to linked supply (siempre, también en carga inicial).
+      // El preparado se acumula en la ubicación de origen (lugar donde se realizó la mezcla).
+      const yieldQty = parseFloat(prep.yield_amount) || 0;
+      // Releemos el linked supply en caso de que recién se haya creado.
+      const linkedFresh = linked.id === linkedId ? linked : supplies.find(s => s.id === linkedId) || linked;
+      await base44.entities.Supply.update(
+        linkedId,
+        buildStockDelta(linkedFresh, sourceLocation, yieldQty)
+      );
 
       return { prep, skipped: skipInventoryDeduction };
     },
@@ -485,7 +507,7 @@ export default function Preparations() {
       </Dialog>
 
       {/* Diálogo de producción con verificación de ingredientes */}
-      <Dialog open={!!produceDialog} onOpenChange={(o) => { if (!o) { setProduceDialog(null); setSkipInventoryDeduction(false); } }}>
+      <Dialog open={!!produceDialog} onOpenChange={(o) => { if (!o) { setProduceDialog(null); setSkipInventoryDeduction(false); setSourceLocation('production'); } }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Producir Lote — {produceDialog?.name}</DialogTitle>
@@ -510,6 +532,10 @@ export default function Preparations() {
                 </span>
               </Label>
             </div>
+
+            {!skipInventoryDeduction && (
+              <StockLocationSelector value={sourceLocation} onChange={setSourceLocation} />
+            )}
 
             <p className="text-sm text-muted-foreground">
               {skipInventoryDeduction
@@ -565,7 +591,7 @@ export default function Preparations() {
             )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => { setProduceDialog(null); setSkipInventoryDeduction(false); }}>Cancelar</Button>
+            <Button variant="outline" onClick={() => { setProduceDialog(null); setSkipInventoryDeduction(false); setSourceLocation('production'); }}>Cancelar</Button>
             <Button onClick={() => produceMut.mutate(produceDialog)} disabled={!canProduce || produceMut.isPending}>
               {produceMut.isPending ? 'Produciendo...' : (skipInventoryDeduction ? 'Registrar Carga Inicial' : 'Producir Lote')}
             </Button>
