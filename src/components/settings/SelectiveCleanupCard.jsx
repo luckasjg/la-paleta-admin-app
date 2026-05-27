@@ -101,19 +101,25 @@ export default function SelectiveCleanupCard() {
     const errors = [];
     let totalDeleted = 0;
 
-    // Helper: delete con reintentos y backoff exponencial para evitar 429
-    const deleteWithRetry = async (entity, id, entityName, maxRetries = 5) => {
+    // Helper: delete con reintentos y backoff exponencial para evitar 429.
+    // Detecta rate limit por status code O por mensaje (algunos SDKs no propagan el status).
+    const isRateLimitError = (e) => {
+      const status = e?.response?.status || e?.status;
+      if (status === 429) return true;
+      const msg = (e?.message || e?.detail || '').toLowerCase();
+      return msg.includes('rate limit') || msg.includes('too many');
+    };
+
+    const deleteWithRetry = async (entity, id, entityName, maxRetries = 8) => {
       let attempt = 0;
       while (true) {
         try {
           await entity.delete(id);
           return true;
         } catch (e) {
-          const status = e?.response?.status || e?.status;
-          const isRateLimit = status === 429;
-          if (isRateLimit && attempt < maxRetries) {
-            // Backoff exponencial: 500ms, 1s, 2s, 4s, 8s
-            const wait = 500 * Math.pow(2, attempt);
+          if (isRateLimitError(e) && attempt < maxRetries) {
+            // Backoff exponencial: 1s, 2s, 4s, 8s, 16s, 32s, 60s, 60s
+            const wait = Math.min(60000, 1000 * Math.pow(2, attempt));
             await new Promise(r => setTimeout(r, wait));
             attempt += 1;
             continue;
@@ -161,24 +167,18 @@ export default function SelectiveCleanupCard() {
         return;
       }
 
-      const BATCH_SIZE = 4;
-      const PAUSE_BETWEEN_BATCHES = 150;
+      // Borrado SECUENCIAL con pausa entre cada delete para evitar 429.
+      // Más lento pero confiable: el rate limit anterior aparecía con concurrencia.
+      const PAUSE_BETWEEN_DELETES = 120; // ms
 
-      // Bucle de barrido: lista todo, borra, vuelve a listar hasta que quede vacío.
-      // Esto cubre el caso en que falle algún DELETE y queden remanentes.
       for (let pass = 0; pass < 10; pass++) {
         const records = await listAll(entity, entityName);
         if (records.length === 0) break;
 
-        for (let i = 0; i < records.length; i += BATCH_SIZE) {
-          const batch = records.slice(i, i + BATCH_SIZE);
-          const results = await Promise.all(
-            batch.map(r => deleteWithRetry(entity, r.id, entityName))
-          );
-          totalDeleted += results.filter(Boolean).length;
-          if (i + BATCH_SIZE < records.length) {
-            await new Promise(r => setTimeout(r, PAUSE_BETWEEN_BATCHES));
-          }
+        for (const r of records) {
+          const ok = await deleteWithRetry(entity, r.id, entityName);
+          if (ok) totalDeleted += 1;
+          await new Promise(res => setTimeout(res, PAUSE_BETWEEN_DELETES));
         }
       }
     };
@@ -199,22 +199,15 @@ export default function SelectiveCleanupCard() {
       // montos fantasma acumulados de ventas borradas.
       const salesSelected = selectedDepartments.some(d => d.id === 'sales');
       if (salesSelected) {
-        // 1. Borrar TODOS los WalletTransaction paginando (saltea el blindaje genérico
-        //    porque aquí es una operación financiera intencional vinculada a Sales)
+        // 1. Borrar TODOS los WalletTransaction paginando y secuencialmente (evita 429).
         try {
           for (let pass = 0; pass < 10; pass++) {
             const txs = await listAll(base44.entities.WalletTransaction, 'WalletTransaction');
             if (txs.length === 0) break;
-            const BATCH_SIZE = 4;
-            for (let i = 0; i < txs.length; i += BATCH_SIZE) {
-              const batch = txs.slice(i, i + BATCH_SIZE);
-              const results = await Promise.all(
-                batch.map(t => deleteWithRetry(base44.entities.WalletTransaction, t.id, 'WalletTransaction'))
-              );
-              totalDeleted += results.filter(Boolean).length;
-              if (i + BATCH_SIZE < txs.length) {
-                await new Promise(r => setTimeout(r, 150));
-              }
+            for (const t of txs) {
+              const ok = await deleteWithRetry(base44.entities.WalletTransaction, t.id, 'WalletTransaction');
+              if (ok) totalDeleted += 1;
+              await new Promise(r => setTimeout(r, 120));
             }
           }
         } catch (e) {
@@ -226,7 +219,7 @@ export default function SelectiveCleanupCard() {
           const wallets = await base44.entities.Wallet.list();
           for (const w of wallets) {
             let attempt = 0;
-            while (attempt < 5) {
+            while (attempt < 8) {
               try {
                 await base44.entities.Wallet.update(w.id, {
                   balance: 0,
@@ -234,9 +227,9 @@ export default function SelectiveCleanupCard() {
                 });
                 break;
               } catch (e) {
-                const status = e?.response?.status || e?.status;
-                if (status === 429 && attempt < 4) {
-                  await new Promise(r => setTimeout(r, 500 * Math.pow(2, attempt)));
+                if (isRateLimitError(e) && attempt < 7) {
+                  const wait = Math.min(60000, 1000 * Math.pow(2, attempt));
+                  await new Promise(r => setTimeout(r, wait));
                   attempt += 1;
                   continue;
                 }
@@ -244,7 +237,7 @@ export default function SelectiveCleanupCard() {
                 break;
               }
             }
-            await new Promise(r => setTimeout(r, 100));
+            await new Promise(r => setTimeout(r, 150));
           }
         } catch (e) {
           errors.push(`Wallet (listado): ${e.message || 'error'}`);
