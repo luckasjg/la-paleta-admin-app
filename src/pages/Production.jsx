@@ -9,7 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Plus, Factory, Pencil, Trash2, Package, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { Plus, Factory, Pencil, Trash2, Package, AlertTriangle, CheckCircle2, Info } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
 import PageHeader from '@/components/shared/PageHeader';
 import { toast } from 'sonner';
 import moment from 'moment';
@@ -18,6 +19,11 @@ export default function Production() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [recipeId, setRecipeId] = useState('');
   const [grams, setGrams] = useState(5000);
+  // Bypass de descuento de inventario para carga inicial / ajuste de saldo.
+  // NOTA RBAC: hoy la ruta /produccion está protegida por RequireAdmin, así que
+  // sólo admins ven este switch. Cuando exista el rol ENCARGADO_PRODUCCION,
+  // envolver el bloque del Switch en {canUseBypass && (...)} para ocultarlo.
+  const [skipInventoryDeduction, setSkipInventoryDeduction] = useState(false);
   const [editTray, setEditTray] = useState(null); // tray being edited
   const [editForm, setEditForm] = useState({ recipe_id: '', recipe_name: '', remaining_grams: 0 });
   const [consumableDialog, setConsumableDialog] = useState(false);
@@ -79,12 +85,27 @@ export default function Production() {
   }, [selectedRecipe, grams, supplies, resolveSupply]);
 
   const missingIngredients = ingredientCheck.filter(i => i.missing);
-  const canProduce = recipeId && grams > 0 && missingIngredients.length === 0;
+  // En modo bypass (carga inicial) no se valida disponibilidad de materia prima.
+  const canProduce = recipeId && grams > 0 && (skipInventoryDeduction || missingIngredients.length === 0);
 
   const produce = useMutation({
     mutationFn: async () => {
       const recipe = recipes.find(r => r.id === recipeId);
       if (!recipe) throw new Error('Receta no encontrada');
+
+      // BYPASS MODE — Carga Inicial / Ajuste de Saldo:
+      // Crea la bandeja directamente sin tocar la materia prima.
+      if (skipInventoryDeduction) {
+        await base44.entities.Tray.create({
+          recipe_id: recipe.id,
+          recipe_name: recipe.name,
+          remaining_grams: grams,
+          initial_grams: grams,
+          status: 'activa',
+          production_date: moment().format('YYYY-MM-DD'),
+        });
+        return { skipped: true };
+      }
 
       // 1:1 ratio: peso real procesado = peso final de la bandeja (sin overrun, sin conversión a volumen)
       const multiplier = grams / (recipe.yield_amount || 1);
@@ -139,12 +160,17 @@ export default function Production() {
         production_date: moment().format('YYYY-MM-DD'),
       });
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       qc.invalidateQueries({ queryKey: ['trays'] });
       qc.invalidateQueries({ queryKey: ['supplies'] });
       qc.invalidateQueries({ queryKey: ['recipes'] });
       setDialogOpen(false);
-      toast.success('Producción registrada. Insumos descontados.');
+      setSkipInventoryDeduction(false);
+      if (result?.skipped) {
+        toast.success('Bandeja registrada como carga inicial (sin descuento de inventario).');
+      } else {
+        toast.success('Producción registrada. Insumos descontados.');
+      }
     },
     onError: (err) => {
       toast.error(err.message, { duration: 8000 });
@@ -358,12 +384,34 @@ export default function Production() {
       </Dialog>
 
       {/* Produce Dialog */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) setSkipInventoryDeduction(false); }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Producir Bandeja de Helado</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-2">
+            {/* Switch: Carga Inicial / Ajuste de Saldo (bypass de descuento) */}
+            <div className={`rounded-lg border p-3 flex items-center gap-3 ${
+              skipInventoryDeduction
+                ? 'bg-amber-50 border-amber-400'
+                : 'bg-muted/40 border-border'
+            }`}>
+              <Switch
+                id="bypass-tray"
+                checked={skipInventoryDeduction}
+                onCheckedChange={setSkipInventoryDeduction}
+              />
+              <Label htmlFor="bypass-tray" className="flex-1 cursor-pointer">
+                <span className="text-sm font-medium block leading-tight">
+                  Carga Inicial / Ajuste de Saldo
+                </span>
+                <span className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                  <Info className="h-3 w-3" />
+                  No descontar Materia Prima
+                </span>
+              </Label>
+            </div>
+
             <div>
               <Label>Sabor (Receta)</Label>
               <Select value={recipeId} onValueChange={setRecipeId}>
@@ -377,8 +425,8 @@ export default function Production() {
               <p className="text-xs text-muted-foreground mt-1">La bandeja se creará con exactamente {grams || 0}g (relación 1:1).</p>
             </div>
 
-            {/* Ingredient check */}
-            {selectedRecipe && grams > 0 && (
+            {/* Ingredient check — oculto en modo bypass */}
+            {!skipInventoryDeduction && selectedRecipe && grams > 0 && (
               <div className="border border-border rounded-lg overflow-hidden">
                 <div className={`px-3 py-2 flex items-center gap-2 text-sm font-medium ${
                   missingIngredients.length > 0
@@ -426,7 +474,7 @@ export default function Production() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
             <Button onClick={() => produce.mutate()} disabled={!canProduce || produce.isPending}>
-              {produce.isPending ? 'Produciendo...' : 'Producir'}
+              {produce.isPending ? 'Produciendo...' : (skipInventoryDeduction ? 'Registrar Carga Inicial' : 'Producir')}
             </Button>
           </DialogFooter>
         </DialogContent>

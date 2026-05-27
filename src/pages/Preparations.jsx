@@ -10,7 +10,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Pencil, Trash2, FlaskConical, Factory, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { Plus, Pencil, Trash2, FlaskConical, Factory, AlertTriangle, CheckCircle2, Info } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
 import PageHeader from '@/components/shared/PageHeader';
 import { toast } from 'sonner';
 import SearchableCombobox from '@/components/shared/SearchableCombobox';
@@ -29,6 +30,11 @@ export default function Preparations() {
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(emptyPrep);
   const [produceDialog, setProduceDialog] = useState(null); // prep object to produce
+  // Bypass de descuento de inventario para carga inicial / ajuste de saldo.
+  // NOTA RBAC: hoy la ruta /preparados está protegida por RequireAdmin, así que
+  // sólo admins ven este switch. Para bloquear ENCARGADO_PRODUCCION en el futuro,
+  // envolver el bloque del Switch en una condición de rol.
+  const [skipInventoryDeduction, setSkipInventoryDeduction] = useState(false);
   const qc = useQueryClient();
 
   const { data: preparations = [] } = useQuery({
@@ -165,7 +171,12 @@ export default function Preparations() {
   }, [produceDialog, supplies]);
 
   const missingIngredients = ingredientCheck.filter(i => i.missing);
-  const canProduce = produceDialog && (produceDialog.ingredients || []).length > 0 && missingIngredients.length === 0;
+  // En modo bypass no se requieren ingredientes ni stock — sólo suma rendimiento al insumo vinculado.
+  const canProduce = produceDialog && (
+    skipInventoryDeduction
+      ? true
+      : ((produceDialog.ingredients || []).length > 0 && missingIngredients.length === 0)
+  );
 
   // ===== Producir Lote =====
   const produceMut = useMutation({
@@ -189,26 +200,34 @@ export default function Preparations() {
         await base44.entities.Preparation.update(prep.id, { linked_supply_id: linkedId });
       }
 
-      // Deduct raw materials
-      for (const ing of prep.ingredients) {
-        const supply = supplies.find(s => s.id === ing.supply_id);
-        if (supply && !supply.is_infinite) {
-          const newStock = (supply.stock_current || 0) - (ing.quantity || 0);
-          await base44.entities.Supply.update(supply.id, { stock_current: newStock });
+      // BYPASS MODE — Carga Inicial / Ajuste de Saldo:
+      // Omitir descuento de materia prima y sólo sumar el rendimiento al insumo vinculado.
+      if (!skipInventoryDeduction) {
+        for (const ing of prep.ingredients) {
+          const supply = supplies.find(s => s.id === ing.supply_id);
+          if (supply && !supply.is_infinite) {
+            const newStock = (supply.stock_current || 0) - (ing.quantity || 0);
+            await base44.entities.Supply.update(supply.id, { stock_current: newStock });
+          }
         }
       }
 
-      // Add yield to linked supply
+      // Add yield to linked supply (siempre, también en carga inicial)
       const newLinkedStock = (linked.stock_current || 0) + (parseFloat(prep.yield_amount) || 0);
       await base44.entities.Supply.update(linkedId, { stock_current: newLinkedStock });
 
-      return prep;
+      return { prep, skipped: skipInventoryDeduction };
     },
-    onSuccess: (prep) => {
+    onSuccess: ({ prep, skipped }) => {
       qc.invalidateQueries({ queryKey: ['supplies'] });
       qc.invalidateQueries({ queryKey: ['preparations'] });
       setProduceDialog(null);
-      toast.success(`Lote de ${prep.name} producido (+${prep.yield_amount}${prep.yield_unit})`);
+      setSkipInventoryDeduction(false);
+      if (skipped) {
+        toast.success(`Carga inicial de ${prep.name} (+${prep.yield_amount}${prep.yield_unit}) sin descontar insumos.`);
+      } else {
+        toast.success(`Lote de ${prep.name} producido (+${prep.yield_amount}${prep.yield_unit})`);
+      }
     },
     onError: (e) => {
       toast.error(e?.message || 'Error desconocido al producir lote');
@@ -429,21 +448,44 @@ export default function Preparations() {
       </Dialog>
 
       {/* Diálogo de producción con verificación de ingredientes */}
-      <Dialog open={!!produceDialog} onOpenChange={(o) => !o && setProduceDialog(null)}>
+      <Dialog open={!!produceDialog} onOpenChange={(o) => { if (!o) { setProduceDialog(null); setSkipInventoryDeduction(false); } }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Producir Lote — {produceDialog?.name}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
+            {/* Switch: Carga Inicial / Ajuste de Saldo (bypass de descuento) */}
+            <div className={`rounded-lg border p-3 flex items-center gap-3 ${
+              skipInventoryDeduction
+                ? 'bg-amber-50 border-amber-400'
+                : 'bg-muted/40 border-border'
+            }`}>
+              <Switch
+                id="bypass-prep"
+                checked={skipInventoryDeduction}
+                onCheckedChange={setSkipInventoryDeduction}
+              />
+              <Label htmlFor="bypass-prep" className="flex-1 cursor-pointer">
+                <span className="text-sm font-medium block leading-tight">Carga Inicial / Ajuste de Saldo</span>
+                <span className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                  <Info className="h-3 w-3" />
+                  No descontar Materia Prima
+                </span>
+              </Label>
+            </div>
+
             <p className="text-sm text-muted-foreground">
-              Se producirán <strong className="text-foreground">{produceDialog?.yield_amount} {produceDialog?.yield_unit}</strong> y se descontarán los insumos.
+              {skipInventoryDeduction
+                ? <>Se sumarán <strong className="text-foreground">{produceDialog?.yield_amount} {produceDialog?.yield_unit}</strong> al stock como carga inicial, sin descontar insumos.</>
+                : <>Se producirán <strong className="text-foreground">{produceDialog?.yield_amount} {produceDialog?.yield_unit}</strong> y se descontarán los insumos.</>
+              }
             </p>
 
-            {(produceDialog?.ingredients || []).length === 0 ? (
+            {!skipInventoryDeduction && (produceDialog?.ingredients || []).length === 0 ? (
               <div className="border rounded-lg p-3 bg-amber-50 border-amber-300 text-amber-700 text-sm flex items-center gap-2">
                 <AlertTriangle className="h-4 w-4" /> Este preparado no tiene ingredientes. Edítalo primero.
               </div>
-            ) : (
+            ) : !skipInventoryDeduction && (
               <div className="border border-border rounded-lg overflow-hidden">
                 <div className={`px-3 py-2 flex items-center gap-2 text-sm font-medium ${
                   missingIngredients.length > 0
@@ -486,9 +528,9 @@ export default function Preparations() {
             )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setProduceDialog(null)}>Cancelar</Button>
+            <Button variant="outline" onClick={() => { setProduceDialog(null); setSkipInventoryDeduction(false); }}>Cancelar</Button>
             <Button onClick={() => produceMut.mutate(produceDialog)} disabled={!canProduce || produceMut.isPending}>
-              {produceMut.isPending ? 'Produciendo...' : 'Producir Lote'}
+              {produceMut.isPending ? 'Produciendo...' : (skipInventoryDeduction ? 'Registrar Carga Inicial' : 'Producir Lote')}
             </Button>
           </DialogFooter>
         </DialogContent>
