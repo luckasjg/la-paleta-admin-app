@@ -35,6 +35,9 @@ export default function Preparations() {
   // sólo admins ven este switch. Para bloquear ENCARGADO_PRODUCCION en el futuro,
   // envolver el bloque del Switch en una condición de rol.
   const [skipInventoryDeduction, setSkipInventoryDeduction] = useState(false);
+  // Carga inicial al crear un preparado: suma el yield al stock del insumo vinculado
+  // sin descontar materias primas (útil para sembrar inventario existente).
+  const [loadInitialStock, setLoadInitialStock] = useState(false);
   const qc = useQueryClient();
 
   const { data: preparations = [] } = useQuery({
@@ -77,9 +80,9 @@ export default function Preparations() {
   const isBalanced = Math.abs(totalPercentage - 100) < 0.01;
 
   // ===== Mutations =====
-  const close = () => { setDialogOpen(false); setEditing(null); setForm(emptyPrep); };
+  const close = () => { setDialogOpen(false); setEditing(null); setForm(emptyPrep); setLoadInitialStock(false); };
 
-  const openNew = () => { setForm(emptyPrep); setEditing(null); setDialogOpen(true); };
+  const openNew = () => { setForm(emptyPrep); setEditing(null); setLoadInitialStock(false); setDialogOpen(true); };
 
   const openEdit = (p) => {
     setEditing(p);
@@ -115,10 +118,15 @@ export default function Preparations() {
         stock_minimum: 0,
       };
 
+      // Stock inicial: sólo aplica al crear (no en edición) y cuando el switch está activo.
+      const initialStock = (!editing && loadInitialStock)
+        ? (parseFloat(formData.yield_amount) || 0)
+        : 0;
+
       if (linkedSupplyId) {
         await base44.entities.Supply.update(linkedSupplyId, supplyPayload);
       } else {
-        const newSupply = await base44.entities.Supply.create({ ...supplyPayload, stock_current: 0 });
+        const newSupply = await base44.entities.Supply.create({ ...supplyPayload, stock_current: initialStock });
         linkedSupplyId = newSupply.id;
       }
 
@@ -136,15 +144,20 @@ export default function Preparations() {
       };
 
       if (editing) {
-        return base44.entities.Preparation.update(editing.id, prepPayload);
+        return { result: await base44.entities.Preparation.update(editing.id, prepPayload), seeded: false };
       }
-      return base44.entities.Preparation.create(prepPayload);
+      const created = await base44.entities.Preparation.create(prepPayload);
+      return { result: created, seeded: initialStock > 0, initialStock, unit: formData.yield_unit };
     },
-    onSuccess: () => {
+    onSuccess: ({ seeded, initialStock, unit }) => {
       qc.invalidateQueries({ queryKey: ['preparations'] });
       qc.invalidateQueries({ queryKey: ['supplies'] });
       close();
-      toast.success('Preparado guardado y sincronizado con inventario');
+      if (seeded) {
+        toast.success(`Preparado creado con carga inicial de ${initialStock}${unit} en inventario.`);
+      } else {
+        toast.success('Preparado guardado y sincronizado con inventario');
+      }
     },
     onError: (e) => toast.error('Error: ' + e.message),
   });
@@ -341,13 +354,37 @@ export default function Preparations() {
         </Card>
       )}
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      <Dialog open={dialogOpen} onOpenChange={(o) => { if (!o) close(); else setDialogOpen(true); }}>
         <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editing ? 'Editar Preparado' : 'Nuevo Preparado'}</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-2">
             <div><Label>Nombre</Label><Input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="ej. Pasta de Pistacho" /></div>
+
+            {/* Switch de carga inicial — sólo al crear (no en edición) */}
+            {!editing && (
+              <div className={`rounded-lg border p-3 flex items-center gap-3 ${
+                loadInitialStock
+                  ? 'bg-amber-50 border-amber-400'
+                  : 'bg-muted/40 border-border'
+              }`}>
+                <Switch
+                  id="seed-prep"
+                  checked={loadInitialStock}
+                  onCheckedChange={setLoadInitialStock}
+                />
+                <Label htmlFor="seed-prep" className="flex-1 cursor-pointer">
+                  <span className="text-sm font-medium block leading-tight">
+                    Carga Inicial / Ajuste de Saldo
+                  </span>
+                  <span className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                    <Info className="h-3 w-3" />
+                    Crear con stock = {parseFloat(form.yield_amount) || 0}{form.yield_unit} y sin descontar Materia Prima
+                  </span>
+                </Label>
+              </div>
+            )}
 
             <div className="grid grid-cols-3 gap-3">
               <div>
