@@ -163,6 +163,79 @@ export default function SelectiveCleanupCard() {
         await purgeEntity(entityName);
       }
 
+      // Acción financiera: si se purgó "Historial de Ventas y Caja",
+      // también hay que (a) borrar movimientos de billetera asociados y
+      // (b) resetear los saldos de todas las billeteras a 0 para evitar
+      // montos fantasma acumulados de ventas borradas.
+      const salesSelected = selectedDepartments.some(d => d.id === 'sales');
+      if (salesSelected) {
+        // 1. Borrar TODOS los WalletTransaction (saltea el blindaje genérico
+        //    porque aquí es una operación financiera intencional vinculada a Sales)
+        try {
+          const txs = await base44.entities.WalletTransaction.list();
+          const BATCH_SIZE = 4;
+          for (let i = 0; i < txs.length; i += BATCH_SIZE) {
+            const batch = txs.slice(i, i + BATCH_SIZE);
+            const results = await Promise.all(
+              batch.map(async (t) => {
+                let attempt = 0;
+                while (attempt < 5) {
+                  try {
+                    await base44.entities.WalletTransaction.delete(t.id);
+                    return true;
+                  } catch (e) {
+                    const status = e?.response?.status || e?.status;
+                    if (status === 429 && attempt < 4) {
+                      await new Promise(r => setTimeout(r, 500 * Math.pow(2, attempt)));
+                      attempt += 1;
+                      continue;
+                    }
+                    errors.push(`WalletTransaction (${t.id}): ${e.message || 'error'}`);
+                    return false;
+                  }
+                }
+                return false;
+              })
+            );
+            totalDeleted += results.filter(Boolean).length;
+            if (i + BATCH_SIZE < txs.length) {
+              await new Promise(r => setTimeout(r, 150));
+            }
+          }
+        } catch (e) {
+          errors.push(`WalletTransaction (listado): ${e.message || 'error'}`);
+        }
+
+        // 2. Resetear saldos de todas las billeteras a 0
+        try {
+          const wallets = await base44.entities.Wallet.list();
+          for (const w of wallets) {
+            let attempt = 0;
+            while (attempt < 5) {
+              try {
+                await base44.entities.Wallet.update(w.id, {
+                  balance: 0,
+                  historical_usd_value: 0,
+                });
+                break;
+              } catch (e) {
+                const status = e?.response?.status || e?.status;
+                if (status === 429 && attempt < 4) {
+                  await new Promise(r => setTimeout(r, 500 * Math.pow(2, attempt)));
+                  attempt += 1;
+                  continue;
+                }
+                errors.push(`Wallet ${w.name || w.id}: ${e.message || 'error al resetear saldo'}`);
+                break;
+              }
+            }
+            await new Promise(r => setTimeout(r, 100));
+          }
+        } catch (e) {
+          errors.push(`Wallet (listado): ${e.message || 'error'}`);
+        }
+      }
+
       // Refrescar todas las queries para que la UI muestre estado vacío
       queryClient.invalidateQueries();
 
