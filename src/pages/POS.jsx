@@ -16,6 +16,7 @@ import MixedPaymentDialog from '@/components/pos/MixedPaymentDialog';
 import { depositSalePaymentsToWallets } from '@/lib/walletHelpers';
 import StockLocationSelector from '@/components/shared/StockLocationSelector';
 import { buildStockDelta, getStockAt, LOCATION_LABEL } from '@/lib/stockHelpers';
+import { useCurrencySymbol } from '@/lib/useCurrencySymbol';
 
 export default function POS() {
   const [cart, setCart] = useState([]);
@@ -26,6 +27,7 @@ export default function POS() {
   // Origen de Materia Prima para esta venta (aplica a toda la orden).
   const [sourceLocation, setSourceLocation] = useState('production');
   const { rate: exchangeRate, setRate: setExchangeRate } = useExchangeRate();
+  const { symbol: curr } = useCurrencySymbol();
   const qc = useQueryClient();
 
   const { data: products = [] } = useQuery({
@@ -419,7 +421,7 @@ export default function POS() {
                 <p className="font-semibold text-sm">{p.name}</p>
                 {p.size_label && <p className="text-xs text-muted-foreground">{p.size_label}</p>}
                 <div className="mt-2 flex items-center justify-between">
-                  <span className="text-lg font-bold text-primary">${p.price?.toFixed(2)}</span>
+                  <span className="text-lg font-bold text-primary">{curr}{p.price?.toFixed(2)}</span>
                   {p.grams_per_serving > 0 && (
                     <Badge variant="secondary" className="text-xs">{p.grams_per_serving}g</Badge>
                   )}
@@ -454,7 +456,7 @@ export default function POS() {
                 {item.flavor && <p className="text-xs text-muted-foreground">{item.flavor} · {item.grams}g</p>}
                 {item.flavor_surcharge > 0 && (
                   <p className="text-[10px] text-amber-700 font-medium">
-                    Base ${item.base_price?.toFixed(2)} + recargo ${item.flavor_surcharge.toFixed(2)}
+                    Base {curr}{item.base_price?.toFixed(2)} + recargo {curr}{item.flavor_surcharge.toFixed(2)}
                   </p>
                 )}
                 {item.is_courtesy && <p className="text-xs text-amber-600 font-medium">Cortesía</p>}
@@ -469,7 +471,7 @@ export default function POS() {
                 </Button>
               </div>
               <div className={`w-20 text-right ${item.is_courtesy ? 'text-amber-600' : ''}`}>
-                <div className="text-sm font-semibold">${item.subtotal.toFixed(2)}</div>
+                <div className="text-sm font-semibold">{curr}{item.subtotal.toFixed(2)}</div>
                 <div className="text-[10px] text-muted-foreground font-mono">{formatVES(item.subtotal * exchangeRate)}</div>
               </div>
               <div className="flex flex-col gap-0.5">
@@ -526,7 +528,7 @@ export default function POS() {
           <div className="flex items-end justify-between">
             <span className="text-lg font-bold">Total</span>
             <div className="text-right">
-              <div className="text-2xl font-bold text-primary leading-tight">{formatUSD(total)}</div>
+              <div className="text-2xl font-bold text-primary leading-tight">{curr}{total.toFixed(2)}</div>
               <div className="text-sm text-muted-foreground font-mono">{formatVES(totalVES)}</div>
             </div>
           </div>
@@ -612,17 +614,17 @@ export default function POS() {
               <div className="rounded-md border border-border bg-muted/40 p-2.5 text-xs space-y-1 font-mono">
                 <div className="flex justify-between text-muted-foreground">
                   <span>Precio base</span>
-                  <span>${(flavorDialog.price || 0).toFixed(2)}</span>
+                  <span>{curr}{(flavorDialog.price || 0).toFixed(2)}</span>
                 </div>
                 {previewSurcharge > 0 && (
                   <div className="flex justify-between text-amber-700">
                     <span>Recargo sabor</span>
-                    <span>+${previewSurcharge.toFixed(2)}</span>
+                    <span>+{curr}{previewSurcharge.toFixed(2)}</span>
                   </div>
                 )}
                 <div className="flex justify-between font-bold text-primary border-t pt-1">
                   <span>Precio final</span>
-                  <span>${((flavorDialog.price || 0) + previewSurcharge).toFixed(2)}</span>
+                  <span>{curr}{((flavorDialog.price || 0) + previewSurcharge).toFixed(2)}</span>
                 </div>
               </div>
             )}
