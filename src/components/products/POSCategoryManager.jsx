@@ -1,15 +1,29 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Pencil, Trash2, Plus, Check, X } from 'lucide-react';
+import { Pencil, Trash2, Plus, Check, X, GripVertical } from 'lucide-react';
 import { toast } from 'sonner';
 import { base44 } from '@/api/base44Client';
+import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
+import { readCategoryOrder, writeCategoryOrder, applyCategoryOrder } from '@/lib/categoryOrder';
 
 export default function POSCategoryManager({ open, onOpenChange, categories, products, onProductsRefresh, onHideCategory, onAddCategory }) {
   const [newCatInput, setNewCatInput] = useState('');
   const [editingCat, setEditingCat] = useState(null); // { oldName, newName }
+  // Lista local ordenada (la fuente de verdad mientras el diálogo está abierto).
+  const [orderedCats, setOrderedCats] = useState([]);
+
+  // Sincroniza la lista local con las categorías entrantes + orden guardado.
+  useEffect(() => {
+    setOrderedCats(applyCategoryOrder(categories));
+  }, [categories]);
+
+  const persistOrder = (list) => {
+    setOrderedCats(list);
+    writeCategoryOrder(list);
+  };
 
   const handleAdd = () => {
     const val = newCatInput.trim();
@@ -39,10 +53,16 @@ export default function POSCategoryManager({ open, onOpenChange, categories, pro
       base44.entities.Product.update(p.id, { category: trimmed })
     ));
 
-    // Hide the old name from the list so the renamed one fully replaces it
-    // (necessary when oldName is a default category that lives in code, not DB).
+    // Reemplaza el nombre dentro del orden persistido sin perder la posición.
+    const currentOrder = readCategoryOrder();
+    const idx = currentOrder.indexOf(oldName.toLowerCase());
+    if (idx !== -1) {
+      const next = [...currentOrder];
+      next[idx] = trimmed.toLowerCase();
+      writeCategoryOrder(next);
+    }
+
     if (onHideCategory) onHideCategory(oldName);
-    // Make sure the new name is visible even if no products reference it yet.
     if (onAddCategory) onAddCategory(trimmed);
 
     toast.success(toUpdate.length > 0
@@ -59,7 +79,10 @@ export default function POSCategoryManager({ open, onOpenChange, categories, pro
       base44.entities.Product.update(p.id, { category: '' })
     ));
 
-    // Hide from the list (works for default categories too, which can't be deleted from DB)
+    // Limpia del orden persistido.
+    const currentOrder = readCategoryOrder();
+    writeCategoryOrder(currentOrder.filter(c => c !== catName.toLowerCase()));
+
     if (onHideCategory) onHideCategory(catName);
 
     toast.success(toUpdate.length > 0
@@ -68,6 +91,28 @@ export default function POSCategoryManager({ open, onOpenChange, categories, pro
     );
     onProductsRefresh();
   };
+
+  const onDragEnd = (result) => {
+    if (!result.destination) return;
+    const from = result.source.index;
+    const to = result.destination.index;
+    if (from === to) return;
+    const next = [...orderedCats];
+    const [moved] = next.splice(from, 1);
+    next.splice(to, 0, moved);
+    persistOrder(next);
+  };
+
+  // Métricas memoizadas para evitar refiltrar dentro del render por cada categoría.
+  const usageMap = useMemo(() => {
+    const m = {};
+    products.forEach(p => {
+      const c = p.category;
+      if (!c) return;
+      m[c] = (m[c] || 0) + 1;
+    });
+    return m;
+  }, [products]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -90,57 +135,88 @@ export default function POSCategoryManager({ open, onOpenChange, categories, pro
             </Button>
           </div>
 
-          {/* List */}
-          <div className="space-y-2">
-            {categories.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-4">No hay categorías. Agrega una arriba.</p>
-            ) : (
-              categories.map(cat => {
-                const usageCount = products.filter(p => p.category === cat).length;
-                const isEditing = editingCat?.oldName === cat;
+          <p className="text-xs text-muted-foreground">
+            Arrastra <GripVertical className="inline h-3 w-3 -mt-0.5" /> para reordenar las categorías. El orden se aplica al POS y al catálogo de Productos.
+          </p>
 
-                return (
-                  <div key={cat} className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border bg-card">
-                    {isEditing ? (
-                      <>
-                        <Input
-                          autoFocus
-                          className="flex-1 h-7 text-sm"
-                          value={editingCat.newName}
-                          onChange={e => setEditingCat(prev => ({ ...prev, newName: e.target.value }))}
-                          onKeyDown={e => {
-                            if (e.key === 'Enter') handleEdit();
-                            if (e.key === 'Escape') setEditingCat(null);
-                          }}
-                        />
-                        <Button size="icon" variant="ghost" className="h-7 w-7" onClick={handleEdit}>
-                          <Check className="h-4 w-4 text-primary" />
-                        </Button>
-                        <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setEditingCat(null)}>
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </>
-                    ) : (
-                      <>
-                        <span className="flex-1 text-sm font-medium">{cat}</span>
-                        {usageCount > 0 && (
-                          <Badge variant="secondary" className="text-xs">{usageCount} producto{usageCount !== 1 ? 's' : ''}</Badge>
-                        )}
-                        <Button size="icon" variant="ghost" className="h-7 w-7"
-                          onClick={() => setEditingCat({ oldName: cat, newName: cat })}>
-                          <Pencil className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button size="icon" variant="ghost" className="h-7 w-7"
-                          onClick={() => handleDelete(cat)}>
-                          <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                        </Button>
-                      </>
-                    )}
+          {/* Lista ordenable */}
+          {orderedCats.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-4">No hay categorías. Agrega una arriba.</p>
+          ) : (
+            <DragDropContext onDragEnd={onDragEnd}>
+              <Droppable droppableId="categories">
+                {(provided) => (
+                  <div
+                    ref={provided.innerRef}
+                    {...provided.droppableProps}
+                    className="space-y-2"
+                  >
+                    {orderedCats.map((cat, index) => {
+                      const usageCount = usageMap[cat] || 0;
+                      const isEditing = editingCat?.oldName === cat;
+
+                      return (
+                        <Draggable key={cat} draggableId={cat} index={index} isDragDisabled={isEditing}>
+                          {(prov, snapshot) => (
+                            <div
+                              ref={prov.innerRef}
+                              {...prov.draggableProps}
+                              className={`flex items-center gap-2 px-3 py-2 rounded-lg border bg-card ${snapshot.isDragging ? 'border-primary shadow-md' : 'border-border'}`}
+                            >
+                              <span
+                                {...prov.dragHandleProps}
+                                className={`flex-shrink-0 text-muted-foreground ${isEditing ? 'opacity-40 cursor-not-allowed' : 'cursor-grab active:cursor-grabbing hover:text-foreground'}`}
+                                title="Arrastrar para reordenar"
+                              >
+                                <GripVertical className="h-4 w-4" />
+                              </span>
+
+                              {isEditing ? (
+                                <>
+                                  <Input
+                                    autoFocus
+                                    className="flex-1 h-7 text-sm"
+                                    value={editingCat.newName}
+                                    onChange={e => setEditingCat(prev => ({ ...prev, newName: e.target.value }))}
+                                    onKeyDown={e => {
+                                      if (e.key === 'Enter') handleEdit();
+                                      if (e.key === 'Escape') setEditingCat(null);
+                                    }}
+                                  />
+                                  <Button size="icon" variant="ghost" className="h-7 w-7" onClick={handleEdit}>
+                                    <Check className="h-4 w-4 text-primary" />
+                                  </Button>
+                                  <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setEditingCat(null)}>
+                                    <X className="h-4 w-4" />
+                                  </Button>
+                                </>
+                              ) : (
+                                <>
+                                  <span className="flex-1 text-sm font-medium capitalize">{cat}</span>
+                                  {usageCount > 0 && (
+                                    <Badge variant="secondary" className="text-xs">{usageCount} producto{usageCount !== 1 ? 's' : ''}</Badge>
+                                  )}
+                                  <Button size="icon" variant="ghost" className="h-7 w-7"
+                                    onClick={() => setEditingCat({ oldName: cat, newName: cat })}>
+                                    <Pencil className="h-3.5 w-3.5" />
+                                  </Button>
+                                  <Button size="icon" variant="ghost" className="h-7 w-7"
+                                    onClick={() => handleDelete(cat)}>
+                                    <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                                  </Button>
+                                </>
+                              )}
+                            </div>
+                          )}
+                        </Draggable>
+                      );
+                    })}
+                    {provided.placeholder}
                   </div>
-                );
-              })
-            )}
-          </div>
+                )}
+              </Droppable>
+            </DragDropContext>
+          )}
         </div>
       </DialogContent>
     </Dialog>

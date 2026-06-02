@@ -15,6 +15,7 @@ import { toast } from 'sonner';
 import POSCategoryManager from '@/components/products/POSCategoryManager';
 import LinkedSuppliesEditor from '@/components/products/LinkedSuppliesEditor';
 import SearchableCombobox from '@/components/shared/SearchableCombobox';
+import { applyCategoryOrder } from '@/lib/categoryOrder';
 
 const DEFAULT_CATEGORIES = ['helado', 'cafe', 'merengada', 'adicional', 'otro'];
 const HIDDEN_CATS_KEY = 'pos_hidden_categories';
@@ -178,7 +179,9 @@ export default function Products() {
     else createMut.mutate(payload);
   };
 
-  // Fail-safe grouping: every product in DB gets shown under its category (or "Sin categoría")
+  // Fail-safe grouping: cada producto se muestra bajo su categoría (o "Sin categoría").
+  // El orden de los grupos respeta la preferencia manual del usuario (drag-and-drop
+  // en el gestor de categorías); "Sin categoría" queda siempre al final.
   const grouped = useMemo(() => {
     const groups = {};
     products.forEach(p => {
@@ -186,17 +189,18 @@ export default function Products() {
       if (!groups[cat]) groups[cat] = [];
       groups[cat].push(p);
     });
-    return Object.entries(groups)
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([cat, ps]) => ({
-        cat,
-        products: ps.sort((a, b) => {
-          const oa = a.sort_order ?? 99;
-          const ob = b.sort_order ?? 99;
-          if (oa !== ob) return oa - ob;
-          return (a.name || '').localeCompare(b.name || '');
-        }),
-      }));
+    const catNames = Object.keys(groups);
+    const orderedNames = applyCategoryOrder(catNames.filter(c => c !== 'Sin categoría'));
+    if (catNames.includes('Sin categoría')) orderedNames.push('Sin categoría');
+    return orderedNames.map(cat => ({
+      cat,
+      products: groups[cat].sort((a, b) => {
+        const oa = a.sort_order ?? 99;
+        const ob = b.sort_order ?? 99;
+        if (oa !== ob) return oa - ob;
+        return (a.name || '').localeCompare(b.name || '');
+      }),
+    }));
   }, [products]);
 
   const updateSortOrder = (product, newOrder) => {

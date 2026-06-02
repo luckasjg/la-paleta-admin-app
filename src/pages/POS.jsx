@@ -17,6 +17,7 @@ import MixedPaymentDialog from '@/components/pos/MixedPaymentDialog';
 import { depositSalePaymentsToWallets } from '@/lib/walletHelpers';
 import StockLocationSelector from '@/components/shared/StockLocationSelector';
 import { buildStockDelta, getStockAt, LOCATION_LABEL } from '@/lib/stockHelpers';
+import { applyCategoryOrder } from '@/lib/categoryOrder';
 
 export default function POS() {
   const [cart, setCart] = useState([]);
@@ -57,13 +58,16 @@ export default function POS() {
 
   const activeProducts = products.filter(p => p.is_active !== false);
 
-  // Build dynamic categories from active products
+  // Build dynamic categories from active products. El orden por defecto se
+  // mantiene como fallback; si el usuario reordena en /productos, se respeta
+  // esa preferencia (persistida en localStorage).
   const categoryOrder = ['helado', 'cafe', 'merengada', 'adicional', 'otro'];
   const allCats = [...new Set(activeProducts.map(p => p.category).filter(Boolean))];
-  const categories = [
+  const baseCategories = [
     ...categoryOrder.filter(c => allCats.includes(c)),
     ...allCats.filter(c => !categoryOrder.includes(c)),
   ];
+  const categories = applyCategoryOrder(baseCategories);
 
   const activeCat = selectedCategory || categories[0] || 'helado';
   const filteredProducts = activeProducts
