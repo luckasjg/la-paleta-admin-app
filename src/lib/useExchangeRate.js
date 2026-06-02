@@ -38,5 +38,15 @@ export function useExchangeRate() {
   return { rate, setRate };
 }
 
-export const formatUSD = (n) => `$${(n || 0).toFixed(2)}`;
+// Lee el símbolo de divisa configurado por el usuario en /configuracion.
+// Default `$` si no hay nada guardado o el storage no está disponible.
+const readCurrencySymbol = () => {
+  try {
+    return localStorage.getItem('system_currency_symbol') || '$';
+  } catch {
+    return '$';
+  }
+};
+
+export const formatUSD = (n) => `${readCurrencySymbol()}${(n || 0).toFixed(2)}`;
 export const formatVES = (n) => `Bs. ${(n || 0).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
