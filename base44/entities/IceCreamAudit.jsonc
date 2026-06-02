@@ -1,0 +1,116 @@
+{
+  "name": "IceCreamAudit",
+  "type": "object",
+  "properties": {
+    "audit_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Fecha de la auditor\u00eda"
+    },
+    "shift": {
+      "type": "string",
+      "enum": [
+        "manana",
+        "tarde",
+        "noche"
+      ],
+      "description": "Turno del cierre"
+    },
+    "entries": {
+      "type": "array",
+      "description": "L\u00edneas de auditor\u00eda por bandeja",
+      "items": {
+        "type": "object",
+        "properties": {
+          "tray_id": {
+            "type": "string"
+          },
+          "recipe_name": {
+            "type": "string"
+          },
+          "initial_grams": {
+            "type": "number"
+          },
+          "grams_sold_theoretical": {
+            "type": "number"
+          },
+          "theoretical_stock": {
+            "type": "number"
+          },
+          "physical_weight": {
+            "type": "number"
+          },
+          "variance": {
+            "type": "number"
+          },
+          "cost_per_gram": {
+            "type": "number"
+          },
+          "financial_impact": {
+            "type": "number"
+          }
+        }
+      }
+    },
+    "total_variance_grams": {
+      "type": "number",
+      "description": "Merma total en gramos"
+    },
+    "financial_impact": {
+      "type": "number",
+      "description": "P\u00e9rdida/ganancia total de la auditor\u00eda en USD (suma algebraica de impactos por bandeja)"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Observaciones"
+    }
+  },
+  "required": [
+    "audit_date"
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "user"
+          }
+        }
+      ]
+    },
+    "read": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

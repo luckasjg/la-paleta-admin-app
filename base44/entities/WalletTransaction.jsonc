@@ -1,0 +1,81 @@
+{
+  "name": "WalletTransaction",
+  "type": "object",
+  "properties": {
+    "wallet_id": {
+      "type": "string",
+      "description": "ID de la billetera afectada"
+    },
+    "wallet_name": {
+      "type": "string",
+      "description": "Snapshot del nombre de la billetera"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "sale_income",
+        "conversion_out",
+        "conversion_in",
+        "manual_adjust",
+        "initial_balance"
+      ],
+      "description": "Tipo de movimiento"
+    },
+    "amount_native": {
+      "type": "number",
+      "description": "Monto en la moneda nativa de la billetera (positivo=entrada, negativo=salida)"
+    },
+    "amount_usd_equivalent": {
+      "type": "number",
+      "description": "Equivalente en USD al momento de la transacci\u00f3n (a la tasa hist\u00f3rica)"
+    },
+    "exchange_rate": {
+      "type": "number",
+      "description": "Tasa USD\u2192VES vigente al momento del movimiento"
+    },
+    "sale_id": {
+      "type": "string",
+      "description": "ID de la venta asociada (si aplica)"
+    },
+    "linked_transaction_id": {
+      "type": "string",
+      "description": "ID de la transacci\u00f3n contraparte (para conversiones VES\u2192USD)"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Notas u observaciones"
+    },
+    "transaction_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Fecha y hora del movimiento"
+    }
+  },
+  "required": [
+    "wallet_id",
+    "type",
+    "amount_native"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

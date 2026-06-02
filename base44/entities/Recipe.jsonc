@@ -1,0 +1,94 @@
+{
+  "name": "Recipe",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Nombre del producto/sabor"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "helado",
+        "cafe",
+        "merengada",
+        "otro"
+      ],
+      "description": "Tipo de receta"
+    },
+    "yield_amount": {
+      "type": "number",
+      "description": "Cantidad que produce la receta (en ml para helado, unidades para caf\u00e9)"
+    },
+    "yield_unit": {
+      "type": "string",
+      "enum": [
+        "ml",
+        "unidad"
+      ],
+      "description": "Unidad de rendimiento"
+    },
+    "ingredients": {
+      "type": "array",
+      "description": "Lista de ingredientes con cantidades",
+      "items": {
+        "type": "object",
+        "properties": {
+          "supply_id": {
+            "type": "string"
+          },
+          "supply_name": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "number"
+          },
+          "unit": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "image_url": {
+      "type": "string",
+      "description": "Foto del producto"
+    },
+    "sale_price": {
+      "type": "number",
+      "description": "Precio de venta sugerido"
+    },
+    "is_active": {
+      "type": "boolean",
+      "description": "Si la receta est\u00e1 activa"
+    },
+    "flavor_tag": {
+      "type": "string",
+      "enum": [
+        "Regular",
+        "Premium",
+        "Sorbete"
+      ],
+      "default": "Regular",
+      "description": "Clasificaci\u00f3n del sabor para aplicar recargo proporcional en POS"
+    },
+    "ref_surcharge_amount": {
+      "type": "number",
+      "default": 0,
+      "description": "Monto en USD del recargo de referencia (s\u00f3lo si flavor_tag != Regular)"
+    },
+    "ref_surcharge_grams": {
+      "type": "number",
+      "default": 0,
+      "description": "Gramos de referencia para el recargo (s\u00f3lo si flavor_tag != Regular)"
+    },
+    "surcharge_per_gram": {
+      "type": "number",
+      "default": 0,
+      "description": "Recargo proporcional por gramo (ref_surcharge_amount / ref_surcharge_grams). Calculado al guardar."
+    }
+  },
+  "required": [
+    "name",
+    "type"
+  ]
+}

@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { listEntity, createEntity, updateEntity, deleteEntity } from '@/api/repository';
+import { base44 } from '@/api/base44Client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -47,17 +47,17 @@ export default function Products() {
 
   const { data: products = [] } = useQuery({
     queryKey: ['products'],
-    queryFn: () => listEntity('Product'),
+    queryFn: () => base44.entities.Product.list(),
   });
 
   const { data: recipes = [] } = useQuery({
     queryKey: ['recipes'],
-    queryFn: () => listEntity('Recipe'),
+    queryFn: () => base44.entities.Recipe.list(),
   });
 
   const { data: supplies = [] } = useQuery({
     queryKey: ['supplies'],
-    queryFn: () => listEntity('Supply'),
+    queryFn: () => base44.entities.Supply.list(),
   });
 
   // ── Migración automática (Regla 1): garantiza que todo producto tenga
@@ -92,7 +92,7 @@ export default function Products() {
           }
         }
         try {
-          await updateEntity('Product', p.id, {
+          await base44.entities.Product.update(p.id, {
             linked_supplies: linked,
             utensil_supply_id: '',
           });
@@ -127,15 +127,15 @@ export default function Products() {
   }, [products, hiddenCats, extraCats]);
 
   const createMut = useMutation({
-    mutationFn: (d) => createEntity('Product', d),
+    mutationFn: (d) => base44.entities.Product.create(d),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['products'] }); close(); toast.success('Producto creado'); },
   });
   const updateMut = useMutation({
-    mutationFn: ({ id, data }) => updateEntity('Product', id, data),
+    mutationFn: ({ id, data }) => base44.entities.Product.update(id, data),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['products'] }); close(); toast.success('Producto actualizado'); },
   });
   const deleteMut = useMutation({
-    mutationFn: (id) => deleteEntity('Product', id),
+    mutationFn: (id) => base44.entities.Product.delete(id),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['products'] }); toast.success('Producto eliminado'); },
   });
 

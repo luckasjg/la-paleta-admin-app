@@ -1,0 +1,61 @@
+{
+  "name": "Tray",
+  "type": "object",
+  "properties": {
+    "recipe_id": {
+      "type": "string",
+      "description": "ID de la receta"
+    },
+    "recipe_name": {
+      "type": "string",
+      "description": "Nombre del sabor"
+    },
+    "produced_liters": {
+      "type": "number",
+      "description": "Litros producidos"
+    },
+    "remaining_grams": {
+      "type": "number",
+      "description": "Gramos restantes en la bandeja (1L \u2248 550g de helado)"
+    },
+    "initial_grams": {
+      "type": "number",
+      "description": "Gramos iniciales"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "activa",
+        "agotada"
+      ],
+      "description": "Estado de la bandeja"
+    },
+    "production_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Fecha de producci\u00f3n"
+    }
+  },
+  "required": [
+    "recipe_name",
+    "status"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {},
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

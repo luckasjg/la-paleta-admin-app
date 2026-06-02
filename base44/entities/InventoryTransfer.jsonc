@@ -1,0 +1,75 @@
+{
+  "name": "InventoryTransfer",
+  "type": "object",
+  "properties": {
+    "supply_id": {
+      "type": "string",
+      "description": "ID del insumo transferido"
+    },
+    "supply_name": {
+      "type": "string",
+      "description": "Snapshot del nombre del insumo"
+    },
+    "quantity": {
+      "type": "number",
+      "description": "Cantidad transferida en la unidad base"
+    },
+    "unit": {
+      "type": "string",
+      "description": "Unidad base del insumo (g, ml, unidad)"
+    },
+    "from_location": {
+      "type": "string",
+      "enum": [
+        "warehouse",
+        "production"
+      ],
+      "default": "warehouse",
+      "description": "Almac\u00e9n origen"
+    },
+    "to_location": {
+      "type": "string",
+      "enum": [
+        "warehouse",
+        "production"
+      ],
+      "default": "production",
+      "description": "Almac\u00e9n destino"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Observaciones de la transferencia"
+    },
+    "transfer_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Fecha y hora del movimiento"
+    }
+  },
+  "required": [
+    "supply_id",
+    "quantity"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

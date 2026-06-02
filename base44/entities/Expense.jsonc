@@ -1,0 +1,79 @@
+{
+  "name": "Expense",
+  "type": "object",
+  "properties": {
+    "description": {
+      "type": "string",
+      "description": "Descripci\u00f3n del gasto"
+    },
+    "amount": {
+      "type": "number",
+      "description": "Monto del gasto en USD"
+    },
+    "category": {
+      "type": "string",
+      "description": "Categor\u00eda del gasto (libre, gestionada por el usuario)"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "fijo",
+        "variable"
+      ],
+      "description": "Tipo de gasto: fijo o variable",
+      "default": "fijo"
+    },
+    "date": {
+      "type": "string",
+      "format": "date",
+      "description": "Fecha del gasto (mes de origen para recurrentes)"
+    },
+    "is_recurring": {
+      "type": "boolean",
+      "description": "Si es true, el gasto se replica autom\u00e1ticamente en todos los meses siguientes",
+      "default": false
+    },
+    "recurring_active": {
+      "type": "boolean",
+      "description": "Si es true y is_recurring=true, sigue activo (puede desactivarse para detener la recurrencia)",
+      "default": true
+    },
+    "recurring_end_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Fecha opcional de fin de la recurrencia"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Notas adicionales"
+    }
+  },
+  "required": [
+    "description",
+    "amount",
+    "category",
+    "date"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}
