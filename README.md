@@ -1,39 +1,46 @@
-**Welcome to your Base44 project** 
+# La Paleta Admin App
 
-**About**
+This app now uses Supabase for authentication and data storage.
 
-View and Edit  your app on [Base44.com](http://Base44.com) 
+## Local setup
 
-This project contains everything you need to run your app locally.
+1. Clone the repository.
+2. Navigate to the project folder.
+3. Install dependencies:
 
-**Edit the code in your local development environment**
+   ```bash
+   npm install
+   ```
 
-Any change pushed to the repo will also be reflected in the Base44 Builder.
+4. Copy `.env.example` to `.env.local` and set your Supabase environment variables:
 
-**Prerequisites:** 
+   ```env
+   VITE_SUPABASE_URL=https://your-project-ref.supabase.co
+   VITE_SUPABASE_ANON_KEY=your-anon-key
+   VITE_LOGIN_URL=/login
+   ```
 
-1. Clone the repository using the project's Git URL 
-2. Navigate to the project directory
-3. Install dependencies: `npm install`
-4. Create an `.env.local` file and set the right environment variables
+5. Run locally:
 
-```
-VITE_BASE44_APP_ID=your_app_id
-VITE_BASE44_APP_BASE_URL=your_backend_url
+   ```bash
+   npm run dev
+   ```
 
-e.g.
-VITE_BASE44_APP_ID=cbef744a8545c389ef439ea6
-VITE_BASE44_APP_BASE_URL=https://my-to-do-list-81bfaad7.base44.app
-```
+## Preview
 
-Run the app: `npm run dev`
+- Local preview: open the URL shown by `npm run dev`.
+- Netlify preview: connect this GitHub repository to Netlify, enable deploy previews for pull requests, and set the same Supabase env vars in the Netlify site settings.
 
-**Publish your changes**
+## Netlify deployment
 
-Open [Base44.com](http://Base44.com) and click on Publish.
+- Build command: `npm run build`
+- Publish directory: `dist`
+- Environment variables:
+  - `VITE_SUPABASE_URL`
+  - `VITE_SUPABASE_ANON_KEY`
+  - `VITE_LOGIN_URL`
 
-**Docs & Support**
+## Notes
 
-Documentation: [https://docs.base44.com/Integrations/Using-GitHub](https://docs.base44.com/Integrations/Using-GitHub)
-
-Support: [https://app.base44.com/support](https://app.base44.com/support)
+- Legacy Base44 integration has been removed.
+- If you want to recreate the Supabase schema, use the existing app data models and tables from the current React app.

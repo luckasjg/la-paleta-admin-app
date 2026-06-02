@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
+import { listEntity, createEntity, updateEntity, deleteEntity } from '@/api/repository';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -83,21 +83,21 @@ export default function Inventory() {
 
   const { data: supplies = [], isLoading } = useQuery({
     queryKey: ['supplies'],
-    queryFn: () => base44.entities.Supply.list(),
+    queryFn: () => listEntity('Supply'),
   });
 
   const createMut = useMutation({
-    mutationFn: (d) => base44.entities.Supply.create(d),
+    mutationFn: (d) => createEntity('Supply', d),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['supplies'] }); close(); toast.success('Insumo creado'); },
   });
 
   const updateMut = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.Supply.update(id, data),
+    mutationFn: ({ id, data }) => updateEntity('Supply', id, data),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['supplies'] }); close(); toast.success('Insumo actualizado'); },
   });
 
   const deleteMut = useMutation({
-    mutationFn: (id) => base44.entities.Supply.delete(id),
+    mutationFn: (id) => deleteEntity('Supply', id),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['supplies'] }); toast.success('Insumo eliminado'); },
   });
 
