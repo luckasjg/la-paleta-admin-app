@@ -24,7 +24,6 @@ import ExpensesManager from '@/pages/ExpensesManager.jsx';
 import Wallets from '@/pages/Wallets.jsx';
 import Settings from '@/pages/Settings.jsx';
 import DigitalMenuTV from '@/pages/DigitalMenuTV.jsx';
-import Login from '@/pages/Login.jsx';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -53,7 +52,6 @@ const AuthenticatedApp = () => {
     <Routes>
       {/* Vista pública de TV — sin layout, sin sidebar, sin navbar */}
       <Route path="/tv-menu" element={<DigitalMenuTV />} />
-      <Route path="/login" element={<Login />} />
       <Route element={<AppLayout />}>
         <Route path="/" element={<RequireAdmin><Dashboard /></RequireAdmin>} />
         <Route path="/pos" element={<POS />} />

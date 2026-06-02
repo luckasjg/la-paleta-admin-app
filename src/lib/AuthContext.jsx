@@ -1,6 +1,5 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
-import { supabase } from '@/api/supabaseClient';
-import { appParams } from '@/lib/app-params';
+import { base44 } from '@/api/base44Client';
 
 const AuthContext = createContext();
 
@@ -8,97 +7,57 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
-  const [isLoadingPublicSettings, setIsLoadingPublicSettings] = useState(true);
+  const [isLoadingPublicSettings, setIsLoadingPublicSettings] = useState(false);
   const [authError, setAuthError] = useState(null);
-  const [authChecked, setAuthChecked] = useState(false);
 
   useEffect(() => {
-    checkAppState();
+    checkUserAuth();
   }, []);
-
-  const checkAppState = async () => {
-    try {
-      setIsLoadingPublicSettings(true);
-      setAuthError(null);
-      await checkUserAuth();
-      setIsLoadingPublicSettings(false);
-    } catch (error) {
-      console.error('Unexpected auth error:', error);
-      setAuthError({
-        type: 'unknown',
-        message: error?.message || 'An unexpected error occurred'
-      });
-      setIsLoadingPublicSettings(false);
-      setIsLoadingAuth(false);
-    }
-  };
 
   const checkUserAuth = async () => {
     try {
       setIsLoadingAuth(true);
-      const { data, error } = await supabase.auth.getUser();
-      if (error) {
-        throw error;
-      }
-
-      if (!data?.user) {
-        setUser(null);
-        setIsAuthenticated(false);
-        setAuthError({
-          type: 'auth_required',
-          message: 'Authentication required'
-        });
-      } else {
-        setUser({
-          ...data.user,
-          role: data.user.user_metadata?.role || 'user'
-        });
-        setIsAuthenticated(true);
-        setAuthError(null);
-      }
+      setAuthError(null);
+      const me = await base44.auth.me();
+      setUser(me);
+      setIsAuthenticated(true);
     } catch (error) {
-      console.error('User auth check failed:', error);
       setUser(null);
       setIsAuthenticated(false);
-      setAuthError({
-        type: 'auth_required',
-        message: 'Authentication required'
-      });
+      if (error?.response?.status === 404 || /not\s*registered/i.test(error?.message || '')) {
+        setAuthError({ type: 'user_not_registered', message: error?.message });
+      } else {
+        setAuthError({ type: 'auth_required', message: error?.message });
+      }
     } finally {
       setIsLoadingAuth(false);
-      setAuthChecked(true);
     }
   };
 
-  const logout = async (shouldRedirect = true) => {
+  const logout = async () => {
+    try {
+      await base44.auth.logout();
+    } catch (e) {
+      console.error('Logout failed:', e);
+    }
     setUser(null);
     setIsAuthenticated(false);
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      console.error('Logout failed:', error);
-    }
-
-    if (shouldRedirect) {
-      window.location.href = appParams.loginUrl || '/login';
-    }
   };
 
   const navigateToLogin = () => {
-    window.location.href = appParams.loginUrl || '/login';
+    base44.auth.redirectToLogin();
   };
 
   return (
-    <AuthContext.Provider value={{ 
-      user, 
-      isAuthenticated, 
+    <AuthContext.Provider value={{
+      user,
+      isAuthenticated,
       isLoadingAuth,
       isLoadingPublicSettings,
       authError,
-      authChecked,
       logout,
       navigateToLogin,
       checkUserAuth,
-      checkAppState
     }}>
       {children}
     </AuthContext.Provider>
