@@ -165,15 +165,13 @@ export default function Inventory() {
       return converted === 0 ? '' : String(converted);
     };
 
-    if ((s.sector || 'materia_prima') === 'materia_prima') {
-      setStockInput({
-        stock_warehouse_input: toInput(wh),
-        stock_production_input: toInput(pr),
-        stock_minimum_input: toInput(s.stock_minimum || 0),
-      });
-    } else {
-      setStockInput(emptyStockInput);
-    }
+    // Misma conversión amigable para todos los sectores (en venta_directa y utensilio
+    // la unidad base es la que escogió el usuario en form.unit).
+    setStockInput({
+      stock_warehouse_input: toInput(wh),
+      stock_production_input: toInput(pr),
+      stock_minimum_input: toInput(s.stock_minimum || 0),
+    });
     setDialogOpen(true);
   };
 
@@ -197,26 +195,26 @@ export default function Inventory() {
     let finalStockMinimum = stock_minimum;
     let packageFormatPayload = undefined;
 
+    // ── Conversión amigable de stocks a unidad base ────────────────────────
+    // Materia prima: la unidad base viene del Formato de Compra.
+    // Venta directa / Utensilios: la unidad base es la que el usuario eligió en form.unit.
     if (sector === 'materia_prima') {
-      // La unidad base sigue derivándose del formato de compra (kg→g, l→ml, unidad→unidad)
-      // para preservar compatibilidad con recetas, bandejas y descuentos del POS.
       const pkgU = getPackageUnit(purchase.package_unit);
       finalUnit = pkgU.baseUnit;
+    }
+    const { multiplier } = getInputUnitInfo(finalUnit);
+    const parseInput = (raw, fallback) => {
+      if (raw === '' || raw === null || raw === undefined) return fallback;
+      const n = parseFloat(raw);
+      return Number.isFinite(n) ? n * multiplier : fallback;
+    };
+    finalStockWarehouse = parseInput(stockInput.stock_warehouse_input, editing?.stock_warehouse ?? 0);
+    finalStockProduction = parseInput(stockInput.stock_production_input, editing?.stock_production ?? 0);
+    finalStockMinimum = parseInput(stockInput.stock_minimum_input, editing?.stock_minimum ?? 0);
 
-      // Los STOCKS ahora se ingresan directamente en kg/l/unidades. Multiplicamos
-      // ×1000 si la unidad base es g o ml; ×1 si es unidad.
-      const { multiplier } = getInputUnitInfo(finalUnit);
-      const parseInput = (raw, fallback) => {
-        if (raw === '' || raw === null || raw === undefined) return fallback;
-        const n = parseFloat(raw);
-        return Number.isFinite(n) ? n * multiplier : fallback;
-      };
-
-      finalStockWarehouse = parseInput(stockInput.stock_warehouse_input, editing?.stock_warehouse ?? 0);
-      finalStockProduction = parseInput(stockInput.stock_production_input, editing?.stock_production ?? 0);
-      finalStockMinimum = parseInput(stockInput.stock_minimum_input, editing?.stock_minimum ?? 0);
-
-      // Persistencia del Formato de Compra (siempre, aunque algún campo esté vacío).
+    // Persistencia del Formato de Compra (solo materia prima).
+    if (sector === 'materia_prima') {
+      const pkgU = getPackageUnit(purchase.package_unit);
       const presentation = (purchase.presentation || '').trim();
       const net = parseFloat(purchase.net_content);
       const unitLabel = pkgU.label.replace(/\s*\(.*\)/, '');
@@ -581,28 +579,69 @@ export default function Inventory() {
                   </div>
                 </div>
               );
-            })() : (
-              <div className="space-y-3">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label className="flex items-center gap-1.5">
-                      <WarehouseIcon className="h-3.5 w-3.5" /> Almacén
-                    </Label>
-                    <Input type="number" value={form.stock_warehouse} onChange={e => setForm({ ...form, stock_warehouse: parseFloat(e.target.value) || 0 })} />
+            })() : (() => {
+              // Venta directa / Utensilios: la unidad base la elige el usuario (g, ml o unidad).
+              // Aplicamos la misma lógica amigable: g/ml → entrada en kg/l (×1000), unidad → ×1.
+              const { label: inputLabel, multiplier, baseLabel } = getInputUnitInfo(form.unit);
+              const labelSuffix = multiplier === 1 ? '(en unidades)' : `(en ${inputLabel})`;
+              const showHint = multiplier > 1;
+              const toBase = (raw) => {
+                const n = parseFloat(raw);
+                return Number.isFinite(n) ? n * multiplier : 0;
+              };
+              return (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="flex items-center gap-1.5">
+                        <WarehouseIcon className="h-3.5 w-3.5" /> Almacén {labelSuffix}
+                      </Label>
+                      <Input
+                        type="number" step="0.001" min="0"
+                        placeholder={multiplier > 1 ? 'ej. 1.65' : 'ej. 24'}
+                        value={stockInput.stock_warehouse_input}
+                        onChange={e => setStockInput(s => ({ ...s, stock_warehouse_input: e.target.value }))}
+                      />
+                      {showHint && stockInput.stock_warehouse_input !== '' && (
+                        <p className="text-[10px] text-muted-foreground mt-1 font-mono">
+                          = {toBase(stockInput.stock_warehouse_input)} {baseLabel}
+                        </p>
+                      )}
+                    </div>
+                    <div>
+                      <Label className="flex items-center gap-1.5">
+                        <FlaskConical className="h-3.5 w-3.5" /> Producción {labelSuffix}
+                      </Label>
+                      <Input
+                        type="number" step="0.001" min="0"
+                        placeholder={multiplier > 1 ? 'ej. 0.5' : 'ej. 6'}
+                        value={stockInput.stock_production_input}
+                        onChange={e => setStockInput(s => ({ ...s, stock_production_input: e.target.value }))}
+                      />
+                      {showHint && stockInput.stock_production_input !== '' && (
+                        <p className="text-[10px] text-muted-foreground mt-1 font-mono">
+                          = {toBase(stockInput.stock_production_input)} {baseLabel}
+                        </p>
+                      )}
+                    </div>
                   </div>
                   <div>
-                    <Label className="flex items-center gap-1.5">
-                      <FlaskConical className="h-3.5 w-3.5" /> Producción
-                    </Label>
-                    <Input type="number" value={form.stock_production} onChange={e => setForm({ ...form, stock_production: parseFloat(e.target.value) || 0 })} />
+                    <Label>Stock Mínimo {labelSuffix}</Label>
+                    <Input
+                      type="number" step="0.001" min="0"
+                      placeholder={multiplier > 1 ? 'ej. 0.5' : 'ej. 2'}
+                      value={stockInput.stock_minimum_input}
+                      onChange={e => setStockInput(s => ({ ...s, stock_minimum_input: e.target.value }))}
+                    />
+                    {showHint && stockInput.stock_minimum_input !== '' && (
+                      <p className="text-[10px] text-muted-foreground mt-1 font-mono">
+                        = {toBase(stockInput.stock_minimum_input)} {baseLabel}
+                      </p>
+                    )}
                   </div>
                 </div>
-                <div>
-                  <Label>Stock Mínimo</Label>
-                  <Input type="number" value={form.stock_minimum} onChange={e => setForm({ ...form, stock_minimum: parseFloat(e.target.value) || 0 })} />
-                </div>
-              </div>
-            )}
+              );
+            })()}
 
             <div>
               <Label>
