@@ -212,8 +212,8 @@ export default function Inventory() {
     finalStockProduction = parseInput(stockInput.stock_production_input, editing?.stock_production ?? 0);
     finalStockMinimum = parseInput(stockInput.stock_minimum_input, editing?.stock_minimum ?? 0);
 
-    // Persistencia del Formato de Compra (solo materia prima).
-    if (sector === 'materia_prima') {
+    // Persistencia del Formato de Compra para TODOS los sectores.
+    {
       const pkgU = getPackageUnit(purchase.package_unit);
       const presentation = (purchase.presentation || '').trim();
       const net = parseFloat(purchase.net_content);
@@ -646,18 +646,16 @@ export default function Inventory() {
             <div>
               <Label>
                 Costo por Unidad{form.sector === 'materia_prima' ? ' Base' : ''} ($)
-                {form.sector === 'materia_prima' && <span className="text-xs text-muted-foreground font-normal"> (automático)</span>}
+                <span className="text-xs text-muted-foreground font-normal"> (automático)</span>
               </Label>
               <Input
                 type="number" step="0.0001" value={form.cost_per_unit}
                 onChange={e => setForm({ ...form, cost_per_unit: parseFloat(e.target.value) || 0 })}
-                readOnly={form.sector === 'materia_prima'}
-                disabled={form.sector === 'materia_prima'}
-                className={form.sector === 'materia_prima' ? 'bg-muted/50 font-mono' : ''}
+                readOnly
+                disabled
+                className="bg-muted/50 font-mono"
               />
-              {form.sector === 'materia_prima' && (
-                <p className="text-[10px] text-muted-foreground mt-1">Se calcula desde el "Formato de Compra" abajo.</p>
-              )}
+              <p className="text-[10px] text-muted-foreground mt-1">Se calcula desde el "Formato de Compra" abajo.</p>
             </div>
 
             {/* Stock infinito (solo materia prima) */}
@@ -673,38 +671,18 @@ export default function Inventory() {
               </div>
             )}
 
-            {/* Formato de Compra (materia prima) */}
-            {form.sector === 'materia_prima' && (
-              <PurchaseFormatPanel
-                purchase={purchase}
-                setPurchase={setPurchase}
-                form={form}
-                setForm={setForm}
-              />
-            )}
+            {/* Formato de Compra: aplica a todos los sectores. En venta directa /
+                utensilios pasamos lockUnit para no sobrescribir la unidad elegida. */}
+            <PurchaseFormatPanel
+              purchase={purchase}
+              setPurchase={setPurchase}
+              form={form}
+              setForm={setForm}
+              lockUnit={form.sector !== 'materia_prima'}
+            />
 
-            {/* Calculadora simple para venta directa y utensilios (lote → pieza) */}
-            {form.sector !== 'materia_prima' && (() => {
-              const isUtensilio = form.sector === 'utensilio';
-              const labelCantidad = '¿Cuántas unidades trae?';
-              const placeholderCantidad = isUtensilio ? 'ej. 85 (caja de barquillas)' : 'ej. 24 (caja de 24)';
-              return (
-                <div className="rounded-lg border border-dashed border-border bg-muted/30 p-3 space-y-2">
-                  <p className="text-xs font-semibold text-foreground">🧮 Calculadora de Costos <span className="font-normal text-muted-foreground">(Opcional)</span></p>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <Label className="text-xs">Precio del lote/caja ($)</Label>
-                      <Input type="number" step="0.01" placeholder="ej. 180" value={calc.purchase_price} onChange={e => handleCalcChange('purchase_price', e.target.value)} />
-                    </div>
-                    <div>
-                      <Label className="text-xs">{labelCantidad}</Label>
-                      <Input type="number" step="1" placeholder={placeholderCantidad} value={calc.yield_amount} onChange={e => handleCalcChange('yield_amount', e.target.value)} />
-                    </div>
-                  </div>
-                  <p className="text-[10px] text-muted-foreground">Divide el costo del lote entre las unidades para obtener el costo por pieza.</p>
-                </div>
-              );
-            })()}
+            {/* Costo por Unidad ya se calcula automáticamente desde el Formato de Compra
+                para todos los sectores; la calculadora manual antigua se reemplazó por el panel. */}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={close}>Cancelar</Button>

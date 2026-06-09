@@ -15,7 +15,7 @@ export const PACKAGE_UNITS = [
 
 export const getPackageUnit = (value) => PACKAGE_UNITS.find(u => u.value === value) || PACKAGE_UNITS[0];
 
-export default function PurchaseFormatPanel({ purchase, setPurchase, form, setForm }) {
+export default function PurchaseFormatPanel({ purchase, setPurchase, form, setForm, lockUnit = false }) {
   const pkgUnit = getPackageUnit(purchase.package_unit);
   const price = parseFloat(purchase.purchase_price);
   const net = parseFloat(purchase.net_content);
@@ -26,11 +26,13 @@ export default function PurchaseFormatPanel({ purchase, setPurchase, form, setFo
     ? `${presentation} de ${net} ${pkgUnit.label.replace(/\s*\(.*\)/, '')}`
     : '';
 
-  // Recompute cost_per_unit and normalize unit whenever purchase format changes
+  // Recompute cost_per_unit (and normalize unit if not locked) whenever purchase format changes.
+  // lockUnit=true → no sobrescribe form.unit (caso venta directa / utensilios donde la unidad
+  // la elige el usuario manualmente y puede no coincidir con la del empaque).
   React.useEffect(() => {
     setForm(f => ({
       ...f,
-      unit: pkgUnit.baseUnit,
+      ...(lockUnit ? {} : { unit: pkgUnit.baseUnit }),
       cost_per_unit: costPerBase > 0 ? parseFloat(costPerBase.toFixed(6)) : f.cost_per_unit,
     }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
