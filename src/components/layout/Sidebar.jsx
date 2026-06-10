@@ -6,32 +6,32 @@ import {
 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { useRole } from '@/lib/useRole';
+import { usePermission } from '@/lib/usePermission';
 
-// adminOnly: true → solo visible para administradores
+// Cada item declara el módulo de permisos al que pertenece.
 const navItems = [
-{ label: 'Dashboard', icon: LayoutDashboard, path: '/', adminOnly: true },
-{ label: 'Punto de Venta', icon: ShoppingCart, path: '/pos' },
-{ label: 'Inventario', icon: Warehouse, path: '/inventario', adminOnly: true },
-{ label: 'Recetas', icon: BookOpen, path: '/recetas', adminOnly: true },
-{ label: 'Preparados', icon: FlaskConical, path: '/preparados', adminOnly: true },
-{ label: 'Producción', icon: Factory, path: '/produccion', adminOnly: true },
-{ label: 'Productos', icon: Package, path: '/productos', adminOnly: true },
-{ label: 'Caja', icon: DollarSign, path: '/caja' },
-{ label: 'Transferencias', icon: ArrowLeftRight, path: '/transferencias', adminOnly: true },
-{ label: 'Ajustes Inv.', icon: SlidersHorizontal, path: '/ajustes', adminOnly: true },
-{ label: 'Auditorías', icon: ClipboardCheck, path: '/auditorias', adminOnly: true },
-{ label: 'Rentabilidad', icon: Percent, path: '/rentabilidad', adminOnly: true },
-{ label: 'Gastos', icon: Wallet, path: '/gastos', adminOnly: true },
-{ label: 'Billeteras', icon: Coins, path: '/billeteras', adminOnly: true },
-{ label: 'Configuración', icon: SettingsIcon, path: '/configuracion', adminOnly: true }];
+{ label: 'Dashboard', icon: LayoutDashboard, path: '/', module: 'dashboard' },
+{ label: 'Punto de Venta', icon: ShoppingCart, path: '/pos', module: 'pos' },
+{ label: 'Inventario', icon: Warehouse, path: '/inventario', module: 'inventario' },
+{ label: 'Recetas', icon: BookOpen, path: '/recetas', module: 'recetas' },
+{ label: 'Preparados', icon: FlaskConical, path: '/preparados', module: 'preparados' },
+{ label: 'Producción', icon: Factory, path: '/produccion', module: 'produccion' },
+{ label: 'Productos', icon: Package, path: '/productos', module: 'productos' },
+{ label: 'Caja', icon: DollarSign, path: '/caja', module: 'caja' },
+{ label: 'Transferencias', icon: ArrowLeftRight, path: '/transferencias', module: 'transferencias' },
+{ label: 'Ajustes Inv.', icon: SlidersHorizontal, path: '/ajustes', module: 'ajustes' },
+{ label: 'Auditorías', icon: ClipboardCheck, path: '/auditorias', module: 'auditorias' },
+{ label: 'Rentabilidad', icon: Percent, path: '/rentabilidad', module: 'rentabilidad' },
+{ label: 'Gastos', icon: Wallet, path: '/gastos', module: 'gastos' },
+{ label: 'Billeteras', icon: Coins, path: '/billeteras', module: 'billeteras' },
+{ label: 'Configuración', icon: SettingsIcon, path: '/configuracion', module: 'configuracion' }];
 
 
 export default function Sidebar() {
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { isAdmin } = useRole();
-  const visibleItems = navItems.filter((item) => !item.adminOnly || isAdmin);
+  const { can } = usePermission();
+  const visibleItems = navItems.filter((item) => can(item.module, 'view'));
 
   return (
     <>

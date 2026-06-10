@@ -4,6 +4,7 @@ import BackupRestoreCard from '@/components/settings/BackupRestoreCard';
 import SelectiveCleanupCard from '@/components/settings/SelectiveCleanupCard';
 import SlackConnectionCard from '@/components/settings/SlackConnectionCard';
 import CurrencySelectorCard from '@/components/settings/CurrencySelectorCard';
+import UsersManagerCard from '@/components/settings/users/UsersManagerCard';
 
 export default function Settings() {
   return (
@@ -12,6 +13,7 @@ export default function Settings() {
         title="Configuración"
         description="Ajustes del sistema y herramientas de mantenimiento"
       />
+      <UsersManagerCard />
       <CurrencySelectorCard />
       <SlackConnectionCard />
       <BackupRestoreCard />

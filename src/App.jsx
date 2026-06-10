@@ -8,6 +8,7 @@ import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 
 import AppLayout from '@/components/layout/AppLayout';
 import RequireAdmin from '@/components/RequireAdmin';
+import RequirePermission from '@/components/RequirePermission';
 import Dashboard from '@/pages/Dashboard.jsx';
 import POS from '@/pages/POS';
 import Inventory from '@/pages/Inventory';
@@ -53,20 +54,20 @@ const AuthenticatedApp = () => {
       {/* Vista pública de TV — sin layout, sin sidebar, sin navbar */}
       <Route path="/tv-menu" element={<DigitalMenuTV />} />
       <Route element={<AppLayout />}>
-        <Route path="/" element={<RequireAdmin><Dashboard /></RequireAdmin>} />
-        <Route path="/pos" element={<POS />} />
-        <Route path="/inventario" element={<RequireAdmin><Inventory /></RequireAdmin>} />
-        <Route path="/recetas" element={<RequireAdmin><Recipes /></RequireAdmin>} />
-        <Route path="/preparados" element={<RequireAdmin><Preparations /></RequireAdmin>} />
-        <Route path="/produccion" element={<RequireAdmin><Production /></RequireAdmin>} />
-        <Route path="/productos" element={<RequireAdmin><Products /></RequireAdmin>} />
-        <Route path="/caja" element={<CashRegister />} />
-        <Route path="/ajustes" element={<RequireAdmin><Adjustments /></RequireAdmin>} />
-        <Route path="/transferencias" element={<RequireAdmin><Transfers /></RequireAdmin>} />
-        <Route path="/auditorias" element={<RequireAdmin><AuditHistory /></RequireAdmin>} />
-        <Route path="/rentabilidad" element={<RequireAdmin><ProfitabilityAnalysis /></RequireAdmin>} />
-        <Route path="/gastos" element={<RequireAdmin><ExpensesManager /></RequireAdmin>} />
-        <Route path="/billeteras" element={<RequireAdmin><Wallets /></RequireAdmin>} />
+        <Route path="/" element={<RequirePermission module="dashboard"><Dashboard /></RequirePermission>} />
+        <Route path="/pos" element={<RequirePermission module="pos"><POS /></RequirePermission>} />
+        <Route path="/inventario" element={<RequirePermission module="inventario"><Inventory /></RequirePermission>} />
+        <Route path="/recetas" element={<RequirePermission module="recetas"><Recipes /></RequirePermission>} />
+        <Route path="/preparados" element={<RequirePermission module="preparados"><Preparations /></RequirePermission>} />
+        <Route path="/produccion" element={<RequirePermission module="produccion"><Production /></RequirePermission>} />
+        <Route path="/productos" element={<RequirePermission module="productos"><Products /></RequirePermission>} />
+        <Route path="/caja" element={<RequirePermission module="caja"><CashRegister /></RequirePermission>} />
+        <Route path="/ajustes" element={<RequirePermission module="ajustes"><Adjustments /></RequirePermission>} />
+        <Route path="/transferencias" element={<RequirePermission module="transferencias"><Transfers /></RequirePermission>} />
+        <Route path="/auditorias" element={<RequirePermission module="auditorias"><AuditHistory /></RequirePermission>} />
+        <Route path="/rentabilidad" element={<RequirePermission module="rentabilidad"><ProfitabilityAnalysis /></RequirePermission>} />
+        <Route path="/gastos" element={<RequirePermission module="gastos"><ExpensesManager /></RequirePermission>} />
+        <Route path="/billeteras" element={<RequirePermission module="billeteras"><Wallets /></RequirePermission>} />
         <Route path="/configuracion" element={<RequireAdmin><Settings /></RequireAdmin>} />
       </Route>
       <Route path="*" element={<PageNotFound />} />

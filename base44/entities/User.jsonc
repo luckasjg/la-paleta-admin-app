@@ -1,17 +1,28 @@
 {
-  "properties": {
-    "role": {
-      "type": "string",
-      "description": "The role of the user in the app",
-      "enum": [
-        "admin",
-        "user"
-      ]
-    }
-  },
-  "required": [
-    "role"
-  ],
   "name": "User",
-  "type": "object"
+  "type": "object",
+  "properties": {
+    "permissions": {
+      "type": "object",
+      "description": "Matriz de permisos granulares por m\u00f3dulo. Estructura: { [moduleKey]: { view: boolean, edit: boolean, delete: boolean } }",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "view": {
+            "type": "boolean",
+            "default": false
+          },
+          "edit": {
+            "type": "boolean",
+            "default": false
+          },
+          "delete": {
+            "type": "boolean",
+            "default": false
+          }
+        }
+      },
+      "default": {}
+    }
+  }
 }
