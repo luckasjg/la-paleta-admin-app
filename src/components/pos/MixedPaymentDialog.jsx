@@ -193,12 +193,12 @@ export default function MixedPaymentDialog({ open, onOpenChange, totalUSD, excha
             <span className="text-muted-foreground">Total recibido ({symbol})</span>
             <span className="font-mono font-semibold">{formatUSD(receivedUSD)}</span>
           </div>
-          {diff < 0 ? (
+          {diff < -0.005 ? (
             <div className="flex justify-between text-destructive font-semibold">
               <span>Falta por cobrar</span>
               <span className="font-mono">{formatUSD(-diff)}</span>
             </div>
-          ) : diff > 0.001 ? (
+          ) : diff > 0.005 ? (
             <div className="flex justify-between text-emerald-600 font-semibold">
               <span>Vuelto</span>
               <span className="font-mono">{formatUSD(diff)}</span>
