@@ -3,20 +3,16 @@
   "type": "object",
   "properties": {
     "supply_id": {
-      "type": "string",
-      "description": "ID del insumo transferido"
+      "type": "string"
     },
     "supply_name": {
-      "type": "string",
-      "description": "Snapshot del nombre del insumo"
+      "type": "string"
     },
     "quantity": {
-      "type": "number",
-      "description": "Cantidad transferida en la unidad base"
+      "type": "number"
     },
     "unit": {
-      "type": "string",
-      "description": "Unidad base del insumo (g, ml, unidad)"
+      "type": "string"
     },
     "from_location": {
       "type": "string",
@@ -24,8 +20,7 @@
         "warehouse",
         "production"
       ],
-      "default": "warehouse",
-      "description": "Almac\u00e9n origen"
+      "default": "warehouse"
     },
     "to_location": {
       "type": "string",
@@ -33,17 +28,14 @@
         "warehouse",
         "production"
       ],
-      "default": "production",
-      "description": "Almac\u00e9n destino"
+      "default": "production"
     },
     "notes": {
-      "type": "string",
-      "description": "Observaciones de la transferencia"
+      "type": "string"
     },
     "transfer_date": {
       "type": "string",
-      "format": "date-time",
-      "description": "Fecha y hora del movimiento"
+      "format": "date-time"
     }
   },
   "required": [
@@ -51,21 +43,9 @@
     "quantity"
   ],
   "rls": {
-    "create": {
-      "user_condition": {
-        "role": "admin"
-      }
-    },
-    "read": {
-      "user_condition": {
-        "role": "admin"
-      }
-    },
-    "update": {
-      "user_condition": {
-        "role": "admin"
-      }
-    },
+    "create": {},
+    "read": {},
+    "update": {},
     "delete": {
       "user_condition": {
         "role": "admin"

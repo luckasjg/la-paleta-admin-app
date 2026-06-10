@@ -16,7 +16,7 @@
     },
     "remaining_grams": {
       "type": "number",
-      "description": "Gramos restantes en la bandeja (1L \u2248 550g de helado)"
+      "description": "Gramos restantes en la bandeja"
     },
     "initial_grams": {
       "type": "number",
@@ -41,17 +41,9 @@
     "status"
   ],
   "rls": {
-    "create": {
-      "user_condition": {
-        "role": "admin"
-      }
-    },
+    "create": {},
     "read": {},
-    "update": {
-      "user_condition": {
-        "role": "admin"
-      }
-    },
+    "update": {},
     "delete": {
       "user_condition": {
         "role": "admin"

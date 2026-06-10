@@ -3,12 +3,10 @@
   "type": "object",
   "properties": {
     "wallet_id": {
-      "type": "string",
-      "description": "ID de la billetera afectada"
+      "type": "string"
     },
     "wallet_name": {
-      "type": "string",
-      "description": "Snapshot del nombre de la billetera"
+      "type": "string"
     },
     "type": {
       "type": "string",
@@ -18,37 +16,29 @@
         "conversion_in",
         "manual_adjust",
         "initial_balance"
-      ],
-      "description": "Tipo de movimiento"
+      ]
     },
     "amount_native": {
-      "type": "number",
-      "description": "Monto en la moneda nativa de la billetera (positivo=entrada, negativo=salida)"
+      "type": "number"
     },
     "amount_usd_equivalent": {
-      "type": "number",
-      "description": "Equivalente en USD al momento de la transacci\u00f3n (a la tasa hist\u00f3rica)"
+      "type": "number"
     },
     "exchange_rate": {
-      "type": "number",
-      "description": "Tasa USD\u2192VES vigente al momento del movimiento"
+      "type": "number"
     },
     "sale_id": {
-      "type": "string",
-      "description": "ID de la venta asociada (si aplica)"
+      "type": "string"
     },
     "linked_transaction_id": {
-      "type": "string",
-      "description": "ID de la transacci\u00f3n contraparte (para conversiones VES\u2192USD)"
+      "type": "string"
     },
     "notes": {
-      "type": "string",
-      "description": "Notas u observaciones"
+      "type": "string"
     },
     "transaction_date": {
       "type": "string",
-      "format": "date-time",
-      "description": "Fecha y hora del movimiento"
+      "format": "date-time"
     }
   },
   "required": [
@@ -57,21 +47,9 @@
     "amount_native"
   ],
   "rls": {
-    "create": {
-      "user_condition": {
-        "role": "admin"
-      }
-    },
-    "read": {
-      "user_condition": {
-        "role": "admin"
-      }
-    },
-    "update": {
-      "user_condition": {
-        "role": "admin"
-      }
-    },
+    "create": {},
+    "read": {},
+    "update": {},
     "delete": {
       "user_condition": {
         "role": "admin"

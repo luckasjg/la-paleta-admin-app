@@ -4,8 +4,7 @@
   "properties": {
     "date": {
       "type": "string",
-      "format": "date",
-      "description": "Fecha del cierre"
+      "format": "date"
     },
     "shift": {
       "type": "string",
@@ -13,48 +12,38 @@
         "manana",
         "tarde",
         "noche"
-      ],
-      "description": "Turno"
+      ]
     },
     "system_cash": {
-      "type": "number",
-      "description": "Efectivo seg\u00fan el sistema"
+      "type": "number"
     },
     "system_digital": {
-      "type": "number",
-      "description": "Pagos digitales seg\u00fan el sistema"
+      "type": "number"
     },
     "declared_cash": {
-      "type": "number",
-      "description": "Efectivo declarado por el operario"
+      "type": "number"
     },
     "difference": {
-      "type": "number",
-      "description": "Diferencia (declarado - sistema)"
+      "type": "number"
     },
     "total_sales": {
-      "type": "number",
-      "description": "Total de ventas del turno"
+      "type": "number"
     },
     "sales_count": {
-      "type": "number",
-      "description": "Cantidad de ventas"
+      "type": "number"
     },
     "notes": {
-      "type": "string",
-      "description": "Observaciones del operario"
+      "type": "string"
     },
     "status": {
       "type": "string",
       "enum": [
         "abierta",
         "cerrada"
-      ],
-      "description": "Estado de la caja"
+      ]
     },
     "operator": {
-      "type": "string",
-      "description": "Operario del turno"
+      "type": "string"
     }
   },
   "required": [
@@ -63,44 +52,9 @@
     "status"
   ],
   "rls": {
-    "create": {
-      "$or": [
-        {
-          "user_condition": {
-            "role": "admin"
-          }
-        },
-        {
-          "user_condition": {
-            "role": "user"
-          }
-        }
-      ]
-    },
-    "read": {
-      "$or": [
-        {
-          "created_by_id": "{{user.id}}"
-        },
-        {
-          "user_condition": {
-            "role": "admin"
-          }
-        }
-      ]
-    },
-    "update": {
-      "$or": [
-        {
-          "created_by_id": "{{user.id}}"
-        },
-        {
-          "user_condition": {
-            "role": "admin"
-          }
-        }
-      ]
-    },
+    "create": {},
+    "read": {},
+    "update": {},
     "delete": {
       "user_condition": {
         "role": "admin"

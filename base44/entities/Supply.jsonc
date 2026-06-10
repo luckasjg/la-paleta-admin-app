@@ -3,8 +3,7 @@
   "type": "object",
   "properties": {
     "name": {
-      "type": "string",
-      "description": "Nombre del insumo"
+      "type": "string"
     },
     "sector": {
       "type": "string",
@@ -13,12 +12,10 @@
         "venta_directa",
         "utensilio"
       ],
-      "description": "Sector del inventario",
       "default": "materia_prima"
     },
     "category": {
-      "type": "string",
-      "description": "Categor\u00eda del insumo (libre)"
+      "type": "string"
     },
     "unit": {
       "type": "string",
@@ -26,63 +23,49 @@
         "g",
         "ml",
         "unidad"
-      ],
-      "description": "Unidad de medida base"
+      ]
     },
     "stock_current": {
-      "type": "number",
-      "description": "ESPEJO (calculado): stock_warehouse + stock_production. Se mantiene por retrocompatibilidad con auditor\u00edas, dashboard, etc."
+      "type": "number"
     },
     "stock_warehouse": {
       "type": "number",
-      "default": 0,
-      "description": "Cantidad disponible en el Almac\u00e9n/Dep\u00f3sito Principal (unidad base)"
+      "default": 0
     },
     "stock_production": {
       "type": "number",
-      "default": 0,
-      "description": "Cantidad disponible en el Laboratorio de Producci\u00f3n (unidad base)"
+      "default": 0
     },
     "stock_minimum": {
-      "type": "number",
-      "description": "Stock m\u00ednimo para alertas en unidad base"
+      "type": "number"
     },
     "cost_per_unit": {
-      "type": "number",
-      "description": "Costo por unidad base"
+      "type": "number"
     },
     "supplier": {
-      "type": "string",
-      "description": "Proveedor"
+      "type": "string"
     },
     "is_infinite": {
       "type": "boolean",
-      "description": "Si es true, no se descuenta del inventario (ej. agua con abastecimiento propio)",
       "default": false
     },
     "package_format": {
       "type": "object",
-      "description": "Formato de compra para conversi\u00f3n empaques\u2194unidad base",
       "properties": {
         "presentation": {
-          "type": "string",
-          "description": "Nombre del envase (ej. Saco, Lata, Bolsa)"
+          "type": "string"
         },
         "net_content": {
-          "type": "number",
-          "description": "Contenido neto por empaque"
+          "type": "number"
         },
         "package_unit": {
-          "type": "string",
-          "description": "Unidad del empaque (kg, g, l, ml, unidad)"
+          "type": "string"
         },
         "purchase_price": {
-          "type": "number",
-          "description": "Precio del empaque"
+          "type": "number"
         },
         "label": {
-          "type": "string",
-          "description": "Etiqueta generada (ej. Saco de 25 Kg)"
+          "type": "string"
         }
       }
     }
@@ -97,16 +80,8 @@
         "role": "admin"
       }
     },
-    "read": {
-      "user_condition": {
-        "role": "admin"
-      }
-    },
-    "update": {
-      "user_condition": {
-        "role": "admin"
-      }
-    },
+    "read": {},
+    "update": {},
     "delete": {
       "user_condition": {
         "role": "admin"

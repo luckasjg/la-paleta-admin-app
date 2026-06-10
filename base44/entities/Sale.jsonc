@@ -4,7 +4,6 @@
   "properties": {
     "items": {
       "type": "array",
-      "description": "\u00cdtems vendidos",
       "items": {
         "type": "object",
         "properties": {
@@ -39,54 +38,43 @@
       }
     },
     "total": {
-      "type": "number",
-      "description": "Total de la venta en USD"
+      "type": "number"
     },
     "exchange_rate": {
-      "type": "number",
-      "description": "Tasa de cambio USD\u2192VES vigente en el momento de la venta"
+      "type": "number"
     },
     "payments": {
       "type": "array",
-      "description": "Desglose de pagos mixtos",
       "items": {
         "type": "object",
         "properties": {
           "method": {
-            "type": "string",
-            "description": "Identificador del PaymentMethod (value). Soporta los legacy y cualquier m\u00e9todo personalizado."
+            "type": "string"
           },
           "amount_usd": {
-            "type": "number",
-            "description": "Monto si el cobro fue en USD"
+            "type": "number"
           },
           "amount_ves": {
-            "type": "number",
-            "description": "Monto si el cobro fue en VES"
+            "type": "number"
           },
           "amount_usd_equivalent": {
-            "type": "number",
-            "description": "Equivalente en USD para totalizaci\u00f3n"
+            "type": "number"
           }
         }
       }
     },
     "payment_method": {
-      "type": "string",
-      "description": "M\u00e9todo de pago resumen (legacy/compatibilidad). Puede ser 'mixto', un value legacy o un m\u00e9todo personalizado."
+      "type": "string"
     },
     "cash_amount": {
-      "type": "number",
-      "description": "Monto total en efectivo (USD equivalente, legacy)"
+      "type": "number"
     },
     "digital_amount": {
-      "type": "number",
-      "description": "Monto total digital (USD equivalente, legacy)"
+      "type": "number"
     },
     "sale_date": {
       "type": "string",
-      "format": "date-time",
-      "description": "Fecha y hora de la venta"
+      "format": "date-time"
     },
     "shift": {
       "type": "string",
@@ -94,8 +82,7 @@
         "manana",
         "tarde",
         "noche"
-      ],
-      "description": "Turno"
+      ]
     },
     "status": {
       "type": "string",
@@ -103,58 +90,26 @@
         "completed",
         "voided"
       ],
-      "default": "completed",
-      "description": "Estado de la venta. 'voided' indica que fue anulada y el inventario fue restituido."
+      "default": "completed"
     },
     "voided_at": {
       "type": "string",
-      "format": "date-time",
-      "description": "Fecha y hora en que se anul\u00f3 la venta"
+      "format": "date-time"
     },
     "voided_by": {
-      "type": "string",
-      "description": "Email del administrador que anul\u00f3 la venta"
+      "type": "string"
     },
     "void_reason": {
-      "type": "string",
-      "description": "Motivo de la anulaci\u00f3n"
+      "type": "string"
     }
   },
   "required": [
     "total"
   ],
   "rls": {
-    "create": {
-      "$or": [
-        {
-          "user_condition": {
-            "role": "admin"
-          }
-        },
-        {
-          "user_condition": {
-            "role": "user"
-          }
-        }
-      ]
-    },
-    "read": {
-      "$or": [
-        {
-          "created_by_id": "{{user.id}}"
-        },
-        {
-          "user_condition": {
-            "role": "admin"
-          }
-        }
-      ]
-    },
-    "update": {
-      "user_condition": {
-        "role": "admin"
-      }
-    },
+    "create": {},
+    "read": {},
+    "update": {},
     "delete": {
       "user_condition": {
         "role": "admin"

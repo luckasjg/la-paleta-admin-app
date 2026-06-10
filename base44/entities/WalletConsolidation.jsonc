@@ -4,46 +4,37 @@
   "properties": {
     "date": {
       "type": "string",
-      "format": "date-time",
-      "description": "Fecha y hora del cierre/consolidaci\u00f3n"
+      "format": "date-time"
     },
     "wallet_id": {
-      "type": "string",
-      "description": "ID de la billetera de origen"
+      "type": "string"
     },
     "wallet_name": {
-      "type": "string",
-      "description": "Snapshot del nombre de la billetera"
+      "type": "string"
     },
     "wallet_currency": {
       "type": "string",
       "enum": [
         "USD",
         "VES"
-      ],
-      "description": "Moneda nativa de la billetera"
+      ]
     },
     "amount_native": {
-      "type": "number",
-      "description": "Monto exacto consolidado en la moneda nativa de la billetera"
+      "type": "number"
     },
     "amount_ves": {
       "type": "number",
-      "default": 0,
-      "description": "Equivalente en VES al momento del cierre (0 si la billetera es USD y no aplica)"
+      "default": 0
     },
     "amount_usd": {
       "type": "number",
-      "default": 0,
-      "description": "Equivalente en USD al momento del cierre"
+      "default": 0
     },
     "exchange_rate": {
-      "type": "number",
-      "description": "Tasa USD\u2192VES vigente al momento del cierre"
+      "type": "number"
     },
     "destination": {
-      "type": "string",
-      "description": "Destino f\u00edsico del fondo (ej. Transferido a Cuenta Bancaria, Caja Fuerte Principal, Liquidado por Cierre de Turno)"
+      "type": "string"
     },
     "source": {
       "type": "string",
@@ -51,20 +42,16 @@
         "cash_register_close",
         "manual"
       ],
-      "default": "manual",
-      "description": "Origen de la consolidaci\u00f3n: cierre autom\u00e1tico de caja o ajuste manual"
+      "default": "manual"
     },
     "cash_register_id": {
-      "type": "string",
-      "description": "Si proviene de un cierre de caja, ID del CashRegister relacionado"
+      "type": "string"
     },
     "closed_by": {
-      "type": "string",
-      "description": "Email o nombre del usuario que ejecut\u00f3 el cierre"
+      "type": "string"
     },
     "notes": {
-      "type": "string",
-      "description": "Observaciones adicionales"
+      "type": "string"
     }
   },
   "required": [
@@ -73,21 +60,9 @@
     "destination"
   ],
   "rls": {
-    "create": {
-      "user_condition": {
-        "role": "admin"
-      }
-    },
-    "read": {
-      "user_condition": {
-        "role": "admin"
-      }
-    },
-    "update": {
-      "user_condition": {
-        "role": "admin"
-      }
-    },
+    "create": {},
+    "read": {},
+    "update": {},
     "delete": {
       "user_condition": {
         "role": "admin"

@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Plus, Trash2 } from 'lucide-react';
 import { formatUSD, formatVES } from '@/lib/useExchangeRate';
 import { usePaymentMethods } from '@/lib/usePaymentMethods';
+import { useCurrencySymbol } from '@/lib/useCurrencySymbol';
 
 const makeRow = (methods, method, amount = '') => {
   const fallback = methods[0] || { value: 'efectivo_usd', defaultCurrency: 'USD' };
@@ -29,6 +30,7 @@ const prefillAmount = (usdAmount, currency, rate) => {
 export default function MixedPaymentDialog({ open, onOpenChange, totalUSD, exchangeRate, onConfirm, isProcessing }) {
   // Métodos dinámicos desde la entidad PaymentMethod (sólo activos).
   const { posMethods } = usePaymentMethods({ activeOnly: true });
+  const { symbol } = useCurrencySymbol();
   const PAYMENT_METHODS = posMethods.length > 0 ? posMethods : [
     { value: 'efectivo_usd', label: 'Efectivo', defaultCurrency: 'USD' },
   ];
@@ -188,7 +190,7 @@ export default function MixedPaymentDialog({ open, onOpenChange, totalUSD, excha
         {/* Summary */}
         <div className="border-t border-border pt-3 space-y-1.5 text-sm">
           <div className="flex justify-between">
-            <span className="text-muted-foreground">Total recibido (USD)</span>
+            <span className="text-muted-foreground">Total recibido ({symbol})</span>
             <span className="font-mono font-semibold">{formatUSD(receivedUSD)}</span>
           </div>
           {diff < 0 ? (

@@ -3,25 +3,21 @@
   "type": "object",
   "properties": {
     "name": {
-      "type": "string",
-      "description": "Nombre de la billetera/cuenta (ej. Caja Fuerte USD, Banco VES Pago M\u00f3vil, Zelle)"
+      "type": "string"
     },
     "currency": {
       "type": "string",
       "enum": [
         "USD",
         "VES"
-      ],
-      "description": "Moneda nativa de la cuenta"
+      ]
     },
     "balance": {
       "type": "number",
-      "default": 0,
-      "description": "Saldo actual en la moneda nativa"
+      "default": 0
     },
     "payment_methods": {
       "type": "array",
-      "description": "Identificadores (value) de PaymentMethod que depositan autom\u00e1ticamente en esta billetera",
       "items": {
         "type": "string"
       },
@@ -29,12 +25,10 @@
     },
     "is_active": {
       "type": "boolean",
-      "default": true,
-      "description": "Si la billetera est\u00e1 activa"
+      "default": true
     },
     "notes": {
-      "type": "string",
-      "description": "Notas o descripci\u00f3n"
+      "type": "string"
     }
   },
   "required": [
@@ -47,16 +41,8 @@
         "role": "admin"
       }
     },
-    "read": {
-      "user_condition": {
-        "role": "admin"
-      }
-    },
-    "update": {
-      "user_condition": {
-        "role": "admin"
-      }
-    },
+    "read": {},
+    "update": {},
     "delete": {
       "user_condition": {
         "role": "admin"

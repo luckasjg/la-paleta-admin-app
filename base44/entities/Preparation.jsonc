@@ -3,12 +3,10 @@
   "type": "object",
   "properties": {
     "name": {
-      "type": "string",
-      "description": "Nombre del preparado (ej. Pasta de Pistacho)"
+      "type": "string"
     },
     "yield_amount": {
-      "type": "number",
-      "description": "Cantidad resultante en gramos o ml"
+      "type": "number"
     },
     "yield_unit": {
       "type": "string",
@@ -16,17 +14,14 @@
         "g",
         "ml"
       ],
-      "default": "g",
-      "description": "Unidad del rendimiento"
+      "default": "g"
     },
     "process_percentage": {
       "type": "number",
-      "description": "Porcentaje de recargo por proceso/merma (ej. 30 = 30%)",
       "default": 0
     },
     "ingredients": {
       "type": "array",
-      "description": "Lista de insumos del preparado",
       "items": {
         "type": "object",
         "properties": {
@@ -46,16 +41,13 @@
       }
     },
     "linked_supply_id": {
-      "type": "string",
-      "description": "ID del insumo en inventario asociado a este preparado"
+      "type": "string"
     },
     "computed_cost_total": {
-      "type": "number",
-      "description": "Costo total calculado (subtotal + proceso)"
+      "type": "number"
     },
     "computed_cost_per_unit": {
-      "type": "number",
-      "description": "Costo por unidad (g o ml)"
+      "type": "number"
     },
     "is_active": {
       "type": "boolean",
@@ -72,16 +64,8 @@
         "role": "admin"
       }
     },
-    "read": {
-      "user_condition": {
-        "role": "admin"
-      }
-    },
-    "update": {
-      "user_condition": {
-        "role": "admin"
-      }
-    },
+    "read": {},
+    "update": {},
     "delete": {
       "user_condition": {
         "role": "admin"
