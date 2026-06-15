@@ -29,6 +29,7 @@ const emptyRecipe = {
   name: '', type: 'helado', yield_amount: 1000, yield_unit: 'ml',
   ingredients: [], sale_price: 0, is_active: true,
   flavor_tag: 'Regular', ref_surcharge_amount: 0, ref_surcharge_grams: 0,
+  image_url: '',
 };
 
 const normalize = (s) => (s || '').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
@@ -106,6 +107,7 @@ export default function Recipes() {
       flavor_tag: r.flavor_tag || 'Regular',
       ref_surcharge_amount: r.ref_surcharge_amount || 0,
       ref_surcharge_grams: r.ref_surcharge_grams || 0,
+      image_url: r.image_url || '',
     });
     setDialogOpen(true);
   };
@@ -270,6 +272,27 @@ export default function Recipes() {
           </DialogHeader>
           <div className="grid gap-4 py-2">
             <div><Label>Nombre</Label><Input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} /></div>
+            <div>
+              <Label>URL de la imagen (opcional)</Label>
+              <Input
+                value={form.image_url || ''}
+                onChange={e => setForm({ ...form, image_url: e.target.value })}
+                placeholder="https://..."
+              />
+              {form.image_url && (
+                <div className="mt-2 w-24 h-24 rounded-lg overflow-hidden border border-border bg-muted">
+                  <img
+                    src={form.image_url}
+                    alt="preview"
+                    className="w-full h-full object-cover"
+                    onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                  />
+                </div>
+              )}
+              <p className="text-[10px] text-muted-foreground mt-1">
+                Se mostrará en el menú digital de TV y el menú móvil.
+              </p>
+            </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label>Tipo</Label>

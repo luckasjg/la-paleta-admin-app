@@ -25,6 +25,10 @@ import ExpensesManager from '@/pages/ExpensesManager.jsx';
 import Wallets from '@/pages/Wallets.jsx';
 import Settings from '@/pages/Settings.jsx';
 import DigitalMenuTV from '@/pages/DigitalMenuTV.jsx';
+import TVSabores from '@/pages/TVSabores.jsx';
+import TVEspeciales from '@/pages/TVEspeciales.jsx';
+import TVCafeMerengadas from '@/pages/TVCafeMerengadas.jsx';
+import MenuMovil from '@/pages/MenuMovil.jsx';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -51,8 +55,12 @@ const AuthenticatedApp = () => {
 
   return (
     <Routes>
-      {/* Vista pública de TV — sin layout, sin sidebar, sin navbar */}
+      {/* Vistas públicas — sin layout, sin sidebar, sin navbar */}
       <Route path="/tv-menu" element={<DigitalMenuTV />} />
+      <Route path="/tv/sabores" element={<TVSabores />} />
+      <Route path="/tv/especiales" element={<TVEspeciales />} />
+      <Route path="/tv/cafe-merengadas" element={<TVCafeMerengadas />} />
+      <Route path="/menu-movil" element={<MenuMovil />} />
       <Route element={<AppLayout />}>
         <Route path="/" element={<RequirePermission module="dashboard"><Dashboard /></RequirePermission>} />
         <Route path="/pos" element={<RequirePermission module="pos"><POS /></RequirePermission>} />
