@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Pencil, Trash2, Calculator, Copy } from 'lucide-react';
+import { useRole } from '@/lib/useRole';
 
 const TYPES = [
   { value: 'helado', label: 'Helado' },
@@ -15,6 +16,7 @@ const TYPES = [
 
 export default function RecipeDetailCard({ recipe, supplies, onEdit, onDelete, onClone }) {
   const [mixDeseado, setMixDeseado] = useState('');
+  const { isAdmin } = useRole();
 
   const ingredients = recipe.ingredients || [];
   const totalBaseGrams = ingredients.reduce((sum, ing) => sum + (ing.quantity || 0), 0);
@@ -29,7 +31,7 @@ export default function RecipeDetailCard({ recipe, supplies, onEdit, onDelete, o
     }, 0);
   };
 
-  const cost = calculateCost();
+  const cost = isAdmin ? calculateCost() : 0;
 
   return (
     <Card className="group hover:shadow-md transition-shadow">
@@ -47,7 +49,8 @@ export default function RecipeDetailCard({ recipe, supplies, onEdit, onDelete, o
                       : 'bg-blue-100 text-blue-700 border-blue-300'
                   }
                 >
-                  {recipe.flavor_tag} +${(recipe.surcharge_per_gram || 0).toFixed(4)}/g
+                  {recipe.flavor_tag}
+                  {isAdmin && <> +${(recipe.surcharge_per_gram || 0).toFixed(4)}/g</>}
                 </Badge>
               )}
               <span className="text-xs text-muted-foreground">
@@ -55,19 +58,21 @@ export default function RecipeDetailCard({ recipe, supplies, onEdit, onDelete, o
               </span>
             </div>
           </div>
-          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onEdit(recipe)} title="Editar">
-              <Pencil className="h-3.5 w-3.5" />
-            </Button>
-            {onClone && (
-              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onClone(recipe)} title="Duplicar">
-                <Copy className="h-3.5 w-3.5" />
+          {isAdmin && (
+            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onEdit(recipe)} title="Editar">
+                <Pencil className="h-3.5 w-3.5" />
               </Button>
-            )}
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onDelete(recipe.id)} title="Eliminar">
-              <Trash2 className="h-3.5 w-3.5 text-destructive" />
-            </Button>
-          </div>
+              {onClone && (
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onClone(recipe)} title="Duplicar">
+                  <Copy className="h-3.5 w-3.5" />
+                </Button>
+              )}
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onDelete(recipe.id)} title="Eliminar">
+                <Trash2 className="h-3.5 w-3.5 text-destructive" />
+              </Button>
+            </div>
+          )}
         </div>
       </CardHeader>
 
@@ -99,11 +104,13 @@ export default function RecipeDetailCard({ recipe, supplies, onEdit, onDelete, o
           <div className="space-y-1">
             {/* Encabezado */}
             <div className="grid text-[10px] font-semibold text-muted-foreground uppercase tracking-wide pb-1 border-b"
-              style={{ gridTemplateColumns: showCalc ? '1fr auto auto auto auto' : '1fr auto auto auto' }}>
+              style={{ gridTemplateColumns: isAdmin
+                ? (showCalc ? '1fr auto auto auto auto' : '1fr auto auto auto')
+                : (showCalc ? '1fr auto auto auto' : '1fr auto auto') }}>
               <span>Ingrediente</span>
               <span className="text-right">Cant.</span>
               <span className="text-right">% Receta</span>
-              <span className="text-right">Costo</span>
+              {isAdmin && <span className="text-right">Costo</span>}
               {showCalc && <span className="text-right text-primary">A Pesar (g)</span>}
             </div>
 
@@ -116,12 +123,16 @@ export default function RecipeDetailCard({ recipe, supplies, onEdit, onDelete, o
                 <div
                   key={i}
                   className="grid text-sm py-0.5"
-                  style={{ gridTemplateColumns: showCalc ? '1fr auto auto auto auto' : '1fr auto auto auto' }}
+                  style={{ gridTemplateColumns: isAdmin
+                    ? (showCalc ? '1fr auto auto auto auto' : '1fr auto auto auto')
+                    : (showCalc ? '1fr auto auto auto' : '1fr auto auto') }}
                 >
                   <span className="text-muted-foreground truncate">{ing.supply_name}</span>
                   <span className="font-mono text-right ml-2">{ing.quantity}{ing.unit}</span>
                   <span className="font-mono text-right ml-2 text-muted-foreground">{pct.toFixed(2)}%</span>
-                  <span className="font-mono text-right ml-2 text-amber-700">${ingCost.toFixed(2)}</span>
+                  {isAdmin && (
+                    <span className="font-mono text-right ml-2 text-amber-700">${ingCost.toFixed(2)}</span>
+                  )}
                   {showCalc && (
                     <span className="font-mono text-right ml-2 text-primary font-semibold">
                       {gramsAPesar.toFixed(1)}g
@@ -134,12 +145,14 @@ export default function RecipeDetailCard({ recipe, supplies, onEdit, onDelete, o
             {/* Footer totales */}
             <div
               className="grid text-xs font-semibold pt-1 border-t"
-              style={{ gridTemplateColumns: showCalc ? '1fr auto auto auto auto' : '1fr auto auto auto' }}
+              style={{ gridTemplateColumns: isAdmin
+                ? (showCalc ? '1fr auto auto auto auto' : '1fr auto auto auto')
+                : (showCalc ? '1fr auto auto auto' : '1fr auto auto') }}
             >
               <span>Total Base</span>
               <span className="font-mono text-right ml-2">{totalBaseGrams}g</span>
               <span className="font-mono text-right ml-2">100.00%</span>
-              <span className="font-mono text-right ml-2 text-amber-700">${cost.toFixed(2)}</span>
+              {isAdmin && <span className="font-mono text-right ml-2 text-amber-700">${cost.toFixed(2)}</span>}
               {showCalc && <span className="font-mono text-right ml-2 text-primary">{mixValue.toFixed(1)}g</span>}
             </div>
           </div>
@@ -147,10 +160,12 @@ export default function RecipeDetailCard({ recipe, supplies, onEdit, onDelete, o
           <p className="text-xs text-muted-foreground italic">Sin ingredientes definidos</p>
         )}
 
-        <div className="flex justify-between items-center pt-1 border-t">
-          <span className="text-xs text-muted-foreground">Costo: ${cost.toFixed(2)}</span>
-          <span className="text-sm font-semibold text-primary">Precio: ${recipe.sale_price?.toFixed(2)}</span>
-        </div>
+        {isAdmin && (
+          <div className="flex justify-between items-center pt-1 border-t">
+            <span className="text-xs text-muted-foreground">Costo: ${cost.toFixed(2)}</span>
+            <span className="text-sm font-semibold text-primary">Precio: ${recipe.sale_price?.toFixed(2)}</span>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

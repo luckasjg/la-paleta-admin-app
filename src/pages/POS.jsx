@@ -18,6 +18,8 @@ import { depositSalePaymentsToWallets } from '@/lib/walletHelpers';
 import StockLocationSelector from '@/components/shared/StockLocationSelector';
 import { buildStockDelta, getStockAt, LOCATION_LABEL } from '@/lib/stockHelpers';
 import { applyCategoryOrder } from '@/lib/categoryOrder';
+import RegisterOpenGate from '@/components/pos/RegisterOpenGate';
+import { getActiveSession, setActiveSession, clearActiveSession } from '@/lib/cashSession';
 
 export default function POS() {
   const [cart, setCart] = useState([]);
@@ -30,6 +32,42 @@ export default function POS() {
   const { rate: exchangeRate, setRate: setExchangeRate } = useExchangeRate();
   const { symbol: currency } = useCurrencySymbol();
   const qc = useQueryClient();
+
+  // ── Sesión de caja activa (obligatoria para vender) ──────────────────────
+  // Verificamos contra el servidor que exista una CashRegister 'abierta'.
+  // Si la del localStorage ya no existe/cerró, la limpiamos.
+  const { data: activeSession, isLoading: loadingSession } = useQuery({
+    queryKey: ['active_cash_session'],
+    queryFn: async () => {
+      const local = getActiveSession();
+      if (local?.id) {
+        // Validar contra el servidor
+        try {
+          const rec = await base44.entities.CashRegister.filter({ id: local.id });
+          const found = Array.isArray(rec) ? rec[0] : rec;
+          if (found && found.status === 'abierta') return local;
+        } catch { /* fallthrough */ }
+        clearActiveSession();
+      }
+      // Buscar cualquier sesión abierta (por si fue abierta en otro dispositivo)
+      const open = await base44.entities.CashRegister.filter({ status: 'abierta' });
+      if (Array.isArray(open) && open.length > 0) {
+        const s = open[0];
+        const session = {
+          id: s.id,
+          staff_id: s.staff_id,
+          staff_name: s.staff_name,
+          shift: s.shift,
+          date: s.date,
+          opened_at: s.opened_at,
+        };
+        setActiveSession(session);
+        return session;
+      }
+      return null;
+    },
+    staleTime: 30 * 1000,
+  });
 
   const { data: products = [] } = useQuery({
     queryKey: ['products'],
@@ -358,6 +396,11 @@ export default function POS() {
         ? 'mixto'
         : (payments[0]?.method || 'efectivo_usd');
 
+      // ── Vinculación obligatoria con la sesión de caja activa ─────────
+      if (!activeSession?.id) {
+        throw new Error('No hay sesión de caja abierta. Abre la caja antes de vender.');
+      }
+
       const sale = await base44.entities.Sale.create({
         items: cart,
         total,
@@ -368,6 +411,9 @@ export default function POS() {
         digital_amount: +digitalUSD.toFixed(2),
         sale_date: new Date().toISOString(),
         shift: getCurrentShift(),
+        cash_register_id: activeSession.id,
+        staff_id: activeSession.staff_id,
+        staff_name: activeSession.staff_name,
       });
 
       // Depositar pagos en las billeteras vinculadas (no bloquea si falla)
@@ -397,6 +443,22 @@ export default function POS() {
 
   const totalVES = total * exchangeRate;
 
+  // ── Bloqueo del POS si no hay sesión de caja abierta ─────────────────────
+  if (loadingSession) {
+    return (
+      <div className="flex items-center justify-center min-h-[calc(100vh-7rem)]">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+          <p className="text-sm text-muted-foreground">Verificando sesión de caja...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!activeSession) {
+    return <RegisterOpenGate onOpened={() => qc.invalidateQueries({ queryKey: ['active_cash_session'] })} />;
+  }
+
   return (
     <div className="flex flex-col lg:flex-row gap-4 h-[calc(100vh-5rem)]">
       {/* Product Grid */}
@@ -412,6 +474,16 @@ export default function POS() {
             </TabsList>
           </Tabs>
           <ExchangeRateInput rate={exchangeRate} setRate={setExchangeRate} requireConfirm={payDialog} />
+        </div>
+
+        <div className="flex items-center justify-between gap-2 mb-3 px-1 py-1.5 rounded-md bg-primary/5 border border-primary/20 text-xs">
+          <span className="text-muted-foreground">
+            Sesión abierta por <strong className="text-foreground">{activeSession.staff_name}</strong>
+            {' · '}turno <span className="capitalize">{activeSession.shift}</span>
+          </span>
+          <span className="text-[10px] text-muted-foreground font-mono">
+            {moment(activeSession.opened_at).format('DD/MM HH:mm')}
+          </span>
         </div>
 
         <div className="flex-1 overflow-y-auto">

@@ -44,6 +44,22 @@
     },
     "operator": {
       "type": "string"
+    },
+    "staff_id": {
+      "type": "string",
+      "description": "ID del StaffPOS que abri\u00f3 la sesi\u00f3n"
+    },
+    "staff_name": {
+      "type": "string",
+      "description": "Nombre del empleado que abri\u00f3 la sesi\u00f3n"
+    },
+    "opened_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "closed_at": {
+      "type": "string",
+      "format": "date-time"
     }
   },
   "required": [

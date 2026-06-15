@@ -101,6 +101,18 @@
     },
     "void_reason": {
       "type": "string"
+    },
+    "cash_register_id": {
+      "type": "string",
+      "description": "ID de la sesi\u00f3n de caja activa al momento de la venta"
+    },
+    "staff_id": {
+      "type": "string",
+      "description": "ID del empleado que realiz\u00f3 la venta"
+    },
+    "staff_name": {
+      "type": "string",
+      "description": "Nombre del empleado que realiz\u00f3 la venta"
     }
   },
   "required": [

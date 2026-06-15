@@ -24,6 +24,7 @@ import VoidSaleButton from '@/components/cashregister/VoidSaleButton';
 import { Ban } from 'lucide-react';
 import { consolidateWallet as consolidateWalletFn } from '@/lib/consolidationHelpers';
 import { useExchangeRate } from '@/lib/useExchangeRate';
+import { getActiveSession, clearActiveSession } from '@/lib/cashSession';
 
 export default function CashRegister() {
   const [closeDialog, setCloseDialog] = useState(false);
@@ -91,27 +92,46 @@ export default function CashRegister() {
     [sales, today]
   );
 
-  // Ventas pendientes de cierre (posteriores al último cierre del día) — para totales de caja
-  // IMPORTANTE: excluye las ventas anuladas (status='voided') para que la caja cuadre.
-  const openSales = useMemo(
-    () => todaySales.filter(s =>
-      s.status !== 'voided' &&
-      (!lastCloseTime || moment(s.sale_date).isAfter(lastCloseTime))
-    ),
-    [todaySales, lastCloseTime]
+  // Sesión de caja activa (si existe). Cuando hay sesión abierta, las ventas
+  // del cierre son exactamente las vinculadas por cash_register_id (no por tiempo).
+  const activeSession = getActiveSession();
+  const openRegister = useMemo(
+    () => registers.find(r => r.status === 'abierta' && (!activeSession?.id || r.id === activeSession.id)),
+    [registers, activeSession?.id]
   );
+
+  // Ventas pendientes de cierre. Preferimos vinculación por cash_register_id;
+  // como fallback (ventas heredadas sin ID) usamos el rango horario tradicional.
+  const openSales = useMemo(() => {
+    if (openRegister?.id) {
+      return sales.filter(s =>
+        s.status !== 'voided' && s.cash_register_id === openRegister.id
+      );
+    }
+    return todaySales.filter(s =>
+      s.status !== 'voided' &&
+      !s.cash_register_id &&
+      (!lastCloseTime || moment(s.sale_date).isAfter(lastCloseTime))
+    );
+  }, [sales, todaySales, lastCloseTime, openRegister?.id]);
 
   const systemCash = openSales.reduce((sum, s) => sum + (s.cash_amount || 0), 0);
   const systemDigital = openSales.reduce((sum, s) => sum + (s.digital_amount || 0), 0);
   const todayTotal = openSales.reduce((sum, s) => sum + (s.total || 0), 0);
 
-  // Ventas asociadas a un cierre: entre el cierre anterior del día y este cierre
+  // Ventas asociadas a un cierre. Si el cierre tiene ventas con cash_register_id,
+  // esa es la fuente de verdad (sesiones nuevas). Si no, caemos al método legado
+  // basado en rango horario entre cierres del mismo día.
   const getSalesForRegister = (register) => {
     if (!register) return [];
+    const linked = sales.filter(s =>
+      s.status !== 'voided' && s.cash_register_id === register.id
+    );
+    if (linked.length > 0) return linked;
+
+    // Fallback legado: ventas del día entre el cierre anterior y este cierre
     const regDate = register.date;
     const regCreated = register.created_date ? moment(register.created_date) : null;
-
-    // Buscar cierre anterior del mismo día
     const sameDay = registers
       .filter(r => r.date === regDate && r.status === 'cerrada' && r.created_date)
       .sort((a, b) => moment(a.created_date).valueOf() - moment(b.created_date).valueOf());
@@ -122,6 +142,7 @@ export default function CashRegister() {
     return sales.filter(s => {
       if (!s.sale_date) return false;
       if (s.status === 'voided') return false;
+      if (s.cash_register_id) return false; // ya vinculadas a otra sesión
       if (moment(s.sale_date).format('YYYY-MM-DD') !== regDate) return false;
       if (regCreated && moment(s.sale_date).isAfter(regCreated)) return false;
       if (prevCreated && !moment(s.sale_date).isAfter(prevCreated)) return false;
@@ -131,8 +152,9 @@ export default function CashRegister() {
 
   const closeMut = useMutation({
     mutationFn: async () => {
-      // 1) Crear el registro de cierre de caja
-      const register = await base44.entities.CashRegister.create({
+      // 1) Si hay una sesión abierta, la cerramos (update). Si no, creamos un
+      //    cierre suelto para conservar el comportamiento histórico.
+      const closePayload = {
         date: today,
         shift,
         system_cash: systemCash,
@@ -143,8 +165,13 @@ export default function CashRegister() {
         sales_count: openSales.length,
         notes,
         status: 'cerrada',
-        operator: me?.email || me?.full_name || '',
-      });
+        operator: openRegister?.staff_name || me?.email || me?.full_name || '',
+        closed_at: new Date().toISOString(),
+      };
+
+      const register = openRegister?.id
+        ? await base44.entities.CashRegister.update(openRegister.id, closePayload)
+        : await base44.entities.CashRegister.create(closePayload);
 
       // 2) Consolidación automática de billeteras vinculadas a las ventas del turno.
       //    Identificamos los métodos de pago usados en `openSales` y vaciamos las
@@ -194,6 +221,8 @@ export default function CashRegister() {
       qc.invalidateQueries({ queryKey: ['wallets'] });
       qc.invalidateQueries({ queryKey: ['wallet_transactions'] });
       qc.invalidateQueries({ queryKey: ['wallet_consolidations'] });
+      qc.invalidateQueries({ queryKey: ['active_cash_session'] });
+      clearActiveSession();
       setCloseDialog(false);
       if (consolidated > 0) {
         toast.success(`Caja cerrada. ${consolidated} billetera(s) liquidada(s) automáticamente.`);
@@ -231,7 +260,11 @@ export default function CashRegister() {
     <div className="space-y-6">
       <PageHeader
         title="Caja Registradora"
-        description={`Hoy: ${moment().format('DD/MM/YYYY')}`}
+        description={
+          openRegister
+            ? `Sesión abierta por ${openRegister.staff_name || openRegister.operator || '—'} · ${moment(openRegister.opened_at || openRegister.created_date).format('DD/MM HH:mm')}`
+            : `Hoy: ${moment().format('DD/MM/YYYY')} · sin sesión abierta`
+        }
         actions={
           <div className="flex gap-2">
             <Button variant="outline" onClick={printToday}>
@@ -341,6 +374,7 @@ export default function CashRegister() {
                   <TableRow>
                     <TableHead>Fecha</TableHead>
                     <TableHead>Turno</TableHead>
+                    <TableHead>Operador</TableHead>
                     <TableHead className="text-right">Total Ventas</TableHead>
                     <TableHead className="text-right">Efectivo Sistema</TableHead>
                     <TableHead className="text-right">Efectivo Declarado</TableHead>
@@ -351,12 +385,13 @@ export default function CashRegister() {
                 </TableHeader>
                 <TableBody>
                   {registers.length === 0 ? (
-                    <TableRow><TableCell colSpan={8} className="text-center py-6 text-muted-foreground">Sin cierres registrados</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={9} className="text-center py-6 text-muted-foreground">Sin cierres registrados</TableCell></TableRow>
                   ) : (
-                    registers.map(r => (
+                    registers.filter(r => r.status === 'cerrada').map(r => (
                       <TableRow key={r.id}>
                         <TableCell>{moment(r.date).format('DD/MM/YY')}</TableCell>
                         <TableCell className="capitalize">{r.shift === 'manana' ? 'Mañana' : r.shift === 'tarde' ? 'Tarde' : 'Noche'}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground">{r.staff_name || r.operator || '—'}</TableCell>
                         <TableCell className="text-right font-mono">${r.total_sales?.toFixed(2)}</TableCell>
                         <TableCell className="text-right font-mono">${r.system_cash?.toFixed(2)}</TableCell>
                         <TableCell className="text-right font-mono">${r.declared_cash?.toFixed(2)}</TableCell>

@@ -14,6 +14,7 @@ import { toast } from 'sonner';
 import RecipeDetailCard from '@/components/recipes/RecipeDetailCard';
 import { exportRecipesToCSV } from '@/lib/exportRecipesCSV';
 import SearchableCombobox from '@/components/shared/SearchableCombobox';
+import { useRole } from '@/lib/useRole';
 
 const TYPES = [
   { value: 'helado', label: 'Helado' },
@@ -38,6 +39,7 @@ export default function Recipes() {
   const [form, setForm] = useState(emptyRecipe);
   const [search, setSearch] = useState('');
   const qc = useQueryClient();
+  const { isAdmin } = useRole();
 
   const { data: recipes = [] } = useQuery({
     queryKey: ['recipes'],
@@ -203,24 +205,26 @@ export default function Recipes() {
         title="Recetario Maestro"
         description="Recetas de helados, cafés y merengadas"
         actions={
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              onClick={() => {
-                if (recipes.length === 0) {
-                  toast.error('No hay recetas para exportar');
-                  return;
-                }
-                exportRecipesToCSV(recipes, supplies);
-                toast.success('Exportación descargada');
-              }}
-            >
-              <FileSpreadsheet className="h-4 w-4 mr-2" /> Exportar Excel
-            </Button>
-            <Button onClick={() => { setForm(emptyRecipe); setEditing(null); setDialogOpen(true); }}>
-              <Plus className="h-4 w-4 mr-2" /> Nueva Receta
-            </Button>
-          </div>
+          isAdmin ? (
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  if (recipes.length === 0) {
+                    toast.error('No hay recetas para exportar');
+                    return;
+                  }
+                  exportRecipesToCSV(recipes, supplies);
+                  toast.success('Exportación descargada');
+                }}
+              >
+                <FileSpreadsheet className="h-4 w-4 mr-2" /> Exportar Excel
+              </Button>
+              <Button onClick={() => { setForm(emptyRecipe); setEditing(null); setDialogOpen(true); }}>
+                <Plus className="h-4 w-4 mr-2" /> Nueva Receta
+              </Button>
+            </div>
+          ) : null
         }
       />
 
