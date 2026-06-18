@@ -8,7 +8,6 @@ import PageHeader from '@/components/shared/PageHeader';
 import StatCard from '@/components/shared/StatCard';
 import FinancialKPIs from '@/components/dashboard/FinancialKPIs';
 import BreakEvenPanel from '@/components/dashboard/BreakEvenPanel.jsx';
-import DataSimulator from '@/components/dashboard/DataSimulator';
 import AnnualSalesChart from '@/components/dashboard/AnnualSalesChart';
 import MonthDetailCharts from '@/components/dashboard/MonthDetailCharts';
 import MonthKPIs from '@/components/dashboard/MonthKPIs';
@@ -259,7 +258,6 @@ export default function Dashboard() {
         </Card>
       )}
 
-      <DataSimulator />
     </div>
   );
 }
