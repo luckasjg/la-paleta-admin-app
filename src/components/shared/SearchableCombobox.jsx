@@ -59,25 +59,25 @@ export default function SearchableCombobox({
           aria-expanded={open}
           disabled={disabled}
           className={cn(
-            'w-full justify-between font-normal h-9',
+            'w-full justify-between font-normal h-auto min-h-9 py-1.5',
             !selected && 'text-muted-foreground',
             triggerClassName
           )}
         >
-          <span className="truncate text-left">
+          <div className="flex flex-col min-w-0 flex-1 text-left">
             {selected ? (
               <>
-                {selected.label}
+                <span className="truncate">{selected.label}</span>
                 {selected.sublabel && (
-                  <span className="text-xs text-muted-foreground ml-1">
+                  <span className="text-[10px] text-muted-foreground truncate leading-tight">
                     {selected.sublabel}
                   </span>
                 )}
               </>
             ) : (
-              placeholder
+              <span className="truncate">{placeholder}</span>
             )}
-          </span>
+          </div>
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
