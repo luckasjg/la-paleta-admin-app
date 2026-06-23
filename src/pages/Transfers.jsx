@@ -6,17 +6,19 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Plus, ArrowLeftRight, AlertTriangle } from 'lucide-react';
+import { Plus, ArrowLeftRight, AlertTriangle, Package } from 'lucide-react';
 import PageHeader from '@/components/shared/PageHeader';
 import { toast } from 'sonner';
 import SearchableCombobox from '@/components/shared/SearchableCombobox';
 import { getStockAt, buildTransferDelta, LOCATION_LABEL } from '@/lib/stockHelpers';
 import TransferHistory from '@/components/transfers/TransferHistory';
+import { getPackageUnit } from '@/components/inventory/PurchaseFormatPanel';
 
 export default function Transfers() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [supplyId, setSupplyId] = useState('');
   const [quantity, setQuantity] = useState(0);
+  const [inputMode, setInputMode] = useState('base'); // 'base' | 'package'
   const [fromLocation, setFromLocation] = useState('warehouse');
   const [toLocation, setToLocation] = useState('production');
   const [notes, setNotes] = useState('');
@@ -48,14 +50,36 @@ export default function Transfers() {
 
   const selectedSupply = supplies.find((s) => s.id === supplyId);
   const available = selectedSupply ? getStockAt(selectedSupply, fromLocation) : 0;
-  const insufficient = quantity > 0 && quantity > available;
+
+  // Detectar si el insumo tiene un formato de compra válido (presentación + contenido neto > 0)
+  const pkgFormat = selectedSupply?.package_format;
+  const pkgNet = parseFloat(pkgFormat?.net_content) || 0;
+  const pkgPresentation = (pkgFormat?.presentation || '').trim();
+  const pkgUnitInfo = pkgFormat?.package_unit ? getPackageUnit(pkgFormat.package_unit) : null;
+  const hasPackageFormat = pkgPresentation && pkgNet > 0 && pkgUnitInfo;
+  // Factor de conversión: cuántas unidades base equivalen a 1 empaque
+  const packageToBaseFactor = hasPackageFormat ? pkgNet * pkgUnitInfo.multiplier : 0;
+
+  // Cantidad efectiva en UNIDAD BASE (lo que realmente se descontará del stock)
+  const effectiveQuantity =
+    inputMode === 'package' && hasPackageFormat
+      ? (parseFloat(quantity) || 0) * packageToBaseFactor
+      : parseFloat(quantity) || 0;
+
+  const insufficient = effectiveQuantity > 0 && effectiveQuantity > available;
   const sameLocation = fromLocation === toLocation;
-  const canSubmit = supplyId && quantity > 0 && !insufficient && !sameLocation;
+  const canSubmit = supplyId && effectiveQuantity > 0 && !insufficient && !sameLocation;
+
+  // Si el insumo seleccionado no tiene formato, forzar modo base
+  React.useEffect(() => {
+    if (!hasPackageFormat && inputMode !== 'base') setInputMode('base');
+  }, [hasPackageFormat, inputMode]);
 
   const close = () => {
     setDialogOpen(false);
     setSupplyId('');
     setQuantity(0);
+    setInputMode('base');
     setFromLocation('warehouse');
     setToLocation('production');
     setNotes('');
@@ -64,10 +88,18 @@ export default function Transfers() {
   const createMut = useMutation({
     mutationFn: async () => {
       if (!selectedSupply) throw new Error('Insumo no encontrado');
-      const qty = parseFloat(quantity);
+      // Siempre se guarda en unidad base (g/ml/unidad) para no romper recetas/reportes
+      const qty = effectiveQuantity;
 
       const payload = buildTransferDelta(selectedSupply, fromLocation, toLocation, qty);
       await base44.entities.Supply.update(selectedSupply.id, payload);
+
+      // Si el usuario transfirió por empaques, lo registramos en las notas para trazabilidad
+      const pkgNote =
+        inputMode === 'package' && hasPackageFormat
+          ? `[${parseFloat(quantity)} ${pkgPresentation}${parseFloat(quantity) === 1 ? '' : 's'} × ${pkgNet} ${pkgUnitInfo.label.replace(/\s*\(.*\)/, '')}]`
+          : '';
+      const finalNotes = [pkgNote, notes].filter(Boolean).join(' ');
 
       await base44.entities.InventoryTransfer.create({
         supply_id: selectedSupply.id,
@@ -76,7 +108,7 @@ export default function Transfers() {
         unit: selectedSupply.unit,
         from_location: fromLocation,
         to_location: toLocation,
-        notes,
+        notes: finalNotes,
         transfer_date: new Date().toISOString(),
       });
     },
@@ -169,7 +201,38 @@ export default function Transfers() {
             )}
 
             <div>
-              <Label>Cantidad a mover ({selectedSupply?.unit || 'unidad'})</Label>
+              {hasPackageFormat && (
+                <div className="grid grid-cols-2 gap-1 p-1 bg-muted rounded-md mb-2 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => { setInputMode('package'); setQuantity(0); }}
+                    className={`py-1.5 px-2 rounded transition-colors flex items-center justify-center gap-1.5 ${
+                      inputMode === 'package' ? 'bg-background shadow-sm font-semibold' : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    <Package className="h-3 w-3" /> Por {pkgPresentation}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setInputMode('base'); setQuantity(0); }}
+                    className={`py-1.5 px-2 rounded transition-colors ${
+                      inputMode === 'base' ? 'bg-background shadow-sm font-semibold' : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    Por {selectedSupply?.unit || 'unidad'}
+                  </button>
+                </div>
+              )}
+
+              <Label>
+                Cantidad a mover
+                {' '}
+                <span className="text-muted-foreground font-normal">
+                  ({inputMode === 'package' && hasPackageFormat
+                    ? `${pkgPresentation}s`
+                    : selectedSupply?.unit || 'unidad'})
+                </span>
+              </Label>
               <Input
                 type="number"
                 step="0.01"
@@ -177,6 +240,17 @@ export default function Transfers() {
                 value={quantity}
                 onChange={(e) => setQuantity(parseFloat(e.target.value) || 0)}
               />
+
+              {inputMode === 'package' && hasPackageFormat && parseFloat(quantity) > 0 && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Equivale a{' '}
+                  <span className="font-mono font-semibold text-foreground">
+                    {effectiveQuantity.toLocaleString()} {selectedSupply.unit}
+                  </span>
+                  {' '}({parseFloat(quantity)} × {pkgNet} {pkgUnitInfo.label.replace(/\s*\(.*\)/, '')})
+                </p>
+              )}
+
               {insufficient && (
                 <p className="text-xs text-destructive mt-1 flex items-center gap-1">
                   <AlertTriangle className="h-3 w-3" /> La cantidad excede el stock disponible en el origen.
