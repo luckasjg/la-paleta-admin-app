@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ShoppingCart, Plus, Minus, Trash2, Gift, AlertTriangle } from 'lucide-react';
+import { ShoppingCart, Plus, Minus, Trash2, Gift, AlertTriangle, Coffee, GlassWater } from 'lucide-react';
 import { toast } from 'sonner';
 import moment from 'moment';
 import { useExchangeRate, formatUSD, formatVES } from '@/lib/useExchangeRate';
@@ -27,6 +27,8 @@ export default function POS() {
   const [flavorDialog, setFlavorDialog] = useState(null);
   const [selectedFlavors, setSelectedFlavors] = useState([]);
   const [payDialog, setPayDialog] = useState(false);
+  // Diálogo para elegir Taza (cerámica) vs Vaso (desechable) — sólo en productos con vessel_optional
+  const [vesselDialog, setVesselDialog] = useState(null);
   // Origen de Materia Prima para esta venta (aplica a toda la orden).
   const [sourceLocation, setSourceLocation] = useState('production');
   const { rate: exchangeRate, setRate: setExchangeRate } = useExchangeRate();
@@ -129,6 +131,31 @@ export default function POS() {
     return arr;
   };
 
+  const pushSimpleProductToCart = (product, vessel = null) => {
+    setCart(prev => {
+      const existing = prev.find(i =>
+        i.product_id === product.id && !i.tray_id && !i.is_courtesy && (i.vessel || null) === vessel
+      );
+      if (existing) {
+        return prev.map(i => i === existing ? { ...i, quantity: i.quantity + 1, subtotal: (i.quantity + 1) * i.unit_price } : i);
+      }
+      return [...prev, {
+        product_id: product.id,
+        product_name: product.name,
+        category: product.category,
+        recipe_id: product.recipe_id,
+        utensil_supply_id: product.utensil_supply_id || '',
+        linked_supplies: Array.isArray(product.linked_supplies) ? product.linked_supplies : [],
+        grams: product.grams_per_serving || 0,
+        quantity: 1,
+        unit_price: product.price,
+        subtotal: product.price,
+        is_courtesy: false,
+        vessel, // 'taza' | 'vaso' | null
+      }];
+    });
+  };
+
   const addToCart = (product) => {
     if (productNeedsFlavor(product)) {
       const totalGrams = product.grams_per_serving || 80;
@@ -136,27 +163,18 @@ export default function POS() {
       const portions = splitGramsEqually(totalGrams, 1);
       setFlavorDialog(product);
       setSelectedFlavors([{ tray_id: '', grams: portions[0] }]);
+    } else if (product.vessel_optional) {
+      // Pide elección de recipiente antes de añadir
+      setVesselDialog(product);
     } else {
-      setCart(prev => {
-        const existing = prev.find(i => i.product_id === product.id && !i.tray_id && !i.is_courtesy);
-        if (existing) {
-          return prev.map(i => i === existing ? { ...i, quantity: i.quantity + 1, subtotal: (i.quantity + 1) * i.unit_price } : i);
-        }
-        return [...prev, {
-          product_id: product.id,
-          product_name: product.name,
-          category: product.category,
-          recipe_id: product.recipe_id,
-          utensil_supply_id: product.utensil_supply_id || '',
-          linked_supplies: Array.isArray(product.linked_supplies) ? product.linked_supplies : [],
-          grams: product.grams_per_serving || 0,
-          quantity: 1,
-          unit_price: product.price,
-          subtotal: product.price,
-          is_courtesy: false,
-        }];
-      });
+      pushSimpleProductToCart(product);
     }
+  };
+
+  const confirmVesselChoice = (vessel) => {
+    if (!vesselDialog) return;
+    pushSimpleProductToCart(vesselDialog, vessel);
+    setVesselDialog(null);
   };
 
   const targetGrams = flavorDialog?.grams_per_serving || 80;
@@ -364,11 +382,16 @@ export default function POS() {
         const linked = Array.isArray(item.linked_supplies) ? item.linked_supplies : [];
         if (linked.length > 0) {
           for (const ls of linked) {
+            // Si el cajero eligió "taza" (cerámica), no descontamos utensilios desechables.
+            if (item.vessel === 'taza' && ls.type === 'utensilio') continue;
             addDemand(ls.supply_id, (ls.quantity || 0) * item.quantity);
           }
         } else if (item.utensil_supply_id) {
-          // (3) Fallback legacy: utensil_supply_id (1 unidad por venta)
-          addDemand(item.utensil_supply_id, item.quantity);
+          // (3) Fallback legacy: utensil_supply_id (1 unidad por venta).
+          // En modo "taza" tampoco descontamos el utensilio legacy.
+          if (item.vessel !== 'taza') {
+            addDemand(item.utensil_supply_id, item.quantity);
+          }
         }
       }
 
@@ -530,6 +553,14 @@ export default function POS() {
                   {item.is_courtesy && <Gift className="h-3.5 w-3.5 text-amber-500 flex-shrink-0" />}
                 </div>
                 {item.flavor && <p className="text-xs text-muted-foreground">{item.flavor} · {item.grams}g</p>}
+                {item.vessel && (
+                  <p className="text-[11px] text-muted-foreground flex items-center gap-1">
+                    {item.vessel === 'taza'
+                      ? <><Coffee className="h-3 w-3" /> En taza</>
+                      : <><GlassWater className="h-3 w-3" /> En vaso</>
+                    }
+                  </p>
+                )}
                 {item.flavor_surcharge > 0 && (
                   <p className="text-[10px] text-amber-700 font-medium">
                     Base {currency}{item.base_price?.toFixed(2)} + recargo {currency}{item.flavor_surcharge.toFixed(2)}
@@ -708,6 +739,47 @@ export default function POS() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setFlavorDialog(null)}>Cancelar</Button>
             <Button onClick={addIceCreamToCart} disabled={!allFlavorsFilled || !flavorGramsOk}>Agregar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Vessel choice dialog (taza vs vaso) */}
+      <Dialog open={!!vesselDialog} onOpenChange={() => setVesselDialog(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>
+              ¿Cómo se sirve? — {vesselDialog?.name}
+              <p className="text-sm font-normal text-muted-foreground mt-0.5">
+                Elige el recipiente para esta orden
+              </p>
+            </DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-3 py-2">
+            <button
+              type="button"
+              onClick={() => confirmVesselChoice('taza')}
+              className="flex flex-col items-center gap-2 p-5 rounded-xl border-2 border-border hover:border-primary hover:bg-primary/5 transition-all active:scale-95"
+            >
+              <Coffee className="h-10 w-10 text-primary" />
+              <span className="font-semibold">Taza</span>
+              <span className="text-[11px] text-muted-foreground text-center leading-tight">
+                Cerámica<br />(no descuenta vaso)
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => confirmVesselChoice('vaso')}
+              className="flex flex-col items-center gap-2 p-5 rounded-xl border-2 border-border hover:border-primary hover:bg-primary/5 transition-all active:scale-95"
+            >
+              <GlassWater className="h-10 w-10 text-primary" />
+              <span className="font-semibold">Vaso</span>
+              <span className="text-[11px] text-muted-foreground text-center leading-tight">
+                Desechable<br />(descuenta del stock)
+              </span>
+            </button>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setVesselDialog(null)}>Cancelar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

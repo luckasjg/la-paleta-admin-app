@@ -57,6 +57,11 @@
         }
       }
     },
+    "vessel_optional": {
+      "type": "boolean",
+      "default": false,
+      "description": "Si es true, el POS pregunta al cajero si se sirve en taza (sin descontar utensilios) o vaso (descuenta utensilios)."
+    },
     "price": {
       "type": "number"
     },

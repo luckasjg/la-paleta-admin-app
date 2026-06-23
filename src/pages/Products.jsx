@@ -21,7 +21,7 @@ const DEFAULT_CATEGORIES = ['helado', 'cafe', 'merengada', 'adicional', 'otro'];
 const HIDDEN_CATS_KEY = 'pos_hidden_categories';
 const EXTRA_CATS_KEY = 'pos_extra_categories';
 
-const emptyProduct = { name: '', category: '', size_label: '', grams_per_serving: 0, recipe_id: '', linked_supplies: [], price: 0, is_active: true, requires_flavor: false, max_flavors: 1 };
+const emptyProduct = { name: '', category: '', size_label: '', grams_per_serving: 0, recipe_id: '', linked_supplies: [], price: 0, is_active: true, requires_flavor: false, max_flavors: 1, vessel_optional: false };
 
 export default function Products() {
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -166,6 +166,7 @@ export default function Products() {
       is_active: p?.is_active !== false,
       requires_flavor: p?.requires_flavor === true || p?.category === 'helado',
       max_flavors: p?.max_flavors ?? p?.flavor_count ?? 1,
+      vessel_optional: p?.vessel_optional === true,
     });
     setDialogOpen(true);
   };
@@ -401,6 +402,20 @@ export default function Products() {
                   </p>
                 </div>
               )}
+            </div>
+
+            {/* Opción de recipiente (taza vs vaso desechable) */}
+            <div className="border border-border rounded-lg p-3 space-y-2 bg-secondary/30">
+              <div className="flex items-center gap-3">
+                <Switch
+                  checked={form.vessel_optional}
+                  onCheckedChange={v => setForm({ ...form, vessel_optional: v })}
+                />
+                <Label>Permite elegir Taza o Vaso al facturar</Label>
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                Si se elige <strong>Taza</strong> (cerámica), no se descontarán los insumos de tipo utensilio (ej. vaso desechable). Si se elige <strong>Vaso</strong>, se descuentan normalmente.
+              </p>
             </div>
 
             <div className="flex items-center gap-3">
