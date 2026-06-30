@@ -92,16 +92,29 @@ export default function CashRegister() {
     [sales, today]
   );
 
-  // Sesión de caja activa (si existe). Cuando hay sesión abierta, las ventas
-  // del cierre son exactamente las vinculadas por cash_register_id (no por tiempo).
+  // Sesión de caja activa: la FUENTE DE VERDAD es el backend (registers con
+  // status='abierta'), no el localStorage. Así, aunque se pierda el localStorage
+  // por caída de conexión o cambio de dispositivo, el cierre siempre actualiza
+  // la sesión real abierta en lugar de crear una nueva.
   const activeSession = getActiveSession();
-  const openRegister = useMemo(
-    () => registers.find(r => r.status === 'abierta' && (!activeSession?.id || r.id === activeSession.id)),
-    [registers, activeSession?.id]
-  );
+  const openRegister = useMemo(() => {
+    const abiertas = registers.filter(r => r.status === 'abierta');
+    if (abiertas.length === 0) return null;
+    // Si el localStorage apunta a una sesión que sigue abierta, úsala.
+    const matchLocal = activeSession?.id ? abiertas.find(r => r.id === activeSession.id) : null;
+    if (matchLocal) return matchLocal;
+    // Si no, tomamos la más reciente (por opened_at o created_date).
+    return [...abiertas].sort((a, b) => {
+      const ta = moment(a.opened_at || a.created_date).valueOf();
+      const tb = moment(b.opened_at || b.created_date).valueOf();
+      return tb - ta;
+    })[0];
+  }, [registers, activeSession?.id]);
 
-  // Ventas pendientes de cierre. Preferimos vinculación por cash_register_id;
-  // como fallback (ventas heredadas sin ID) usamos el rango horario tradicional.
+  // Ventas pendientes de cierre. SIEMPRE consolidamos TODAS las ventas
+  // vinculadas a la sesión abierta por cash_register_id, sin importar el día
+  // ni la hora, para que un cierre tardío recoja todo lo registrado.
+  // Sólo cuando no hay sesión abierta caemos al método legado por tiempo.
   const openSales = useMemo(() => {
     if (openRegister?.id) {
       return sales.filter(s =>
@@ -152,10 +165,19 @@ export default function CashRegister() {
 
   const closeMut = useMutation({
     mutationFn: async () => {
+      // Re-verificamos en el backend si hay alguna sesión abierta justo antes
+      // de cerrar. Esto blinda el cierre incluso si el estado local quedó
+      // desactualizado (caída de conexión, otro dispositivo, etc.) y garantiza
+      // que NUNCA dejemos una sesión abierta huérfana.
+      const freshOpen = await base44.entities.CashRegister.filter({ status: 'abierta' });
+      const targetSession = openRegister || (freshOpen?.[0] ?? null);
+
       // 1) Si hay una sesión abierta, la cerramos (update). Si no, creamos un
       //    cierre suelto para conservar el comportamiento histórico.
+      //    Conservamos la fecha original de la sesión abierta para que el cierre
+      //    quede correctamente asociado al día en que se abrió.
       const closePayload = {
-        date: today,
+        date: targetSession?.date || today,
         shift,
         system_cash: systemCash,
         system_digital: systemDigital,
@@ -165,13 +187,29 @@ export default function CashRegister() {
         sales_count: openSales.length,
         notes,
         status: 'cerrada',
-        operator: openRegister?.staff_name || me?.email || me?.full_name || '',
+        operator: targetSession?.staff_name || me?.email || me?.full_name || '',
         closed_at: new Date().toISOString(),
       };
 
-      const register = openRegister?.id
-        ? await base44.entities.CashRegister.update(openRegister.id, closePayload)
+      const register = targetSession?.id
+        ? await base44.entities.CashRegister.update(targetSession.id, closePayload)
         : await base44.entities.CashRegister.create(closePayload);
+
+      // 1.b) Si quedaron OTRAS sesiones abiertas (escenario poco común tras una
+      //      caída de conexión), las cerramos también de forma silenciosa con
+      //      totales en cero para que el sistema no arrastre sesiones huérfanas.
+      const otherOpen = (freshOpen || []).filter(r => r.id !== register?.id && r.status === 'abierta');
+      for (const r of otherOpen) {
+        try {
+          await base44.entities.CashRegister.update(r.id, {
+            status: 'cerrada',
+            closed_at: new Date().toISOString(),
+            notes: (r.notes || '') + ' [Cerrada automáticamente al detectar sesión huérfana]',
+          });
+        } catch (e) {
+          console.error('No se pudo cerrar sesión huérfana:', r.id, e);
+        }
+      }
 
       // 2) Consolidación automática de billeteras vinculadas a las ventas del turno.
       //    Identificamos los métodos de pago usados en `openSales` y vaciamos las
