@@ -486,16 +486,27 @@ export default function POS() {
     <div className="flex flex-col lg:flex-row gap-4 h-[calc(100vh-5rem)]">
       {/* Product Grid */}
       <div className="flex-1 flex flex-col min-h-0">
-        <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
-          <Tabs value={activeCat} onValueChange={setSelectedCategory} className="flex-1 min-w-0">
-            <TabsList className="w-full justify-start overflow-x-auto">
-              {categories.map(c => (
-                <TabsTrigger key={c} value={c} className="text-sm px-4 py-2 capitalize">
+        <div className="flex items-start justify-between gap-3 mb-3 flex-wrap">
+          <div className="flex flex-wrap gap-2 flex-1 min-w-0">
+            {categories.map(c => {
+              const isActive = activeCat === c;
+              return (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => setSelectedCategory(c)}
+                  className={`px-5 py-3 rounded-xl text-sm font-bold capitalize border-2 transition-all active:scale-95 ${
+                    isActive
+                      ? 'bg-[#1a365d] text-white border-[#1a365d] shadow-md'
+                      : 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200 hover:border-slate-300'
+                  }`}
+                  style={{ minWidth: '110px' }}
+                >
                   {c}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-          </Tabs>
+                </button>
+              );
+            })}
+          </div>
           <ExchangeRateInput rate={exchangeRate} setRate={setExchangeRate} requireConfirm={payDialog} />
         </div>
 
