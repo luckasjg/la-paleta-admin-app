@@ -47,10 +47,33 @@ export default function PrintReport({ date, shift, operator, sales: rawSales = [
         <p style={{ margin: '4px 0' }}>
           {moment(date).format('DD/MM/YYYY')} — Turno: {shiftLabel}
         </p>
-        <p style={{ margin: 0, fontSize: 11 }}>Cajero: {operator || '—'}</p>
+        <p style={{ margin: 0, fontSize: 11 }}>Cajero al cierre: {operator || '—'}</p>
         <p style={{ margin: 0, fontSize: 11 }}>Impreso: {moment().format('DD/MM/YYYY HH:mm')}</p>
         <hr style={{ borderTop: '1px dashed black', margin: '8px 0' }} />
       </div>
+
+      {/* Historial de cambios de cajero / turno, extraído de register.notes
+          (líneas con prefijo "[fecha hora] Cambio:"). Sólo se imprime si hay
+          al menos una entrada registrada durante la sesión. */}
+      {(() => {
+        const rawNotes = register?.notes || '';
+        const changeLines = rawNotes
+          .split('\n')
+          .map(l => l.trim())
+          .filter(l => /^\[.+?\]\s*Cambio:/i.test(l));
+        if (changeLines.length === 0) return null;
+        return (
+          <div style={{ marginBottom: 10 }}>
+            <h2 style={{ fontSize: 13, fontWeight: 'bold', margin: '8px 0' }}>
+              HISTORIAL DE CAJEROS / TURNOS
+            </h2>
+            {changeLines.map((l, i) => (
+              <p key={i} style={{ margin: '2px 0', fontSize: 11 }}>{l}</p>
+            ))}
+            <hr style={{ borderTop: '1px dashed black', margin: '8px 0' }} />
+          </div>
+        );
+      })()}
 
       <div style={{ marginBottom: 10 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between' }}>

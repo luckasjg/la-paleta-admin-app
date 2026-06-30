@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { DollarSign, AlertTriangle, CheckCircle, Printer, Eye, RefreshCw } from 'lucide-react';
+import { DollarSign, AlertTriangle, CheckCircle, Printer, Eye, RefreshCw, UserCog } from 'lucide-react';
 import PageHeader from '@/components/shared/PageHeader';
 import StatCard from '@/components/shared/StatCard';
 import { toast } from 'sonner';
@@ -21,6 +21,7 @@ import PrintReport from '@/components/cashregister/PrintReport';
 import IceCreamAudit from '@/components/cashregister/IceCreamAudit';
 import ClosingDetailDialog from '@/components/cashregister/ClosingDetailDialog';
 import VoidSaleButton from '@/components/cashregister/VoidSaleButton';
+import StaffChangeDialog from '@/components/cashregister/StaffChangeDialog';
 import { Ban } from 'lucide-react';
 import { consolidateWallet as consolidateWalletFn } from '@/lib/consolidationHelpers';
 import { useExchangeRate } from '@/lib/useExchangeRate';
@@ -28,6 +29,7 @@ import { getActiveSession, clearActiveSession } from '@/lib/cashSession';
 
 export default function CashRegister() {
   const [closeDialog, setCloseDialog] = useState(false);
+  const [staffChangeOpen, setStaffChangeOpen] = useState(false);
   const [declaredCash, setDeclaredCash] = useState(0);
   const [shift, setShift] = useState('manana');
   const [notes, setNotes] = useState('');
@@ -274,10 +276,10 @@ export default function CashRegister() {
   const printToday = () => {
     setPrintContext({
       date: today,
-      shift,
-      operator: me?.email || me?.full_name || '',
+      shift: openRegister?.shift || shift,
+      operator: openRegister?.staff_name || openRegister?.operator || '—',
       sales: openSales,
-      register: null,
+      register: openRegister || null,
     });
     setTimeout(() => window.print(), 50);
   };
@@ -287,7 +289,7 @@ export default function CashRegister() {
     setPrintContext({
       date: register.date,
       shift: register.shift,
-      operator: register.operator || register.created_by || '',
+      operator: register.staff_name || register.operator || '—',
       sales: regSales,
       register,
     });
@@ -304,7 +306,12 @@ export default function CashRegister() {
             : `Hoy: ${moment().format('DD/MM/YYYY')} · sin sesión abierta`
         }
         actions={
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
+            {openRegister && (
+              <Button variant="outline" onClick={() => setStaffChangeOpen(true)}>
+                <UserCog className="h-4 w-4 mr-2" /> Cambiar Cajero / Turno
+              </Button>
+            )}
             <Button variant="outline" onClick={printToday}>
               <Printer className="h-4 w-4 mr-2" /> Imprimir Reporte
             </Button>
@@ -313,6 +320,12 @@ export default function CashRegister() {
             </Button>
           </div>
         }
+      />
+
+      <StaffChangeDialog
+        open={staffChangeOpen}
+        onOpenChange={setStaffChangeOpen}
+        register={openRegister}
       />
 
       <Tabs defaultValue="today" className="space-y-4">
