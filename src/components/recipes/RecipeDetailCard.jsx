@@ -101,17 +101,17 @@ export default function RecipeDetailCard({ recipe, supplies, onEdit, onDelete, o
 
         {/* Tabla de ingredientes */}
         {ingredients.length > 0 ? (
-          <div className="space-y-1">
+          <div className="divide-y divide-border/70">
             {/* Encabezado */}
-            <div className="grid text-[10px] font-semibold text-muted-foreground uppercase tracking-wide pb-1 border-b"
+            <div className="grid text-[10px] font-semibold text-muted-foreground uppercase tracking-wide py-2 gap-x-3"
               style={{ gridTemplateColumns: isAdmin
                 ? (showCalc ? '1fr auto auto auto auto' : '1fr auto auto auto')
                 : (showCalc ? '1fr auto auto auto' : '1fr auto auto') }}>
               <span>Ingrediente</span>
               <span className="text-right">Cant.</span>
-              <span className="text-right">% Receta</span>
-              {isAdmin && <span className="text-right">Costo</span>}
-              {showCalc && <span className="text-right text-primary">A Pesar (g)</span>}
+              <span className="text-right border-l border-border/70 pl-3">% Receta</span>
+              {isAdmin && <span className="text-right border-l border-border/70 pl-3">Costo</span>}
+              {showCalc && <span className="text-right text-primary border-l border-primary/30 pl-3">A Pesar (g)</span>}
             </div>
 
             {ingredients.map((ing, i) => {
@@ -122,19 +122,19 @@ export default function RecipeDetailCard({ recipe, supplies, onEdit, onDelete, o
               return (
                 <div
                   key={i}
-                  className="grid text-sm py-0.5"
+                  className="grid text-sm py-2 gap-x-3 items-center"
                   style={{ gridTemplateColumns: isAdmin
                     ? (showCalc ? '1fr auto auto auto auto' : '1fr auto auto auto')
                     : (showCalc ? '1fr auto auto auto' : '1fr auto auto') }}
                 >
                   <span className="text-muted-foreground truncate">{ing.supply_name}</span>
-                  <span className="font-mono text-right ml-2">{ing.quantity}{ing.unit}</span>
-                  <span className="font-mono text-right ml-2 text-muted-foreground">{pct.toFixed(2)}%</span>
+                  <span className="font-mono text-right">{ing.quantity}{ing.unit}</span>
+                  <span className="font-mono text-right text-muted-foreground border-l border-border/70 pl-3">{pct.toFixed(2)}%</span>
                   {isAdmin && (
-                    <span className="font-mono text-right ml-2 text-amber-700">${ingCost.toFixed(2)}</span>
+                    <span className="font-mono text-right text-amber-700 border-l border-border/70 pl-3">${ingCost.toFixed(2)}</span>
                   )}
                   {showCalc && (
-                    <span className="font-mono text-right ml-2 text-primary font-semibold">
+                    <span className="font-mono text-right text-primary font-bold border-l border-primary/30 pl-3 bg-primary/5 rounded-sm py-0.5">
                       {gramsAPesar.toFixed(1)}g
                     </span>
                   )}
@@ -144,16 +144,16 @@ export default function RecipeDetailCard({ recipe, supplies, onEdit, onDelete, o
 
             {/* Footer totales */}
             <div
-              className="grid text-xs font-semibold pt-1 border-t"
+              className="grid text-xs font-semibold py-2 gap-x-3"
               style={{ gridTemplateColumns: isAdmin
                 ? (showCalc ? '1fr auto auto auto auto' : '1fr auto auto auto')
                 : (showCalc ? '1fr auto auto auto' : '1fr auto auto') }}
             >
               <span>Total Base</span>
-              <span className="font-mono text-right ml-2">{totalBaseGrams}g</span>
-              <span className="font-mono text-right ml-2">100.00%</span>
-              {isAdmin && <span className="font-mono text-right ml-2 text-amber-700">${cost.toFixed(2)}</span>}
-              {showCalc && <span className="font-mono text-right ml-2 text-primary">{mixValue.toFixed(1)}g</span>}
+              <span className="font-mono text-right">{totalBaseGrams}g</span>
+              <span className="font-mono text-right border-l border-border/70 pl-3">100.00%</span>
+              {isAdmin && <span className="font-mono text-right text-amber-700 border-l border-border/70 pl-3">${cost.toFixed(2)}</span>}
+              {showCalc && <span className="font-mono text-right text-primary border-l border-primary/30 pl-3 bg-primary/5 rounded-sm py-0.5">{mixValue.toFixed(1)}g</span>}
             </div>
           </div>
         ) : (
