@@ -13,10 +13,13 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
 
     // El payload viene del entity automation: { event, data: <CashRegister> }
-    let register = body?.data;
-    if (!register && body?.event?.entity_id) {
-      register = await base44.asServiceRole.entities.CashRegister.get(body.event.entity_id);
+    // Nunca confiar en body.data: siempre re-consultar el registro desde la DB
+    // usando el entity_id verificado del evento para evitar falsificación.
+    const entityId = body?.event?.entity_id;
+    if (!entityId) {
+      return Response.json({ skipped: true, reason: 'missing entity_id' });
     }
+    const register = await base44.asServiceRole.entities.CashRegister.get(entityId);
     if (!register || register.status !== 'cerrada') {
       return Response.json({ skipped: true, reason: 'no register or not closed' });
     }
