@@ -95,18 +95,28 @@ export default function IceCreamAudit({ activeTrays = [], todaySales = [], shift
         financial_impact: totalFinancialImpact,
       });
 
-      // Update each tray's remaining_grams with the physical count
+      // Update each tray's remaining_grams with the physical count.
+      // Si el peso real es 0 (o menos), la bandeja se cierra automáticamente.
+      let closed = 0;
       for (const r of rows) {
         if (r.physicalWeight !== null && !isNaN(r.physicalWeight)) {
+          const isEmpty = r.physicalWeight <= 0;
+          if (isEmpty) closed++;
           await base44.entities.Tray.update(r.tray.id, {
-            remaining_grams: r.physicalWeight,
+            remaining_grams: Math.max(0, r.physicalWeight),
+            ...(isEmpty ? { status: 'agotada', closed_at: new Date().toISOString() } : {}),
           });
         }
       }
+      return { closed };
     },
-    onSuccess: () => {
+    onSuccess: (res) => {
       qc.invalidateQueries({ queryKey: ['trays'] });
-      toast.success('Auditoría registrada y bandejas actualizadas');
+      toast.success(
+        res?.closed > 0
+          ? `Auditoría registrada. ${res.closed} bandeja(s) marcada(s) como agotada(s).`
+          : 'Auditoría registrada y bandejas actualizadas'
+      );
     },
     onError: (err) => toast.error(err.message),
   });

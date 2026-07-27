@@ -28,6 +28,8 @@ export default function Production() {
   const [skipInventoryDeduction, setSkipInventoryDeduction] = useState(false);
   // Origen de Materia Prima: 'production' (Laboratorio) por defecto, o 'warehouse' (Almacén).
   const [sourceLocation, setSourceLocation] = useState('production');
+  // Destino de la producción: 'new' (bandeja nueva) o el id de una bandeja activa a completar
+  const [targetTrayId, setTargetTrayId] = useState('new');
   const [editTray, setEditTray] = useState(null); // tray being edited
   const [editForm, setEditForm] = useState({ recipe_id: '', recipe_name: '', remaining_grams: 0 });
   const [consumableDialog, setConsumableDialog] = useState(false);
@@ -50,6 +52,42 @@ export default function Production() {
   });
 
   const iceRecipes = recipes.filter(r => r.type === 'helado');
+
+  // Bandejas activas del mismo sabor que pueden completarse con el helado nuevo
+  const refillableTrays = trays.filter(
+    t => t.status === 'activa' && (t.recipe_id === recipeId || (!t.recipe_id && t.recipe_name === recipes.find(r => r.id === recipeId)?.name))
+  );
+
+  // Escribe la bandeja: crea una nueva o completa una existente (mismo sabor)
+  const commitTray = async (recipe, gramsToAdd) => {
+    const today = moment().format('YYYY-MM-DD');
+    const target = targetTrayId !== 'new' ? trays.find(t => t.id === targetTrayId) : null;
+
+    if (target) {
+      await base44.entities.Tray.update(target.id, {
+        remaining_grams: (target.remaining_grams || 0) + gramsToAdd,
+        initial_grams: (target.initial_grams || 0) + gramsToAdd,
+        status: 'activa',
+        production_date: today,
+        first_production_date: target.first_production_date || target.production_date || today,
+        refill_count: (target.refill_count || 0) + 1,
+        last_refill_date: today,
+      });
+      return { refilled: true, name: target.recipe_name };
+    }
+
+    await base44.entities.Tray.create({
+      recipe_id: recipe.id,
+      recipe_name: recipe.name,
+      remaining_grams: gramsToAdd,
+      initial_grams: gramsToAdd,
+      status: 'activa',
+      production_date: today,
+      first_production_date: today,
+      refill_count: 0,
+    });
+    return { refilled: false, name: recipe.name };
+  };
 
   // Resolve an ingredient to its current Supply: first by id, then fallback by name
   // (case-insensitive). This handles cases where a Supply was re-created (e.g. a
@@ -101,15 +139,8 @@ export default function Production() {
       // BYPASS MODE — Carga Inicial / Ajuste de Saldo:
       // Crea la bandeja directamente sin tocar la materia prima.
       if (skipInventoryDeduction) {
-        await base44.entities.Tray.create({
-          recipe_id: recipe.id,
-          recipe_name: recipe.name,
-          remaining_grams: grams,
-          initial_grams: grams,
-          status: 'activa',
-          production_date: moment().format('YYYY-MM-DD'),
-        });
-        return { skipped: true };
+        const res = await commitTray(recipe, grams);
+        return { skipped: true, ...res };
       }
 
       // 1:1 ratio: peso real procesado = peso final de la bandeja (sin overrun, sin conversión a volumen)
@@ -158,15 +189,8 @@ export default function Production() {
         );
       }
 
-      // Create tray — 1:1 con el peso real procesado
-      await base44.entities.Tray.create({
-        recipe_id: recipe.id,
-        recipe_name: recipe.name,
-        remaining_grams: grams,
-        initial_grams: grams,
-        status: 'activa',
-        production_date: moment().format('YYYY-MM-DD'),
-      });
+      // Bandeja nueva o completar existente — 1:1 con el peso real procesado
+      return await commitTray(recipe, grams);
     },
     onSuccess: (result) => {
       qc.invalidateQueries({ queryKey: ['trays'] });
@@ -174,11 +198,15 @@ export default function Production() {
       qc.invalidateQueries({ queryKey: ['recipes'] });
       setDialogOpen(false);
       setSkipInventoryDeduction(false);
-      if (result?.skipped) {
-        toast.success('Bandeja registrada como carga inicial (sin descuento de inventario).');
-      } else {
-        toast.success('Producción registrada. Insumos descontados.');
-      }
+      setTargetTrayId('new');
+      const base = result?.refilled
+        ? `Bandeja de ${result.name} completada con ${grams}g nuevos.`
+        : 'Bandeja nueva registrada.';
+      toast.success(
+        result?.skipped
+          ? `${base} Carga inicial: sin descuento de inventario.`
+          : `${base} Insumos descontados.`
+      );
     },
     onError: (err) => {
       toast.error(err.message, { duration: 8000 });
@@ -277,7 +305,14 @@ export default function Production() {
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-base">{t.recipe_name}</CardTitle>
                     <div className="flex items-center gap-1">
-                      <Badge className="bg-green-100 text-green-700">Activa</Badge>
+                      {pct <= 20 ? (
+                        <Badge className="bg-yellow-100 text-yellow-700">Parcial</Badge>
+                      ) : (
+                        <Badge className="bg-green-100 text-green-700">Activa</Badge>
+                      )}
+                      {(t.refill_count || 0) > 0 && (
+                        <Badge className="bg-blue-100 text-blue-700">Rellenada ×{t.refill_count}</Badge>
+                      )}
                       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditTray(t)}>
                         <Pencil className="h-3.5 w-3.5" />
                       </Button>
@@ -298,6 +333,11 @@ export default function Production() {
                       <span>Peso Neto: {t.initial_grams}g</span>
                       <span>{t.production_date && moment(t.production_date).format('DD/MM/YY')}</span>
                     </div>
+                    {(t.refill_count || 0) > 0 && t.first_production_date && (
+                      <p className="text-[11px] text-blue-700">
+                        Lote más antiguo: {moment(t.first_production_date).format('DD/MM/YY')}
+                      </p>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -425,11 +465,33 @@ export default function Production() {
 
             <div>
               <Label>Sabor (Receta)</Label>
-              <Select value={recipeId} onValueChange={setRecipeId}>
+              <Select value={recipeId} onValueChange={(v) => { setRecipeId(v); setTargetTrayId('new'); }}>
                 <SelectTrigger><SelectValue placeholder="Seleccionar sabor" /></SelectTrigger>
                 <SelectContent>{iceRecipes.map(r => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}</SelectContent>
               </Select>
             </div>
+
+            {recipeId && refillableTrays.length > 0 && (
+              <div>
+                <Label>Destino de la producción</Label>
+                <Select value={targetTrayId} onValueChange={setTargetTrayId}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="new">Bandeja nueva</SelectItem>
+                    {refillableTrays.map(t => (
+                      <SelectItem key={t.id} value={t.id}>
+                        Completar bandeja — quedan {(t.remaining_grams || 0).toFixed(0)}g (prod. {t.production_date ? moment(t.production_date).format('DD/MM') : '—'})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {targetTrayId !== 'new' && (
+                  <p className="text-xs text-amber-700 mt-1">
+                    Se sumarán {grams || 0}g al helado que ya tiene esa bandeja y quedará marcada como rellenada.
+                  </p>
+                )}
+              </div>
+            )}
 
             {!skipInventoryDeduction && (
               <StockLocationSelector value={sourceLocation} onChange={setSourceLocation} />

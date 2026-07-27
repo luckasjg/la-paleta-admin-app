@@ -20,7 +20,7 @@
     },
     "initial_grams": {
       "type": "number",
-      "description": "Gramos iniciales"
+      "description": "Gramos iniciales (acumulado si fue rellenada)"
     },
     "status": {
       "type": "string",
@@ -33,7 +33,27 @@
     "production_date": {
       "type": "string",
       "format": "date",
-      "description": "Fecha de producci\u00f3n"
+      "description": "Fecha de producci\u00f3n (se actualiza al rellenar)"
+    },
+    "first_production_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Fecha del primer lote de esta bandeja"
+    },
+    "refill_count": {
+      "type": "number",
+      "default": 0,
+      "description": "Veces que esta bandeja fue completada con helado nuevo"
+    },
+    "last_refill_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Fecha del \u00faltimo relleno"
+    },
+    "closed_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Momento en que la bandeja qued\u00f3 agotada"
     }
   },
   "required": [
