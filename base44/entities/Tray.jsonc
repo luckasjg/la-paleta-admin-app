@@ -30,6 +30,11 @@
       ],
       "description": "Estado de la bandeja"
     },
+    "in_vitrine": {
+      "type": "boolean",
+      "default": false,
+      "description": "Si la bandeja est\u00e1 actualmente en vitrina vendi\u00e9ndose"
+    },
     "production_date": {
       "type": "string",
       "format": "date",

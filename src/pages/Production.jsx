@@ -9,7 +9,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Plus, Factory, Pencil, Trash2, Package, AlertTriangle, CheckCircle2, Info } from 'lucide-react';
+import { Plus, Factory, Pencil, Trash2, Package, AlertTriangle, CheckCircle2, Info, Store } from 'lucide-react';
+import VitrineTrayCard from '@/components/production/VitrineTrayCard';
+import ReserveTrayCard from '@/components/production/ReserveTrayCard';
 import { Switch } from '@/components/ui/switch';
 import PageHeader from '@/components/shared/PageHeader';
 import { toast } from 'sonner';
@@ -273,8 +275,34 @@ export default function Production() {
     });
   };
 
+  const setVitrine = useMutation({
+    mutationFn: async ({ id, value }) => {
+      await base44.entities.Tray.update(id, { in_vitrine: value });
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['trays'] }),
+  });
+
+  const exhaustTray = useMutation({
+    mutationFn: async (tray) => {
+      await base44.entities.Tray.update(tray.id, {
+        status: 'agotada',
+        in_vitrine: false,
+        remaining_grams: 0,
+        closed_at: new Date().toISOString(),
+      });
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['trays'] });
+      toast.success('Bandeja marcada como agotada y retirada de vitrina');
+    },
+  });
+
   const activeTrays = trays.filter(t => t.status === 'activa');
   const exhaustedTrays = trays.filter(t => t.status === 'agotada');
+  const byOldest = (a, b) => String(a.production_date || '').localeCompare(String(b.production_date || ''));
+  const vitrineTrays = activeTrays.filter(t => t.in_vitrine).sort(byOldest);
+  const reserveTrays = activeTrays.filter(t => !t.in_vitrine).sort(byOldest);
+  const mutating = setVitrine.isPending || exhaustTray.isPending;
 
   return (
     <div className="space-y-6">
@@ -293,60 +321,54 @@ export default function Production() {
         }
       />
 
-      {/* Active trays */}
-      <div>
-        <h2 className="text-lg font-semibold mb-3">Bandejas Activas ({activeTrays.length})</h2>
+      {/* Vitrina — destacada */}
+      <div className="rounded-xl border-l-4 border-primary bg-primary/5 p-4">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-lg font-semibold flex items-center gap-2">
+            <Store className="h-5 w-5 text-primary" /> En Vitrina
+          </h2>
+          <Badge variant="secondary">{vitrineTrays.length} de {activeTrays.length} activas</Badge>
+        </div>
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {activeTrays.map(t => {
-            const pct = t.initial_grams ? (t.remaining_grams / t.initial_grams) * 100 : 0;
-            return (
-              <Card key={t.id} className="overflow-hidden">
-                <CardHeader className="pb-2">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-base">{t.recipe_name}</CardTitle>
-                    <div className="flex items-center gap-1">
-                      {pct <= 20 ? (
-                        <Badge className="bg-yellow-100 text-yellow-700">Parcial</Badge>
-                      ) : (
-                        <Badge className="bg-green-100 text-green-700">Activa</Badge>
-                      )}
-                      {(t.refill_count || 0) > 0 && (
-                        <Badge className="bg-blue-100 text-blue-700">Rellenada ×{t.refill_count}</Badge>
-                      )}
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditTray(t)}>
-                        <Pencil className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => deleteTray.mutate(t.id)}>
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Restante</span>
-                      <span className="font-mono font-semibold">{t.remaining_grams?.toFixed(0)}g / {t.initial_grams}g</span>
-                    </div>
-                    <Progress value={pct} className="h-2" />
-                    <div className="flex justify-between text-xs text-muted-foreground">
-                      <span>Peso Neto: {t.initial_grams}g</span>
-                      <span>{t.production_date && moment(t.production_date).format('DD/MM/YY')}</span>
-                    </div>
-                    {(t.refill_count || 0) > 0 && t.first_production_date && (
-                      <p className="text-[11px] text-blue-700">
-                        Lote más antiguo: {moment(t.first_production_date).format('DD/MM/YY')}
-                      </p>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-          {activeTrays.length === 0 && (
-            <Card className="col-span-full p-8 flex flex-col items-center text-center">
-              <Factory className="h-8 w-8 text-muted-foreground/50 mb-2" />
-              <p className="text-muted-foreground text-sm">No hay bandejas activas</p>
+          {vitrineTrays.map(t => (
+            <VitrineTrayCard
+              key={t.id}
+              tray={t}
+              busy={mutating}
+              onEdit={openEditTray}
+              onExhaust={(tray) => exhaustTray.mutate(tray)}
+              onDemote={(tray) => setVitrine.mutate({ id: tray.id, value: false })}
+            />
+          ))}
+          {vitrineTrays.length === 0 && (
+            <Card className="col-span-full p-8 flex flex-col items-center text-center bg-card">
+              <Store className="h-8 w-8 text-muted-foreground/50 mb-2" />
+              <p className="text-muted-foreground text-sm">No hay bandejas en vitrina. Sube una desde el depósito.</p>
+            </Card>
+          )}
+        </div>
+      </div>
+
+      {/* Depósito / Reserva */}
+      <div>
+        <h2 className="text-base font-semibold mb-3 text-muted-foreground flex items-center gap-2">
+          <Package className="h-4 w-4" /> Depósito ({reserveTrays.length})
+        </h2>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+          {reserveTrays.map(t => (
+            <ReserveTrayCard
+              key={t.id}
+              tray={t}
+              busy={mutating}
+              onEdit={openEditTray}
+              onDelete={(id) => deleteTray.mutate(id)}
+              onPromote={(tray) => setVitrine.mutate({ id: tray.id, value: true })}
+            />
+          ))}
+          {reserveTrays.length === 0 && (
+            <Card className="col-span-full p-6 flex flex-col items-center text-center">
+              <Factory className="h-7 w-7 text-muted-foreground/50 mb-2" />
+              <p className="text-muted-foreground text-sm">Sin bandejas en depósito</p>
             </Card>
           )}
         </div>

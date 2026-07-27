@@ -353,6 +353,7 @@ export default function POS() {
         await base44.entities.Tray.update(trayId, {
           remaining_grams: newRemaining,
           status: newRemaining <= 0 ? 'agotada' : 'activa',
+          ...(newRemaining <= 0 ? { in_vitrine: false, closed_at: new Date().toISOString() } : {}),
         });
       }
 
