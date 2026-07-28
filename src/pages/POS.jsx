@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ShoppingCart, Plus, Minus, Trash2, Gift, AlertTriangle, Coffee, GlassWater } from 'lucide-react';
+import { ShoppingCart, Plus, Minus, Trash2, Gift, AlertTriangle, Coffee, GlassWater, Printer } from 'lucide-react';
 import { toast } from 'sonner';
 import moment from 'moment';
 import { useExchangeRate, formatUSD, formatVES } from '@/lib/useExchangeRate';
@@ -20,6 +20,7 @@ import SearchableCombobox from '@/components/shared/SearchableCombobox';
 import { buildStockDelta, getStockAt, LOCATION_LABEL } from '@/lib/stockHelpers';
 import { applyCategoryOrder } from '@/lib/categoryOrder';
 import RegisterOpenGate from '@/components/pos/RegisterOpenGate';
+import OrderTicket from '@/components/pos/OrderTicket';
 import { getActiveSession, setActiveSession, clearActiveSession } from '@/lib/cashSession';
 
 export default function POS() {
@@ -659,6 +660,14 @@ export default function POS() {
           <Button className="w-full h-12 text-base" disabled={cart.length === 0} onClick={() => setPayDialog(true)}>
             Cobrar
           </Button>
+          <Button
+            variant="outline"
+            className="w-full h-10"
+            disabled={cart.length === 0}
+            onClick={() => window.print()}
+          >
+            <Printer className="h-4 w-4 mr-1" /> Imprimir Comanda
+          </Button>
         </div>
       </Card>
 
@@ -804,6 +813,9 @@ export default function POS() {
         isProcessing={completeSale.isPending}
         onConfirm={(data) => completeSale.mutate(data)}
       />
+
+      {/* Comanda oculta — sólo visible al imprimir */}
+      <OrderTicket cart={cart} staffName={activeSession.staff_name} shift={activeSession.shift} />
     </div>
   );
 }

@@ -99,8 +99,23 @@
 
   /* Show only the print report and its descendants */
   #print-report,
-  #print-report * {
+  #print-report *,
+  #order-ticket,
+  #order-ticket * {
     visibility: visible !important;
+  }
+
+  /* Comanda de cocina (impresora térmica 80mm) */
+  #order-ticket {
+    display: block !important;
+    position: absolute !important;
+    left: 0;
+    top: 0;
+    width: 100%;
+    background: white !important;
+    color: black !important;
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
   }
 
   #print-report {
