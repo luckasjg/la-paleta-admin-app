@@ -526,7 +526,7 @@ export default function POS() {
         <div className="flex-1 overflow-y-auto overflow-x-hidden">
           <div
             className="grid gap-2"
-            style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))' }}
+            style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))' }}
           >
             {filteredProducts.map(p => (
               <button
@@ -554,7 +554,7 @@ export default function POS() {
       </div>
 
       {/* Cart */}
-      <Card className="md:w-64 lg:w-80 xl:w-96 flex flex-col max-h-full">
+      <Card className="md:w-56 lg:w-72 xl:w-96 flex flex-col max-h-full shrink-0">
         <div className="p-4 border-b border-border flex items-center gap-2">
           <ShoppingCart className="h-5 w-5 text-primary" />
           <h2 className="font-semibold">Orden Actual</h2>
