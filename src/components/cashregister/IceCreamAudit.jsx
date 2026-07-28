@@ -44,6 +44,12 @@ export default function IceCreamAudit({ activeTrays = [], todaySales = [], shift
     return map;
   }, [todaySales]);
 
+  // Sólo se auditan las bandejas que están en vitrina (las que realmente se venden)
+  const vitrineTrays = useMemo(
+    () => activeTrays.filter(t => t.in_vitrine === true),
+    [activeTrays]
+  );
+
   // Physical weight inputs keyed by tray_id
   const [physicalWeights, setPhysicalWeights] = useState({});
 
@@ -57,7 +63,7 @@ export default function IceCreamAudit({ activeTrays = [], todaySales = [], shift
   // remaining_grams of the tray; we must NOT subtract gramsConsumed a second time.
   // gramsConsumed is kept only as an informational column ("Consumo Teórico del turno").
   const rows = useMemo(() => {
-    return activeTrays.map(tray => {
+    return vitrineTrays.map(tray => {
       const gramsConsumed = theoreticalMap[tray.id] || 0;
       const theoreticalStock = tray.remaining_grams || 0;
       const physicalRaw = physicalWeights[tray.id];
@@ -68,7 +74,7 @@ export default function IceCreamAudit({ activeTrays = [], todaySales = [], shift
       const financialImpact = variance !== null ? variance * costPerGram : null;
       return { tray, gramsConsumed, theoreticalStock, physicalWeight, variance, costPerGram, financialImpact };
     });
-  }, [activeTrays, theoreticalMap, physicalWeights, recipes, supplies]);
+  }, [vitrineTrays, theoreticalMap, physicalWeights, recipes, supplies]);
 
   const totalVariance = rows.reduce((s, r) => s + (r.variance || 0), 0);
   const totalFinancialImpact = rows.reduce((s, r) => s + (r.financialImpact || 0), 0);
@@ -121,7 +127,7 @@ export default function IceCreamAudit({ activeTrays = [], todaySales = [], shift
     onError: (err) => toast.error(err.message),
   });
 
-  if (activeTrays.length === 0) {
+  if (vitrineTrays.length === 0) {
     return (
       <Card>
         <CardHeader className="pb-3">
@@ -130,7 +136,7 @@ export default function IceCreamAudit({ activeTrays = [], todaySales = [], shift
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground text-center py-4">No hay bandejas activas para auditar.</p>
+          <p className="text-sm text-muted-foreground text-center py-4">No hay bandejas en vitrina para auditar.</p>
         </CardContent>
       </Card>
     );
