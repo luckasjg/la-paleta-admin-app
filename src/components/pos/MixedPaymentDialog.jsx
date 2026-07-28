@@ -67,7 +67,8 @@ export default function MixedPaymentDialog({ open, onOpenChange, totalUSD, excha
 
   const receivedUSD = computed.reduce((s, r) => s + r.amount_usd_equivalent, 0);
   const diff = receivedUSD - totalUSD;
-  const isComplete = receivedUSD >= totalUSD - 0.001 && totalUSD > 0;
+  // Permite confirmar ventas de total 0 (todo cortesía) sin exigir monto.
+  const isComplete = receivedUSD >= totalUSD - 0.001;
   const hasAnyAmount = computed.some(r => r.amt > 0);
 
   const addRow = () => {
