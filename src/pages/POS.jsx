@@ -16,6 +16,7 @@ import ExchangeRateInput from '@/components/pos/ExchangeRateInput';
 import MixedPaymentDialog from '@/components/pos/MixedPaymentDialog';
 import { depositSalePaymentsToWallets } from '@/lib/walletHelpers';
 import StockLocationSelector from '@/components/shared/StockLocationSelector';
+import SearchableCombobox from '@/components/shared/SearchableCombobox';
 import { buildStockDelta, getStockAt, LOCATION_LABEL } from '@/lib/stockHelpers';
 import { applyCategoryOrder } from '@/lib/categoryOrder';
 import RegisterOpenGate from '@/components/pos/RegisterOpenGate';
@@ -669,28 +670,22 @@ export default function POS() {
           <div className="space-y-3 py-2">
             {selectedFlavors.map((fl, idx) => (
               <div key={idx} className="flex items-center gap-2">
-                <div className="flex-1">
-                  <Select value={fl.tray_id} onValueChange={v => updateFlavorSlot(idx, 'tray_id', v)}>
-                    <SelectTrigger className="text-sm">
-                      <SelectValue placeholder={`Sabor ${idx + 1}`} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {trays.map(t => {
-                        const stock = t.remaining_grams || 0;
-                        const isLow = stock < 200;
-                        return (
-                          <SelectItem key={t.id} value={t.id}>
-                            <span className="flex items-center gap-2">
-                              {t.recipe_name}
-                              <span className={`font-mono text-xs ${isLow ? 'text-destructive font-semibold' : 'text-muted-foreground'}`}>
-                                {stock.toFixed(0)}g{isLow ? ' ⚠️' : ''}
-                              </span>
-                            </span>
-                          </SelectItem>
-                        );
-                      })}
-                    </SelectContent>
-                  </Select>
+                <div className="flex-1 min-w-0">
+                  <SearchableCombobox
+                    value={fl.tray_id}
+                    onChange={v => updateFlavorSlot(idx, 'tray_id', v)}
+                    options={trays.map(t => {
+                      const stock = t.remaining_grams || 0;
+                      return {
+                        value: t.id,
+                        label: t.recipe_name,
+                        sublabel: `${stock.toFixed(0)}g${stock < 200 ? ' ⚠️ bajo' : ''}`,
+                      };
+                    })}
+                    placeholder={`Sabor ${idx + 1}`}
+                    searchPlaceholder="Buscar sabor..."
+                    emptyText="Sin sabores"
+                  />
                 </div>
                 <div className="flex items-center gap-1 flex-shrink-0">
                   <input
