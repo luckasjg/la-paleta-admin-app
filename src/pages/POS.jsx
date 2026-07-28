@@ -484,7 +484,7 @@ export default function POS() {
   }
 
   return (
-    <div className="flex flex-col lg:flex-row gap-4 h-[calc(100vh-5rem)]">
+    <div className="flex flex-col md:flex-row gap-3 lg:gap-4 h-[calc(100vh-5rem)]">
       {/* Product Grid */}
       <div className="flex-1 flex flex-col min-h-0">
         <div className="flex items-start justify-between gap-3 mb-3 flex-wrap">
@@ -496,12 +496,12 @@ export default function POS() {
                   key={c}
                   type="button"
                   onClick={() => setSelectedCategory(c)}
-                  className={`px-5 py-3 rounded-xl text-sm font-bold capitalize border-2 transition-all active:scale-95 ${
+                  className={`px-3 py-2 lg:px-5 lg:py-3 rounded-xl text-xs lg:text-sm font-bold capitalize border-2 transition-all active:scale-95 ${
                     isActive
                       ? 'bg-[#1a365d] text-white border-[#1a365d] shadow-md'
                       : 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200 hover:border-slate-300'
                   }`}
-                  style={{ minWidth: '110px' }}
+                  style={{ minWidth: '88px' }}
                 >
                   {c}
                 </button>
@@ -522,7 +522,7 @@ export default function POS() {
         </div>
 
         <div className="flex-1 overflow-y-auto">
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 lg:gap-3">
             {filteredProducts.map(p => (
               <button
                 key={p.id}
@@ -549,7 +549,7 @@ export default function POS() {
       </div>
 
       {/* Cart */}
-      <Card className="lg:w-80 xl:w-96 flex flex-col max-h-full">
+      <Card className="md:w-64 lg:w-80 xl:w-96 flex flex-col max-h-full">
         <div className="p-4 border-b border-border flex items-center gap-2">
           <ShoppingCart className="h-5 w-5 text-primary" />
           <h2 className="font-semibold">Orden Actual</h2>
