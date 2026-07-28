@@ -488,8 +488,11 @@ export default function POS() {
     <div className="flex flex-col md:flex-row gap-3 lg:gap-4 h-[calc(100vh-5rem)]">
       {/* Product Grid */}
       <div className="flex-1 flex flex-col min-h-0">
-        <div className="flex items-start justify-between gap-3 mb-3 flex-wrap">
-          <div className="flex flex-wrap gap-2 flex-1 min-w-0">
+        <div className="mb-3 space-y-2">
+          <div className="flex justify-end">
+            <ExchangeRateInput rate={exchangeRate} setRate={setExchangeRate} requireConfirm={payDialog} />
+          </div>
+          <div className="flex flex-wrap gap-1.5 w-full">
             {categories.map(c => {
               const isActive = activeCat === c;
               return (
@@ -497,19 +500,17 @@ export default function POS() {
                   key={c}
                   type="button"
                   onClick={() => setSelectedCategory(c)}
-                  className={`px-3 py-2 lg:px-5 lg:py-3 rounded-xl text-xs lg:text-sm font-bold capitalize border-2 transition-all active:scale-95 ${
+                  className={`px-2.5 py-1.5 rounded-lg text-[11px] lg:text-sm font-bold capitalize border-2 transition-all active:scale-95 whitespace-nowrap ${
                     isActive
                       ? 'bg-[#1a365d] text-white border-[#1a365d] shadow-md'
                       : 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200 hover:border-slate-300'
                   }`}
-                  style={{ minWidth: '88px' }}
                 >
                   {c}
                 </button>
               );
             })}
           </div>
-          <ExchangeRateInput rate={exchangeRate} setRate={setExchangeRate} requireConfirm={payDialog} />
         </div>
 
         <div className="flex items-center justify-between gap-2 mb-3 px-1 py-1.5 rounded-md bg-primary/5 border border-primary/20 text-xs">
@@ -522,20 +523,23 @@ export default function POS() {
           </span>
         </div>
 
-        <div className="flex-1 overflow-y-auto">
-          <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 lg:gap-3">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden">
+          <div
+            className="grid gap-2"
+            style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))' }}
+          >
             {filteredProducts.map(p => (
               <button
                 key={p.id}
                 onClick={() => addToCart(p)}
-                className="bg-card border border-border rounded-xl p-4 text-left hover:shadow-lg hover:border-primary/30 transition-all active:scale-95"
+                className="bg-card border border-border rounded-xl p-2.5 text-left hover:shadow-lg hover:border-primary/30 transition-all active:scale-95 min-w-0"
               >
-                <p className="font-semibold text-sm">{p.name}</p>
-                {p.size_label && <p className="text-xs text-muted-foreground">{p.size_label}</p>}
-                <div className="mt-2 flex items-center justify-between">
-                  <span className="text-lg font-bold text-primary">{currency}{p.price?.toFixed(2)}</span>
+                <p className="font-semibold text-sm leading-tight break-words">{p.name}</p>
+                {p.size_label && <p className="text-[11px] text-muted-foreground truncate">{p.size_label}</p>}
+                <div className="mt-1.5 flex items-center justify-between gap-1 min-w-0">
+                  <span className="text-base font-bold text-primary truncate">{currency}{p.price?.toFixed(2)}</span>
                   {p.grams_per_serving > 0 && (
-                    <Badge variant="secondary" className="text-xs">{p.grams_per_serving}g</Badge>
+                    <Badge variant="secondary" className="text-[10px] px-1.5 shrink-0">{p.grams_per_serving}g</Badge>
                   )}
                 </div>
               </button>
