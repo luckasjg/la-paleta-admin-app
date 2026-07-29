@@ -290,6 +290,8 @@ export default function POS() {
   };
 
   const total = cart.reduce((sum, i) => sum + i.subtotal, 0);
+  // Orden totalmente gratuita (todos los ítems marcados como cortesía)
+  const isCourtesyOrder = cart.length > 0 && total === 0 && cart.every(i => i.is_courtesy);
 
   // ── Stock warnings: aggregate grams demanded per tray across the cart ──
   // and compare against current tray stock. Returns one entry per overdrawn tray.
@@ -418,9 +420,9 @@ export default function POS() {
       const digitalUSD = payments
         .filter(p => p.method !== 'efectivo_usd' && p.method !== 'efectivo_ves')
         .reduce((s, p) => s + (p.amount_usd_equivalent || 0), 0);
-      const legacyMethod = payments.length > 1
-        ? 'mixto'
-        : (payments[0]?.method || 'efectivo_usd');
+      const legacyMethod = payments.length === 0
+        ? 'cortesia'
+        : (payments.length > 1 ? 'mixto' : payments[0].method);
 
       // ── Vinculación obligatoria con la sesión de caja activa ─────────
       if (!activeSession?.id) {
@@ -657,8 +659,19 @@ export default function POS() {
               <div className="text-sm text-muted-foreground font-mono">{formatVES(totalVES)}</div>
             </div>
           </div>
-          <Button className="w-full h-12 text-base" disabled={cart.length === 0} onClick={() => setPayDialog(true)}>
-            Cobrar
+          <Button
+            className="w-full h-12 text-base"
+            disabled={cart.length === 0 || completeSale.isPending}
+            onClick={() => {
+              // Orden 100% cortesía: no se pide método de pago
+              if (isCourtesyOrder) {
+                completeSale.mutate({ payments: [], exchange_rate: exchangeRate });
+              } else {
+                setPayDialog(true);
+              }
+            }}
+          >
+            {isCourtesyOrder ? <><Gift className="h-4 w-4 mr-1" /> Confirmar Cortesía</> : 'Cobrar'}
           </Button>
           <Button
             variant="outline"

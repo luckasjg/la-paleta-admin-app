@@ -17,6 +17,15 @@ export default function PaymentMethodBadge({ sale }) {
   const payments = Array.isArray(sale?.payments) ? sale.payments.filter(p => p?.method) : [];
   const uniqueMethods = [...new Set(payments.map(p => p.method))];
 
+  // Cortesía: venta sin cobro monetario
+  if (sale?.payment_method === 'cortesia' || (payments.length === 0 && (sale?.total || 0) === 0)) {
+    return (
+      <Badge className="text-xs bg-amber-100 text-amber-800 border-amber-300 hover:bg-amber-100">
+        Cortesía
+      </Badge>
+    );
+  }
+
   let text;
   if (uniqueMethods.length > 1) {
     text = 'Mixto';
