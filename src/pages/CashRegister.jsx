@@ -89,8 +89,8 @@ export default function CashRegister() {
     return last.created_date ? moment(last.created_date) : null;
   }, [todayRegisters]);
 
-  // Todas las ventas del día (para visualización)
-  const todaySales = useMemo(
+  // Ventas del día calendario (base para el modo sin sesión abierta)
+  const calendarSales = useMemo(
     () => sales.filter(s => s.sale_date && moment(s.sale_date).format('YYYY-MM-DD') === today),
     [sales, today]
   );
@@ -124,12 +124,22 @@ export default function CashRegister() {
         s.status !== 'voided' && s.cash_register_id === openRegister.id
       );
     }
-    return todaySales.filter(s =>
+    return calendarSales.filter(s =>
       s.status !== 'voided' &&
       !s.cash_register_id &&
       (!lastCloseTime || moment(s.sale_date).isAfter(lastCloseTime))
     );
-  }, [sales, todaySales, lastCloseTime, openRegister?.id]);
+  }, [sales, calendarSales, lastCloseTime, openRegister?.id]);
+
+  // Lista visible en la pestaña "Hoy": si la caja sigue abierta mostramos TODAS
+  // las ventas de esa sesión (aunque el turno cruce la medianoche). Sólo cuando
+  // no hay sesión abierta caemos al día calendario.
+  const todaySales = useMemo(() => {
+    if (openRegister?.id) {
+      return sales.filter(s => s.cash_register_id === openRegister.id);
+    }
+    return calendarSales;
+  }, [sales, calendarSales, openRegister?.id]);
 
   const systemCash = openSales.reduce((sum, s) => sum + (s.cash_amount || 0), 0);
   const systemDigital = openSales.reduce((sum, s) => sum + (s.digital_amount || 0), 0);
