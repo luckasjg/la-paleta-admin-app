@@ -22,6 +22,7 @@ import IceCreamAudit from '@/components/cashregister/IceCreamAudit';
 import ClosingDetailDialog from '@/components/cashregister/ClosingDetailDialog';
 import VoidSaleButton from '@/components/cashregister/VoidSaleButton';
 import StaffChangeDialog from '@/components/cashregister/StaffChangeDialog';
+import PaymentMethodBadge from '@/components/cashregister/PaymentMethodBadge';
 import { Ban } from 'lucide-react';
 import { consolidateWallet as consolidateWalletFn } from '@/lib/consolidationHelpers';
 import { useExchangeRate } from '@/lib/useExchangeRate';
@@ -385,9 +386,7 @@ export default function CashRegister() {
                                 <Ban className="h-3 w-3 mr-1" /> Anulada
                               </Badge>
                             ) : (
-                              <Badge variant="secondary" className="text-xs">
-                                {s.payment_method === 'efectivo' ? 'Efectivo' : s.payment_method === 'pago_movil' ? 'P. Móvil' : s.payment_method === 'punto_venta' ? 'Tarjeta' : 'Mixto'}
-                              </Badge>
+                              <PaymentMethodBadge sale={s} />
                             )}
                           </TableCell>
                           <TableCell className={`text-right font-mono font-semibold ${isVoided ? 'line-through text-muted-foreground' : ''}`}>
