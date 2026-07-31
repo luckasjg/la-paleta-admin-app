@@ -20,9 +20,9 @@ const computeRecipeCostPerGram = (recipe, supplies) => {
   return totalCost / recipe.yield_amount;
 };
 
-export default function IceCreamAudit({ activeTrays = [], todaySales = [], shift = 'manana', recipes = [], supplies = [] }) {
+export default function IceCreamAudit({ activeTrays = [], todaySales = [], shift = 'manana', recipes = [], supplies = [], cashRegisterId = null, auditDate = null, sessionLabel = null }) {
   const qc = useQueryClient();
-  const today = moment().format('YYYY-MM-DD');
+  const today = auditDate || moment().format('YYYY-MM-DD');
 
   // Build theoretical consumption per tray from today's sales (excluding voided).
   // For multi-flavor sales we use item.flavors[] when available; otherwise fallback to tray_id/grams.
@@ -86,6 +86,7 @@ export default function IceCreamAudit({ activeTrays = [], todaySales = [], shift
       await base44.entities.IceCreamAudit.create({
         audit_date: today,
         shift,
+        cash_register_id: cashRegisterId || undefined,
         entries: rows.map(r => ({
           tray_id: r.tray.id,
           recipe_name: r.tray.recipe_name,
@@ -118,6 +119,7 @@ export default function IceCreamAudit({ activeTrays = [], todaySales = [], shift
     },
     onSuccess: (res) => {
       qc.invalidateQueries({ queryKey: ['trays'] });
+      qc.invalidateQueries({ queryKey: ['ice_cream_audits'] });
       toast.success(
         res?.closed > 0
           ? `Auditoría registrada. ${res.closed} bandeja(s) marcada(s) como agotada(s).`
@@ -148,6 +150,9 @@ export default function IceCreamAudit({ activeTrays = [], todaySales = [], shift
         <div className="flex items-center justify-between flex-wrap gap-3">
           <CardTitle className="text-sm font-semibold flex items-center gap-2">
             <ClipboardCheck className="h-4 w-4" /> Auditoría de Inventario de Helado
+            {sessionLabel && (
+              <span className="text-xs font-normal text-amber-700">· Sesión pendiente: {sessionLabel}</span>
+            )}
           </CardTitle>
           <div className="flex items-center gap-3">
             {allFilled && (

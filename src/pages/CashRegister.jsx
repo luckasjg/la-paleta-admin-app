@@ -27,6 +27,8 @@ import { Ban } from 'lucide-react';
 import { consolidateWallet as consolidateWalletFn } from '@/lib/consolidationHelpers';
 import { useExchangeRate } from '@/lib/useExchangeRate';
 import { getActiveSession, clearActiveSession } from '@/lib/cashSession';
+import { getPendingAuditRegisters } from '@/lib/pendingAudits';
+import PendingAuditsBanner from '@/components/cashregister/PendingAuditsBanner';
 
 export default function CashRegister() {
   const [closeDialog, setCloseDialog] = useState(false);
@@ -37,6 +39,7 @@ export default function CashRegister() {
   const [selectedSale, setSelectedSale] = useState(null);
   const [viewingRegister, setViewingRegister] = useState(null);
   const [printContext, setPrintContext] = useState(null);
+  const [auditingRegister, setAuditingRegister] = useState(null);
   const qc = useQueryClient();
   const { rate } = useExchangeRate();
 
@@ -63,6 +66,11 @@ export default function CashRegister() {
   const { data: recipes = [] } = useQuery({
     queryKey: ['recipes'],
     queryFn: () => base44.entities.Recipe.list(),
+  });
+
+  const { data: audits = [] } = useQuery({
+    queryKey: ['ice_cream_audits'],
+    queryFn: () => base44.entities.IceCreamAudit.list('-created_date', 200),
   });
 
   const { data: me } = useQuery({
@@ -140,6 +148,12 @@ export default function CashRegister() {
     }
     return calendarSales;
   }, [sales, calendarSales, openRegister?.id]);
+
+  // Sesiones cerradas sin auditoría de helados registrada
+  const pendingAudits = useMemo(
+    () => getPendingAuditRegisters(registers, audits),
+    [registers, audits]
+  );
 
   const systemCash = openSales.reduce((sum, s) => sum + (s.cash_amount || 0), 0);
   const systemDigital = openSales.reduce((sum, s) => sum + (s.digital_amount || 0), 0);
@@ -414,12 +428,22 @@ export default function CashRegister() {
             </CardContent>
           </Card>
 
+          <PendingAuditsBanner
+            pending={pendingAudits}
+            selectedId={auditingRegister?.id}
+            onSelect={setAuditingRegister}
+          />
+
           <IceCreamAudit
+            key={auditingRegister?.id || 'current'}
             activeTrays={activeTrays}
-            todaySales={todaySales}
-            shift={shift}
+            todaySales={auditingRegister ? getSalesForRegister(auditingRegister) : todaySales}
+            shift={auditingRegister?.shift || shift}
             recipes={recipes}
             supplies={supplies}
+            cashRegisterId={auditingRegister?.id || openRegister?.id || null}
+            auditDate={auditingRegister?.date || null}
+            sessionLabel={auditingRegister ? `${moment(auditingRegister.date).format('DD/MM')} · ${auditingRegister.staff_name || auditingRegister.operator || '—'}` : null}
           />
         </TabsContent>
 
