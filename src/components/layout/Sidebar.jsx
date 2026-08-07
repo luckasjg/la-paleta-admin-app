@@ -7,6 +7,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { usePermission } from '@/lib/usePermission';
+import LogoutButton from '@/components/layout/LogoutButton';
 
 // Cada item declara el módulo de permisos al que pertenece.
 const navItems = [
@@ -87,7 +88,8 @@ export default function Sidebar() {
           })}
         </nav>
 
-        <div className="p-4 border-t border-border">
+        <div className="p-4 border-t border-border space-y-3">
+          <LogoutButton />
           <p className="text-xs text-muted-foreground text-center">Gelato & Café v1.0</p>
         </div>
       </aside>
