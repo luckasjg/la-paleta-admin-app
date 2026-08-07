@@ -36,7 +36,9 @@ export function buildEmptyPermissionsMatrix() {
 export function hasPermission(user, moduleKey, action = "view") {
   if (!user) return false;
   if (user.role === "admin") return true;
-  const perms = user.permissions || {};
+  // Los permisos pueden venir en la raíz del usuario o anidados en `data`,
+  // según cómo la plataforma devuelva los campos personalizados.
+  const perms = user.permissions || user.data?.permissions || {};
   const modulePerms = perms[moduleKey] || {};
   return Boolean(modulePerms[action]);
 }

@@ -14,7 +14,7 @@ export default function UserPermissionsDialog({ user, open, onClose }) {
 
   useEffect(() => {
     if (user) {
-      setPermissions({ ...buildEmptyPermissionsMatrix(), ...(user.permissions || {}) });
+      setPermissions({ ...buildEmptyPermissionsMatrix(), ...(user.permissions || user.data?.permissions || {}) });
     }
   }, [user]);
 
