@@ -23,7 +23,6 @@ export default function CheckoutSheet({ items, total, channel, onChannelChange, 
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
   const [notes, setNotes] = useState('');
-  const [saveAccount, setSaveAccount] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState('');
 
@@ -39,18 +38,6 @@ export default function CheckoutSheet({ items, total, channel, onChannelChange, 
 
     setIsSending(true);
     try {
-      let finalCustomerId = null;
-
-      if (saveAccount) {
-        const res = await base44.functions.invoke('customerPortal', {
-          action: 'save',
-          full_name: name.trim(),
-          phone: digitsPhone,
-          address: address.trim(),
-        });
-        finalCustomerId = res?.data?.customer?.id || finalCustomerId;
-      }
-
       const orderNumber = buildOrderNumber();
       const message = buildWhatsAppMessage({
         orderNumber,
@@ -63,7 +50,6 @@ export default function CheckoutSheet({ items, total, channel, onChannelChange, 
 
       await base44.entities.Order.create({
         order_number: orderNumber,
-        customer_id: finalCustomerId || undefined,
         customer_name: name.trim(),
         customer_phone: digitsPhone,
         customer_address: address.trim(),
@@ -166,15 +152,6 @@ export default function CheckoutSheet({ items, total, channel, onChannelChange, 
             placeholder="Nota para la tienda (opcional)"
           />
 
-          <label className="flex items-center gap-3 text-sm text-amber-100 py-1">
-            <input
-              type="checkbox"
-              checked={saveAccount}
-              onChange={(e) => setSaveAccount(e.target.checked)}
-              className="h-5 w-5 accent-amber-500"
-            />
-            Guardar mis datos para próximos pedidos
-          </label>
         </div>
 
         {/* Resumen */}

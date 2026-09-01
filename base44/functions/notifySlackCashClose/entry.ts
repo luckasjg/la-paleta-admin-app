@@ -7,9 +7,18 @@ const fmtMoney = (n) => `$${(Number(n) || 0).toFixed(2)}`;
 const shiftLabel = (s) =>
   s === 'manana' ? 'Mañana' : s === 'tarde' ? 'Tarde' : s === 'noche' ? 'Noche' : (s || '—');
 
-Deno.serve(async (req) => {
+export default async function (req: Request): Promise<Response> {
   try {
     const base44 = createClientFromRequest(req);
+
+    // SEGURIDAD: la automatización de cierre de caja se ejecuta con el token del
+    // operador que cerró la caja. Exigimos identidad verificada para que nadie
+    // pueda invocar esta URL pública con un id de caja arbitrario.
+    const user = await base44.auth.me().catch(() => null);
+    if (!user) {
+      return Response.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const body = await req.json().catch(() => ({}));
 
     // El payload viene del entity automation: { event, data: <CashRegister> }
@@ -88,4 +97,4 @@ Deno.serve(async (req) => {
   } catch (error) {
     return Response.json({ error: error.message }, { status: 500 });
   }
-});
+}
