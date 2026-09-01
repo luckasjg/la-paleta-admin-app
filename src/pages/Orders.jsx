@@ -23,7 +23,10 @@ export default function Orders() {
 
   const updateStatus = useMutation({
     mutationFn: ({ id, status }) => base44.entities.Order.update(id, { status }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['orders'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      queryClient.invalidateQueries({ queryKey: ['pending_orders_count'] });
+    },
   });
 
   const filtered = orders.filter((o) =>

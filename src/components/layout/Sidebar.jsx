@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { usePermission } from '@/lib/usePermission';
 import LogoutButton from '@/components/layout/LogoutButton';
+import { usePendingOrdersCount } from '@/lib/usePendingOrdersCount';
 
 // Cada item declara el módulo de permisos al que pertenece.
 const navItems = [
@@ -34,6 +35,7 @@ export default function Sidebar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { can } = usePermission();
   const visibleItems = navItems.filter((item) => can(item.module, 'view'));
+  const pendingOrders = usePendingOrdersCount();
 
   return (
     <>
@@ -84,6 +86,11 @@ export default function Sidebar() {
                 
                 <item.icon className="h-4 w-4 flex-shrink-0" />
                 {item.label}
+                {item.module === 'pedidos' && pendingOrders > 0 &&
+                <span className="ml-auto min-w-5 h-5 px-1.5 rounded-full bg-red-100 text-red-700 text-[11px] font-bold flex items-center justify-center">
+                    {pendingOrders}
+                  </span>
+                }
               </Link>);
 
           })}
