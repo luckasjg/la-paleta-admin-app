@@ -20,7 +20,7 @@ export default function TVSabores() {
     ]);
     setTrays(
       (traysData || []).filter(
-        (t) => t.status === 'activa' && (t.remaining_grams || 0) > 0
+        (t) => t.status === 'activa' && (t.remaining_grams || 0) > 0 && t.in_vitrine === true
       )
     );
     setRecipes(recipesData || []);
