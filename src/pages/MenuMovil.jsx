@@ -5,6 +5,9 @@ import { Plus } from 'lucide-react';
 import { useMobileCart } from '@/lib/useMobileCart';
 import CartSheet from '@/components/menu/CartSheet';
 import CheckoutSheet from '@/components/menu/CheckoutSheet';
+import ChannelSelector from '@/components/menu/ChannelSelector';
+import FlavorPickerSheet from '@/components/menu/FlavorPickerSheet';
+import VesselPickerSheet from '@/components/menu/VesselPickerSheet';
 
 const POLL_MS = 30000;
 const FALLBACK_IMG =
@@ -16,7 +19,11 @@ const FALLBACK_IMG =
 export default function MenuMovil() {
   const [trays, setTrays] = useState([]);
   const [recipes, setRecipes] = useState([]);
-  const [products, setProducts] = useState([]);
+  const [allProducts, setAllProducts] = useState([]);
+  const [channel, setChannel] = useState('pickup');
+  const [channelNotice, setChannelNotice] = useState('');
+  const [flavorProduct, setFlavorProduct] = useState(null);
+  const [vesselProduct, setVesselProduct] = useState(null);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const cart = useMobileCart();
@@ -34,7 +41,7 @@ export default function MenuMovil() {
         )
       );
       setRecipes(recipesData || []);
-      setProducts(
+      setAllProducts(
         (productsData || []).filter((p) => p.is_active !== false && (p.price || 0) > 0)
       );
     } catch {
@@ -47,6 +54,26 @@ export default function MenuMovil() {
     const interval = setInterval(fetchData, POLL_MS);
     return () => clearInterval(interval);
   }, [fetchData]);
+
+  // Filtro por modalidad: en delivery solo los productos marcados como disponibles.
+  const products =
+    channel === 'delivery'
+      ? allProducts.filter((p) => p.disponible_para_delivery === true)
+      : allProducts;
+
+  const handleChannelChange = (next) => {
+    setChannel(next);
+    const allowed =
+      next === 'delivery'
+        ? allProducts.filter((p) => p.disponible_para_delivery === true)
+        : allProducts;
+    const removed = cart.removeUnavailable(allowed.map((p) => p.id));
+    setChannelNotice(
+      removed > 0
+        ? `Quitamos ${removed} producto${removed > 1 ? 's' : ''} de tu pedido que no está disponible en esta modalidad.`
+        : ''
+    );
+  };
 
   const uniqueFlavors = Array.from(
     new Map(trays.map((t) => [t.recipe_name, t])).values()
@@ -61,6 +88,23 @@ export default function MenuMovil() {
       tag: recipe?.flavor_tag,
     };
   });
+
+  const flavorTrays = Array.from(new Map(trays.map((t) => [t.recipe_name, t])).values()).sort(
+    (a, b) => (a.recipe_name || '').localeCompare(b.recipe_name || '', 'es', { sensitivity: 'base' })
+  );
+
+  const productNeedsFlavor = (p) => p.requires_flavor === true || p.category === 'helado';
+
+  const handleAddProduct = (p) => {
+    if (productNeedsFlavor(p)) {
+      setFlavorProduct(p);
+    } else if (p.vessel_optional) {
+      setVesselProduct(p);
+    } else {
+      cart.addProduct(p);
+      setIsCartOpen(true);
+    }
+  };
 
   const productsByCategory = products.reduce((acc, p) => {
     const cat = p.category || 'Otros';
@@ -85,6 +129,13 @@ export default function MenuMovil() {
           Helados artesanales
         </p>
       </header>
+
+      <ChannelSelector value={channel} onChange={handleChannelChange} />
+      {channelNotice && (
+        <p className="mx-4 mt-3 text-[11px] text-amber-100 bg-amber-500/10 border border-amber-500/30 rounded-lg px-3 py-2">
+          {channelNotice}
+        </p>
+      )}
 
       {/* Sabores */}
       <section className="px-4 py-6">
@@ -158,10 +209,7 @@ export default function MenuMovil() {
                       {formatUSD(p.price)}
                     </span>
                     <button
-                      onClick={() => {
-                        cart.addProduct(p);
-                        setIsCartOpen(true);
-                      }}
+                      onClick={() => handleAddProduct(p)}
                       aria-label={`Agregar ${p.name}`}
                       className="h-9 w-9 shrink-0 rounded-lg bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-200 active:bg-amber-500/40"
                     >
@@ -173,7 +221,11 @@ export default function MenuMovil() {
             </div>
           ))}
           {products.length === 0 && (
-            <p className="text-amber-200/40 text-center py-6">Sin productos publicados</p>
+            <p className="text-amber-200/40 text-center py-6">
+              {channel === 'delivery'
+                ? 'Aún no hay productos habilitados para delivery.'
+                : 'Sin productos publicados'}
+            </p>
           )}
         </div>
       </section>
@@ -184,6 +236,32 @@ export default function MenuMovil() {
         </p>
       </footer>
 
+      {flavorProduct && (
+        <FlavorPickerSheet
+          product={flavorProduct}
+          trays={flavorTrays}
+          recipes={recipes}
+          onCancel={() => setFlavorProduct(null)}
+          onConfirm={({ flavors, surcharge }) => {
+            cart.addProduct(flavorProduct, { flavors, surcharge });
+            setFlavorProduct(null);
+            setIsCartOpen(true);
+          }}
+        />
+      )}
+
+      {vesselProduct && (
+        <VesselPickerSheet
+          product={vesselProduct}
+          onCancel={() => setVesselProduct(null)}
+          onConfirm={(vessel) => {
+            cart.addProduct(vesselProduct, { vessel });
+            setVesselProduct(null);
+            setIsCartOpen(true);
+          }}
+        />
+      )}
+
       <CartSheet
         items={cart.items}
         total={cart.total}
@@ -191,16 +269,16 @@ export default function MenuMovil() {
         isOpen={isCartOpen}
         onToggle={() => setIsCartOpen((v) => !v)}
         onSetQuantity={cart.setQuantity}
-        onSetFlavor={cart.setFlavor}
         onRemove={cart.removeItem}
         onCheckout={() => setIsCheckoutOpen(true)}
-        flavorOptions={uniqueFlavors.map((f) => f.name)}
       />
 
       {isCheckoutOpen && (
         <CheckoutSheet
           items={cart.items}
           total={cart.total}
+          channel={channel}
+          onChannelChange={handleChannelChange}
           onClose={() => setIsCheckoutOpen(false)}
           onSent={() => {
             cart.clear();

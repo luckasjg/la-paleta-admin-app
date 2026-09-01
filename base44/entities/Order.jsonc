@@ -42,6 +42,36 @@
           "flavor": {
             "type": "string"
           },
+          "flavors": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "tray_id": {
+                  "type": "string"
+                },
+                "recipe_name": {
+                  "type": "string"
+                },
+                "grams": {
+                  "type": "number"
+                }
+              }
+            }
+          },
+          "base_price": {
+            "type": "number"
+          },
+          "flavor_surcharge": {
+            "type": "number"
+          },
+          "grams": {
+            "type": "number"
+          },
+          "vessel": {
+            "type": "string",
+            "description": "taza | vaso \u2014 recipiente elegido por el cliente"
+          },
           "notes": {
             "type": "string"
           }

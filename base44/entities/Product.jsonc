@@ -62,6 +62,11 @@
       "default": false,
       "description": "Si es true, el POS pregunta al cajero si se sirve en taza (sin descontar utensilios) o vaso (descuenta utensilios)."
     },
+    "disponible_para_delivery": {
+      "type": "boolean",
+      "default": false,
+      "description": "Si es true, el producto se muestra en el men\u00fa m\u00f3vil cuando el cliente elige delivery."
+    },
     "price": {
       "type": "number"
     },

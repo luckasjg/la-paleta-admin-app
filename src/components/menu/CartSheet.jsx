@@ -1,5 +1,5 @@
 import React from 'react';
-import { Minus, Plus, Trash2, ChevronDown, ShoppingBag } from 'lucide-react';
+import { Minus, Plus, Trash2, ChevronDown, ShoppingBag, Coffee, GlassWater } from 'lucide-react';
 import { formatUSD } from '@/lib/useExchangeRate';
 
 /**
@@ -13,10 +13,8 @@ export default function CartSheet({
   isOpen,
   onToggle,
   onSetQuantity,
-  onSetFlavor,
   onRemove,
   onCheckout,
-  flavorOptions,
 }) {
   if (count === 0) return null;
 
@@ -48,19 +46,26 @@ export default function CartSheet({
                   </p>
                 </div>
 
-                {it.requires_flavor && (
-                  <select
-                    value={it.flavor || ''}
-                    onChange={(e) => onSetFlavor(it.key, e.target.value)}
-                    className="mt-2 w-full bg-black/40 border border-amber-500/30 rounded-lg px-2 py-2 text-xs text-amber-50"
-                  >
-                    <option value="">Elegir sabor...</option>
-                    {flavorOptions.map((f) => (
-                      <option key={f} value={f}>
-                        {f}
-                      </option>
-                    ))}
-                  </select>
+                {Array.isArray(it.flavors) && it.flavors.length > 0 && (
+                  <p className="text-xs text-amber-300/70 mt-1 leading-snug">
+                    {it.flavors.map((f) => `${f.recipe_name} ${f.grams}g`).join(' + ')}
+                  </p>
+                )}
+
+                {it.flavor_surcharge > 0 && (
+                  <p className="text-[11px] text-amber-400 font-mono mt-0.5">
+                    Base {formatUSD(it.base_price)} + recargo {formatUSD(it.flavor_surcharge)}
+                  </p>
+                )}
+
+                {it.vessel && (
+                  <p className="text-[11px] text-amber-300/70 mt-0.5 flex items-center gap-1">
+                    {it.vessel === 'taza' ? (
+                      <><Coffee className="h-3 w-3" /> En taza</>
+                    ) : (
+                      <><GlassWater className="h-3 w-3" /> En vaso desechable</>
+                    )}
+                  </p>
                 )}
 
                 <div className="flex items-center gap-3 mt-2">

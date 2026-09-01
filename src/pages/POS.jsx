@@ -22,6 +22,11 @@ import { applyCategoryOrder } from '@/lib/categoryOrder';
 import RegisterOpenGate from '@/components/pos/RegisterOpenGate';
 import OrderTicket from '@/components/pos/OrderTicket';
 import { getActiveSession, setActiveSession, clearActiveSession } from '@/lib/cashSession';
+import {
+  splitGramsEqually,
+  traySurchargePerGram as traySurchargePerGramShared,
+  computeFlavorSurcharge as computeFlavorSurchargeShared,
+} from '@/lib/flavorSurcharge';
 
 export default function POS() {
   const [cart, setCart] = useState([]);
@@ -125,13 +130,6 @@ export default function POS() {
   const productNeedsFlavor = (p) => p.requires_flavor === true || p.category === 'helado';
   const productMaxFlavors = (p) => Math.max(1, p.max_flavors || p.flavor_count || 1);
 
-  // Split grams equally across N flavors (last slot absorbs rounding remainder so the sum is exact)
-  const splitGramsEqually = (totalGrams, n) => {
-    const base = Math.floor(totalGrams / n);
-    const arr = Array.from({ length: n }, () => base);
-    arr[n - 1] = totalGrams - base * (n - 1);
-    return arr;
-  };
 
   const pushSimpleProductToCart = (product, vessel = null) => {
     setCart(prev => {
@@ -206,23 +204,9 @@ export default function POS() {
     setSelectedFlavors(prev => prev.map((f, i) => i === idx ? { ...f, [field]: value } : f));
   };
 
-  // Devuelve el surcharge_per_gram de la receta vinculada a una bandeja
-  const traySurchargePerGram = (trayId) => {
-    const tray = trays.find(t => t.id === trayId);
-    if (!tray) return 0;
-    const recipe = recipes.find(r =>
-      (tray.recipe_id && r.id === tray.recipe_id) || r.name === tray.recipe_name
-    );
-    if (!recipe || (recipe.flavor_tag || 'Regular') === 'Regular') return 0;
-    return recipe.surcharge_per_gram || 0;
-  };
-
-  // Recargo total para la selección actual de sabores (suma gramos × $/g de cada sabor)
-  const computeFlavorSurcharge = (flavors) =>
-    flavors.reduce((sum, f) => {
-      if (!f.tray_id) return sum;
-      return sum + (parseFloat(f.grams) || 0) * traySurchargePerGram(f.tray_id);
-    }, 0);
+  // Lógica compartida con el menú móvil (@/lib/flavorSurcharge)
+  const traySurchargePerGram = (trayId) => traySurchargePerGramShared(trayId, trays, recipes);
+  const computeFlavorSurcharge = (flavors) => computeFlavorSurchargeShared(flavors, trays, recipes);
 
   const previewSurcharge = flavorDialog ? computeFlavorSurcharge(selectedFlavors) : 0;
 

@@ -31,8 +31,21 @@ export function buildWhatsAppMessage({ orderNumber, items, total, channel, custo
   lines.push(`*Modalidad:* ${CHANNEL_LABELS[channel] || channel}`, '', '*Pedido:*');
 
   items.forEach((it) => {
-    const flavor = it.flavor ? ` (${it.flavor})` : '';
-    lines.push(`• ${it.quantity} x ${it.product_name}${flavor} — ${formatUSD(it.subtotal)}`);
+    lines.push(`• ${it.quantity} x ${it.product_name} — ${formatUSD(it.subtotal)}`);
+    if (Array.isArray(it.flavors) && it.flavors.length > 0) {
+      const detail = it.flavors
+        .map((f) => `${f.recipe_name} ${f.grams}g`)
+        .join(' + ');
+      lines.push(`   Sabores: ${detail}`);
+    } else if (it.flavor) {
+      lines.push(`   Sabor: ${it.flavor}`);
+    }
+    if (it.flavor_surcharge > 0) {
+      lines.push(`   Recargo sabor premium: +${formatUSD(it.flavor_surcharge)}`);
+    }
+    if (it.vessel) {
+      lines.push(`   Servir en: ${it.vessel === 'taza' ? 'Taza (cerámica)' : 'Vaso desechable'}`);
+    }
   });
 
   lines.push('', `*TOTAL: ${formatUSD(total)}*`);

@@ -21,7 +21,7 @@ const DEFAULT_CATEGORIES = ['helado', 'cafe', 'merengada', 'adicional', 'otro'];
 const HIDDEN_CATS_KEY = 'pos_hidden_categories';
 const EXTRA_CATS_KEY = 'pos_extra_categories';
 
-const emptyProduct = { name: '', category: '', size_label: '', grams_per_serving: 0, recipe_id: '', linked_supplies: [], price: 0, is_active: true, requires_flavor: false, max_flavors: 1, vessel_optional: false };
+const emptyProduct = { name: '', category: '', size_label: '', grams_per_serving: 0, recipe_id: '', linked_supplies: [], price: 0, is_active: true, requires_flavor: false, max_flavors: 1, vessel_optional: false, disponible_para_delivery: false };
 
 export default function Products() {
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -167,6 +167,7 @@ export default function Products() {
       requires_flavor: p?.requires_flavor === true || p?.category === 'helado',
       max_flavors: p?.max_flavors ?? p?.flavor_count ?? 1,
       vessel_optional: p?.vessel_optional === true,
+      disponible_para_delivery: p?.disponible_para_delivery === true,
     });
     setDialogOpen(true);
   };
@@ -415,6 +416,20 @@ export default function Products() {
               </div>
               <p className="text-[11px] text-muted-foreground">
                 Si se elige <strong>Taza</strong> (cerámica), no se descontarán los insumos de tipo utensilio (ej. vaso desechable). Si se elige <strong>Vaso</strong>, se descuentan normalmente.
+              </p>
+            </div>
+
+            {/* Disponibilidad en el menú móvil cuando el cliente elige delivery */}
+            <div className="border border-border rounded-lg p-3 space-y-2 bg-secondary/30">
+              <div className="flex items-center gap-3">
+                <Switch
+                  checked={form.disponible_para_delivery}
+                  onCheckedChange={v => setForm({ ...form, disponible_para_delivery: v })}
+                />
+                <Label>Disponible para delivery</Label>
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                Si está apagado, el producto <strong>no aparece</strong> en el menú móvil cuando el cliente elige la modalidad Delivery.
               </p>
             </div>
 

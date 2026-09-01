@@ -16,10 +16,9 @@ const CHANNELS = ['local', 'pickup', 'delivery'];
  * Checkout del menú móvil: datos del cliente, modalidad de entrega y envío por WhatsApp.
  * Crea el registro de Order en estado "pendiente" y abre wa.me con el mensaje estructurado.
  */
-export default function CheckoutSheet({ items, total, onClose, onSent }) {
+export default function CheckoutSheet({ items, total, channel, onChannelChange, onClose, onSent }) {
   const { value: whatsappNumber } = useShopSetting('whatsapp_number');
 
-  const [channel, setChannel] = useState('pickup');
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
@@ -29,14 +28,13 @@ export default function CheckoutSheet({ items, total, onClose, onSent }) {
   const [error, setError] = useState('');
 
   const digitsPhone = phone.replace(/[^\d]/g, '');
-  const missingFlavor = items.some((it) => it.requires_flavor && !it.flavor);
 
   const handleSend = async () => {
     setError('');
     if (!name.trim()) return setError('Escribe tu nombre.');
     if (digitsPhone.length < 7) return setError('Escribe un teléfono válido.');
     if (channel === 'delivery' && !address.trim()) return setError('El delivery necesita dirección.');
-    if (missingFlavor) return setError('Elige el sabor de todos los productos de tu pedido.');
+    if (items.length === 0) return setError('Tu pedido está vacío.');
     if (!whatsappNumber) return setError('La tienda aún no configuró su WhatsApp. Intenta más tarde.');
 
     setIsSending(true);
@@ -76,6 +74,11 @@ export default function CheckoutSheet({ items, total, onClose, onSent }) {
           unit_price: it.unit_price,
           subtotal: it.subtotal,
           flavor: it.flavor || '',
+          flavors: it.flavors || [],
+          base_price: it.base_price,
+          flavor_surcharge: it.flavor_surcharge || 0,
+          grams: it.grams || 0,
+          vessel: it.vessel || '',
         })),
         total,
         channel,
@@ -113,7 +116,7 @@ export default function CheckoutSheet({ items, total, onClose, onSent }) {
           {CHANNELS.map((c) => (
             <button
               key={c}
-              onClick={() => setChannel(c)}
+              onClick={() => onChannelChange(c)}
               className={
                 channel === c
                   ? 'h-12 rounded-xl border-2 border-amber-400 bg-amber-500/20 text-amber-50 font-bold text-sm'
@@ -184,6 +187,11 @@ export default function CheckoutSheet({ items, total, onClose, onSent }) {
               <span>
                 {it.quantity} x {it.product_name}
                 {it.flavor && <span className="text-amber-300/60"> ({it.flavor})</span>}
+                {it.vessel && (
+                  <span className="text-amber-300/60">
+                    {' '}· {it.vessel === 'taza' ? 'taza' : 'vaso'}
+                  </span>
+                )}
               </span>
               <span className="font-mono">{formatUSD(it.subtotal)}</span>
             </div>
