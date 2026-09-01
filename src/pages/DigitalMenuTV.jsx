@@ -18,7 +18,7 @@ export default function DigitalMenuTV() {
     // Sabores disponibles: bandejas activas con gramos restantes > 0
     setTrays(
       (traysData || []).filter(
-        (t) => t.status === 'activa' && (t.remaining_grams || 0) > 0
+        (t) => t.status === 'activa' && (t.remaining_grams || 0) > 0 && t.in_vitrine === true
       )
     );
     // Presentaciones principales: productos activos con precio
@@ -40,6 +40,8 @@ export default function DigitalMenuTV() {
   // Deduplicar sabores por nombre (puede haber varias bandejas del mismo sabor)
   const uniqueFlavors = Array.from(
     new Map(trays.map((t) => [t.recipe_name, t])).values()
+  ).sort((a, b) =>
+    (a.recipe_name || '').localeCompare(b.recipe_name || '', 'es', { sensitivity: 'base' })
   );
 
   // Agrupar productos por categoría

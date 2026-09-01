@@ -35,6 +35,8 @@ export default function TVSabores() {
   // Dedupe por nombre de receta, conservando la bandeja más reciente
   const uniqueFlavors = Array.from(
     new Map(trays.map((t) => [t.recipe_name, t])).values()
+  ).sort((a, b) =>
+    (a.recipe_name || '').localeCompare(b.recipe_name || '', 'es', { sensitivity: 'base' })
   );
 
   // Enriquecer con datos de la receta (imagen y tag)

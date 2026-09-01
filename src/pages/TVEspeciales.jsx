@@ -21,7 +21,7 @@ export default function TVEspeciales() {
     ]);
     setTrays(
       (traysData || []).filter(
-        (t) => t.status === 'activa' && (t.remaining_grams || 0) > 0
+        (t) => t.status === 'activa' && (t.remaining_grams || 0) > 0 && t.in_vitrine === true
       )
     );
     setRecipes(recipesData || []);
@@ -46,6 +46,8 @@ export default function TVEspeciales() {
         .filter((t) => specialRecipeIds.has(t.recipe_id))
         .map((t) => [t.recipe_name, t])
     ).values()
+  ).sort((a, b) =>
+    (a.recipe_name || '').localeCompare(b.recipe_name || '', 'es', { sensitivity: 'base' })
   );
 
   const flavors = uniqueFlavors.map((t) => {

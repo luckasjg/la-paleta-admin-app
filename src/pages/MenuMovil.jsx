@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { base44 } from '@/api/base44Client';
 import { formatUSD } from '@/lib/useExchangeRate';
 
-const POLL_MS = 60000;
+const POLL_MS = 30000;
 const FALLBACK_IMG =
   'https://images.unsplash.com/photo-1501443762994-82bd5dace89a?w=400&q=70&auto=format&fit=crop';
 
@@ -22,7 +22,7 @@ export default function MenuMovil() {
     ]);
     setTrays(
       (traysData || []).filter(
-        (t) => t.status === 'activa' && (t.remaining_grams || 0) > 0
+        (t) => t.status === 'activa' && (t.remaining_grams || 0) > 0 && t.in_vitrine === true
       )
     );
     setRecipes(recipesData || []);
@@ -39,6 +39,8 @@ export default function MenuMovil() {
 
   const uniqueFlavors = Array.from(
     new Map(trays.map((t) => [t.recipe_name, t])).values()
+  ).sort((a, b) =>
+    (a.recipe_name || '').localeCompare(b.recipe_name || '', 'es', { sensitivity: 'base' })
   ).map((t) => {
     const recipe = recipes.find((r) => r.id === t.recipe_id);
     return {
