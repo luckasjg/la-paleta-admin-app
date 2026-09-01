@@ -1,11 +1,15 @@
 import { Toaster } from "@/components/ui/toaster"
 import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
-import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
-import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 
+import Login from '@/pages/Login.jsx';
+import Register from '@/pages/Register.jsx';
+import ForgotPassword from '@/pages/ForgotPassword.jsx';
+import ResetPassword from '@/pages/ResetPassword.jsx';
+import ProtectedRoute from '@/components/ProtectedRoute';
 import AppLayout from '@/components/layout/AppLayout';
 import RequireAdmin from '@/components/RequireAdmin';
 import RequirePermission from '@/components/RequirePermission';
@@ -31,7 +35,7 @@ import TVCafeMerengadas from '@/pages/TVCafeMerengadas.jsx';
 import MenuMovil from '@/pages/MenuMovil.jsx';
 
 const AuthenticatedApp = () => {
-  const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
+  const { isLoadingAuth, isLoadingPublicSettings } = useAuth();
 
   if (isLoadingPublicSettings || isLoadingAuth) {
     return (
@@ -44,15 +48,6 @@ const AuthenticatedApp = () => {
     );
   }
 
-  if (authError) {
-    if (authError.type === 'user_not_registered') {
-      return <UserNotRegisteredError />;
-    } else if (authError.type === 'auth_required') {
-      navigateToLogin();
-      return null;
-    }
-  }
-
   return (
     <Routes>
       {/* Vistas públicas — sin layout, sin sidebar, sin navbar */}
@@ -61,22 +56,31 @@ const AuthenticatedApp = () => {
       <Route path="/tv/especiales" element={<TVEspeciales />} />
       <Route path="/tv/cafe-merengadas" element={<TVCafeMerengadas />} />
       <Route path="/menu-movil" element={<MenuMovil />} />
-      <Route element={<AppLayout />}>
-        <Route path="/" element={<RequirePermission module="dashboard"><Dashboard /></RequirePermission>} />
-        <Route path="/pos" element={<RequirePermission module="pos"><POS /></RequirePermission>} />
-        <Route path="/inventario" element={<RequirePermission module="inventario"><Inventory /></RequirePermission>} />
-        <Route path="/recetas" element={<RequirePermission module="recetas"><Recipes /></RequirePermission>} />
-        <Route path="/preparados" element={<RequirePermission module="preparados"><Preparations /></RequirePermission>} />
-        <Route path="/produccion" element={<RequirePermission module="produccion"><Production /></RequirePermission>} />
-        <Route path="/productos" element={<RequirePermission module="productos"><Products /></RequirePermission>} />
-        <Route path="/caja" element={<RequirePermission module="caja"><CashRegister /></RequirePermission>} />
-        <Route path="/ajustes" element={<RequirePermission module="ajustes"><Adjustments /></RequirePermission>} />
-        <Route path="/transferencias" element={<RequirePermission module="transferencias"><Transfers /></RequirePermission>} />
-        <Route path="/auditorias" element={<RequirePermission module="auditorias"><AuditHistory /></RequirePermission>} />
-        <Route path="/rentabilidad" element={<RequirePermission module="rentabilidad"><ProfitabilityAnalysis /></RequirePermission>} />
-        <Route path="/gastos" element={<RequirePermission module="gastos"><ExpensesManager /></RequirePermission>} />
-        <Route path="/billeteras" element={<RequirePermission module="billeteras"><Wallets /></RequirePermission>} />
-        <Route path="/configuracion" element={<RequireAdmin><Settings /></RequireAdmin>} />
+
+      {/* Páginas de autenticación — públicas */}
+      <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Register />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
+
+      <Route element={<ProtectedRoute unauthenticatedElement={<Navigate to="/login" replace />} />}>
+        <Route element={<AppLayout />}>
+          <Route path="/" element={<RequirePermission module="dashboard"><Dashboard /></RequirePermission>} />
+          <Route path="/pos" element={<RequirePermission module="pos"><POS /></RequirePermission>} />
+          <Route path="/inventario" element={<RequirePermission module="inventario"><Inventory /></RequirePermission>} />
+          <Route path="/recetas" element={<RequirePermission module="recetas"><Recipes /></RequirePermission>} />
+          <Route path="/preparados" element={<RequirePermission module="preparados"><Preparations /></RequirePermission>} />
+          <Route path="/produccion" element={<RequirePermission module="produccion"><Production /></RequirePermission>} />
+          <Route path="/productos" element={<RequirePermission module="productos"><Products /></RequirePermission>} />
+          <Route path="/caja" element={<RequirePermission module="caja"><CashRegister /></RequirePermission>} />
+          <Route path="/ajustes" element={<RequirePermission module="ajustes"><Adjustments /></RequirePermission>} />
+          <Route path="/transferencias" element={<RequirePermission module="transferencias"><Transfers /></RequirePermission>} />
+          <Route path="/auditorias" element={<RequirePermission module="auditorias"><AuditHistory /></RequirePermission>} />
+          <Route path="/rentabilidad" element={<RequirePermission module="rentabilidad"><ProfitabilityAnalysis /></RequirePermission>} />
+          <Route path="/gastos" element={<RequirePermission module="gastos"><ExpensesManager /></RequirePermission>} />
+          <Route path="/billeteras" element={<RequirePermission module="billeteras"><Wallets /></RequirePermission>} />
+          <Route path="/configuracion" element={<RequireAdmin><Settings /></RequireAdmin>} />
+        </Route>
       </Route>
       <Route path="*" element={<PageNotFound />} />
     </Routes>
