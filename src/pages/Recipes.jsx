@@ -14,6 +14,7 @@ import { toast } from 'sonner';
 import RecipeDetailCard from '@/components/recipes/RecipeDetailCard';
 import { exportRecipesToCSV } from '@/lib/exportRecipesCSV';
 import SearchableCombobox from '@/components/shared/SearchableCombobox';
+import ImageUploadField from '@/components/shared/ImageUploadField';
 import { useRole } from '@/lib/useRole';
 
 const TYPES = [
@@ -272,27 +273,12 @@ export default function Recipes() {
           </DialogHeader>
           <div className="grid gap-4 py-2">
             <div><Label>Nombre</Label><Input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} /></div>
-            <div>
-              <Label>URL de la imagen (opcional)</Label>
-              <Input
-                value={form.image_url || ''}
-                onChange={e => setForm({ ...form, image_url: e.target.value })}
-                placeholder="https://..."
-              />
-              {form.image_url && (
-                <div className="mt-2 w-24 h-24 rounded-lg overflow-hidden border border-border bg-muted">
-                  <img
-                    src={form.image_url}
-                    alt="preview"
-                    className="w-full h-full object-cover"
-                    onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                  />
-                </div>
-              )}
-              <p className="text-[10px] text-muted-foreground mt-1">
-                Se mostrará en el menú digital de TV y el menú móvil.
-              </p>
-            </div>
+            <ImageUploadField
+              label="Imagen de la receta (opcional)"
+              value={form.image_url}
+              onChange={(url) => setForm({ ...form, image_url: url })}
+              hint="Se mostrará en el menú digital de TV y el menú móvil."
+            />
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label>Tipo</Label>
