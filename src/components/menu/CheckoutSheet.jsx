@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { base44 } from '@/api/base44Client';
-import { X, Loader2, Search } from 'lucide-react';
+import { X, Loader2 } from 'lucide-react';
 import { formatUSD } from '@/lib/useExchangeRate';
 import { useShopSetting } from '@/lib/useShopSetting';
 import {
@@ -25,40 +25,11 @@ export default function CheckoutSheet({ items, total, onClose, onSent }) {
   const [address, setAddress] = useState('');
   const [notes, setNotes] = useState('');
   const [saveAccount, setSaveAccount] = useState(false);
-  const [customerId, setCustomerId] = useState(null);
-  const [isLookingUp, setIsLookingUp] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState('');
 
   const digitsPhone = phone.replace(/[^\d]/g, '');
   const missingFlavor = items.some((it) => it.requires_flavor && !it.flavor);
-
-  const handleLookup = async () => {
-    setError('');
-    if (digitsPhone.length < 7) {
-      setError('Escribe tu teléfono para buscar tus datos.');
-      return;
-    }
-    setIsLookingUp(true);
-    try {
-      const res = await base44.functions.invoke('customerPortal', {
-        action: 'lookup',
-        phone: digitsPhone,
-      });
-      const customer = res?.data?.customer;
-      if (customer) {
-        setName(customer.full_name || '');
-        setAddress(customer.address || '');
-        setCustomerId(customer.id);
-        setSaveAccount(true);
-      } else {
-        setError('No encontramos ese teléfono. Completa tus datos y marca "Guardar mis datos".');
-      }
-    } catch {
-      setError('No pudimos buscar tus datos. Complétalos manualmente.');
-    }
-    setIsLookingUp(false);
-  };
 
   const handleSend = async () => {
     setError('');
@@ -70,7 +41,7 @@ export default function CheckoutSheet({ items, total, onClose, onSent }) {
 
     setIsSending(true);
     try {
-      let finalCustomerId = customerId;
+      let finalCustomerId = null;
 
       if (saveAccount) {
         const res = await base44.functions.invoke('customerPortal', {
@@ -159,30 +130,13 @@ export default function CheckoutSheet({ items, total, onClose, onSent }) {
           Tus datos
         </p>
         <div className="space-y-3 mb-5">
-          <div className="flex gap-2">
-            <input
-              className={inputClass}
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="Teléfono (ej. 04121234567)"
-              inputMode="numeric"
-            />
-            <button
-              onClick={handleLookup}
-              disabled={isLookingUp}
-              className="px-3 rounded-lg bg-amber-500/20 border border-amber-500/40 text-amber-200 flex items-center justify-center shrink-0"
-              title="Ya pedí antes"
-            >
-              {isLookingUp ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Search className="h-4 w-4" />
-              )}
-            </button>
-          </div>
-          <p className="text-[11px] text-amber-300/50 -mt-1">
-            ¿Ya pediste antes? Escribe tu teléfono y toca la lupa para cargar tus datos.
-          </p>
+          <input
+            className={inputClass}
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            placeholder="Teléfono (ej. 04121234567)"
+            inputMode="numeric"
+          />
 
           <input
             className={inputClass}
