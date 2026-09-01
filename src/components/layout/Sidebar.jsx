@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, ShoppingCart, Package, BookOpen, Factory,
-  DollarSign, Warehouse, SlidersHorizontal, Menu, X, IceCream, FlaskConical, ClipboardCheck, Percent, Wallet, Coins, ArrowLeftRight, Settings as SettingsIcon } from
+  DollarSign, Warehouse, SlidersHorizontal, Menu, X, IceCream, FlaskConical, ClipboardCheck, Percent, Wallet, Coins, ArrowLeftRight, ClipboardList, Settings as SettingsIcon } from
 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -18,6 +18,7 @@ const navItems = [
 { label: 'Preparados', icon: FlaskConical, path: '/preparados', module: 'preparados' },
 { label: 'Producción', icon: Factory, path: '/produccion', module: 'produccion' },
 { label: 'Productos', icon: Package, path: '/productos', module: 'productos' },
+{ label: 'Pedidos', icon: ClipboardList, path: '/pedidos', module: 'pedidos' },
 { label: 'Caja', icon: DollarSign, path: '/caja', module: 'caja' },
 { label: 'Transferencias', icon: ArrowLeftRight, path: '/transferencias', module: 'transferencias' },
 { label: 'Ajustes Inv.', icon: SlidersHorizontal, path: '/ajustes', module: 'ajustes' },

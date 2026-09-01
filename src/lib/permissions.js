@@ -10,6 +10,7 @@ export const PERMISSION_MODULES = [
   { key: "preparados",     label: "Preparados",        path: "/preparados" },
   { key: "produccion",     label: "Producción",        path: "/produccion" },
   { key: "productos",      label: "Productos",         path: "/productos" },
+  { key: "pedidos",        label: "Pedidos",           path: "/pedidos" },
   { key: "caja",           label: "Caja",              path: "/caja" },
   { key: "ajustes",        label: "Ajustes",           path: "/ajustes" },
   { key: "transferencias", label: "Transferencias",    path: "/transferencias" },

@@ -20,6 +20,7 @@ import Recipes from '@/pages/Recipes';
 import Preparations from '@/pages/Preparations.jsx';
 import Production from '@/pages/Production';
 import Products from '@/pages/Products';
+import Orders from '@/pages/Orders.jsx';
 import CashRegister from '@/pages/CashRegister';
 import Adjustments from '@/pages/Adjustments';
 import Transfers from '@/pages/Transfers.jsx';
@@ -72,6 +73,7 @@ const AuthenticatedApp = () => {
           <Route path="/preparados" element={<RequirePermission module="preparados"><Preparations /></RequirePermission>} />
           <Route path="/produccion" element={<RequirePermission module="produccion"><Production /></RequirePermission>} />
           <Route path="/productos" element={<RequirePermission module="productos"><Products /></RequirePermission>} />
+          <Route path="/pedidos" element={<RequirePermission module="pedidos"><Orders /></RequirePermission>} />
           <Route path="/caja" element={<RequirePermission module="caja"><CashRegister /></RequirePermission>} />
           <Route path="/ajustes" element={<RequirePermission module="ajustes"><Adjustments /></RequirePermission>} />
           <Route path="/transferencias" element={<RequirePermission module="transferencias"><Transfers /></RequirePermission>} />
