@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Plus, Factory, Pencil, Trash2, Package, AlertTriangle, CheckCircle2, Info, Store } from 'lucide-react';
+import { Plus, Factory, Pencil, Trash2, Package, AlertTriangle, CheckCircle2, Info, Store, Search, X } from 'lucide-react';
 import VitrineTrayCard from '@/components/production/VitrineTrayCard';
 import ReserveTrayCard from '@/components/production/ReserveTrayCard';
 import { Switch } from '@/components/ui/switch';
@@ -34,6 +34,7 @@ export default function Production() {
   const [targetTrayId, setTargetTrayId] = useState('new');
   const [editTray, setEditTray] = useState(null); // tray being edited
   const [editForm, setEditForm] = useState({ recipe_id: '', recipe_name: '', remaining_grams: 0 });
+  const [depositSearch, setDepositSearch] = useState('');
   const [consumableDialog, setConsumableDialog] = useState(false);
   const [selectedUtensil, setSelectedUtensil] = useState('');
   const qc = useQueryClient();
@@ -301,7 +302,10 @@ export default function Production() {
   const exhaustedTrays = trays.filter(t => t.status === 'agotada');
   const byOldest = (a, b) => String(a.production_date || '').localeCompare(String(b.production_date || ''));
   const vitrineTrays = activeTrays.filter(t => t.in_vitrine).sort(byOldest);
-  const reserveTrays = activeTrays.filter(t => !t.in_vitrine).sort(byOldest);
+  const allReserveTrays = activeTrays.filter(t => !t.in_vitrine);
+  const reserveTrays = allReserveTrays
+    .filter(t => (t.recipe_name || '').toLowerCase().includes(depositSearch.trim().toLowerCase()))
+    .sort((a, b) => (a.recipe_name || '').localeCompare(b.recipe_name || '', 'es', { sensitivity: 'base' }));
   const mutating = setVitrine.isPending || exhaustTray.isPending;
 
   return (
@@ -351,9 +355,31 @@ export default function Production() {
 
       {/* Depósito / Reserva */}
       <div>
-        <h2 className="text-base font-semibold mb-3 text-muted-foreground flex items-center gap-2">
-          <Package className="h-4 w-4" /> Depósito ({reserveTrays.length})
-        </h2>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
+          <h2 className="text-base font-semibold text-muted-foreground flex items-center gap-2">
+            <Package className="h-4 w-4" /> Depósito ({reserveTrays.length}
+            {depositSearch.trim() ? ` de ${allReserveTrays.length}` : ''})
+          </h2>
+          <div className="relative w-full sm:w-72">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+            <Input
+              value={depositSearch}
+              onChange={e => setDepositSearch(e.target.value)}
+              placeholder="Buscar sabor..."
+              className="pl-9 pr-9"
+            />
+            {depositSearch && (
+              <button
+                type="button"
+                onClick={() => setDepositSearch('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                title="Limpiar"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+        </div>
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-3">
           {reserveTrays.map(t => (
             <ReserveTrayCard
@@ -368,7 +394,11 @@ export default function Production() {
           {reserveTrays.length === 0 && (
             <Card className="col-span-full p-6 flex flex-col items-center text-center">
               <Factory className="h-7 w-7 text-muted-foreground/50 mb-2" />
-              <p className="text-muted-foreground text-sm">Sin bandejas en depósito</p>
+              <p className="text-muted-foreground text-sm">
+                {depositSearch.trim()
+                  ? `Ningún sabor coincide con "${depositSearch}"`
+                  : 'Sin bandejas en depósito'}
+              </p>
             </Card>
           )}
         </div>
