@@ -15,20 +15,24 @@ export default function MenuMovil() {
   const [products, setProducts] = useState([]);
 
   const fetchData = useCallback(async () => {
-    const [traysData, recipesData, productsData] = await Promise.all([
-      base44.entities.Tray.list('-production_date', 200),
-      base44.entities.Recipe.list(),
-      base44.entities.Product.list('sort_order', 200),
-    ]);
-    setTrays(
-      (traysData || []).filter(
-        (t) => t.status === 'activa' && (t.remaining_grams || 0) > 0 && t.in_vitrine === true
-      )
-    );
-    setRecipes(recipesData || []);
-    setProducts(
-      (productsData || []).filter((p) => p.is_active !== false && (p.price || 0) > 0)
-    );
+    try {
+      const [traysData, recipesData, productsData] = await Promise.all([
+        base44.entities.Tray.list('-production_date', 200),
+        base44.entities.Recipe.list(),
+        base44.entities.Product.list('sort_order', 200),
+      ]);
+      setTrays(
+        (traysData || []).filter(
+          (t) => t.status === 'activa' && (t.remaining_grams || 0) > 0 && t.in_vitrine === true
+        )
+      );
+      setRecipes(recipesData || []);
+      setProducts(
+        (productsData || []).filter((p) => p.is_active !== false && (p.price || 0) > 0)
+      );
+    } catch {
+      // Fallo de red puntual: se mantiene lo último cargado y se reintenta en el próximo ciclo.
+    }
   }, []);
 
   useEffect(() => {

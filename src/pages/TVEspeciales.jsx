@@ -15,16 +15,20 @@ export default function TVEspeciales() {
   const [recipes, setRecipes] = useState([]);
 
   const fetchData = useCallback(async () => {
-    const [traysData, recipesData] = await Promise.all([
-      base44.entities.Tray.list('-production_date', 200),
-      base44.entities.Recipe.list(),
-    ]);
-    setTrays(
-      (traysData || []).filter(
-        (t) => t.status === 'activa' && (t.remaining_grams || 0) > 0 && t.in_vitrine === true
-      )
-    );
-    setRecipes(recipesData || []);
+    try {
+      const [traysData, recipesData] = await Promise.all([
+        base44.entities.Tray.list('-production_date', 200),
+        base44.entities.Recipe.list(),
+      ]);
+      setTrays(
+        (traysData || []).filter(
+          (t) => t.status === 'activa' && (t.remaining_grams || 0) > 0 && t.in_vitrine === true
+        )
+      );
+      setRecipes(recipesData || []);
+    } catch {
+      // Fallo de red puntual: se mantiene lo último cargado y se reintenta en el próximo ciclo.
+    }
   }, []);
 
   useEffect(() => {

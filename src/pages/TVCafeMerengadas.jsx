@@ -13,10 +13,14 @@ export default function TVCafeMerengadas() {
   const [products, setProducts] = useState([]);
 
   const fetchData = useCallback(async () => {
-    const data = await base44.entities.Product.list('sort_order', 200);
-    setProducts(
-      (data || []).filter((p) => p.is_active !== false && (p.price || 0) > 0)
-    );
+    try {
+      const data = await base44.entities.Product.list('sort_order', 200);
+      setProducts(
+        (data || []).filter((p) => p.is_active !== false && (p.price || 0) > 0)
+      );
+    } catch {
+      // Fallo de red puntual: se mantiene lo último cargado y se reintenta en el próximo ciclo.
+    }
   }, []);
 
   useEffect(() => {
