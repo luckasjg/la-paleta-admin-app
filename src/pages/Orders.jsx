@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
+import { setPendingOrder } from '@/lib/posHandoff';
 import PageHeader from '@/components/shared/PageHeader';
 import { Button } from '@/components/ui/button';
 import { ORDER_STATUSES } from '@/lib/orderStatus';
@@ -11,6 +13,7 @@ const ACTIVE = ['pendiente', 'confirmado', 'en_preparacion', 'listo'];
 export default function Orders() {
   const [filter, setFilter] = useState('activos');
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
   const { data: orders = [], isLoading } = useQuery({
     queryKey: ['orders'],
@@ -67,6 +70,7 @@ export default function Orders() {
               isUpdating={updateStatus.isPending}
               onAdvance={(order, status) => updateStatus.mutate({ id: order.id, status })}
               onCancel={(order) => updateStatus.mutate({ id: order.id, status: 'cancelado' })}
+              onCharge={(order) => { setPendingOrder(order); navigate('/pos'); }}
             />
           ))}
         </div>

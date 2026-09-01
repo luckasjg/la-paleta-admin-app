@@ -2,12 +2,12 @@ import React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Phone, MapPin, Clock, Check, X } from 'lucide-react';
+import { Phone, MapPin, Clock, Check, X, CreditCard } from 'lucide-react';
 import { formatUSD } from '@/lib/useExchangeRate';
 import { statusMeta, NEXT_STATUS, CHANNEL_LABELS } from '@/lib/orderStatus';
 import OrderItemsList from '@/components/orders/OrderItemsList';
 
-export default function OrderCard({ order, onAdvance, onCancel, isUpdating }) {
+export default function OrderCard({ order, onAdvance, onCancel, onCharge, isUpdating }) {
   const meta = statusMeta(order.status);
   const next = NEXT_STATUS[order.status];
   const isClosed = order.status === 'despachado' || order.status === 'cancelado';
@@ -23,6 +23,9 @@ export default function OrderCard({ order, onAdvance, onCancel, isUpdating }) {
           <div className="flex items-center gap-2">
             <Badge variant="outline">{CHANNEL_LABELS[order.channel] || order.channel}</Badge>
             <span className={`text-xs font-semibold px-2 py-1 rounded ${meta.className}`}>{meta.label}</span>
+            {order.linked_sale_id && (
+              <span className="text-xs font-semibold px-2 py-1 rounded bg-green-100 text-green-700">Cobrado</span>
+            )}
           </div>
         </div>
 
@@ -50,6 +53,11 @@ export default function OrderCard({ order, onAdvance, onCancel, isUpdating }) {
               <Button variant="outline" size="sm" disabled={isUpdating} onClick={() => onCancel(order)}>
                 <X className="h-4 w-4" /> Cancelar
               </Button>
+              {!order.linked_sale_id && (
+                <Button variant="secondary" size="sm" onClick={() => onCharge(order)}>
+                  <CreditCard className="h-4 w-4" /> Cobrar en POS
+                </Button>
+              )}
               {next && (
                 <Button size="sm" disabled={isUpdating} onClick={() => onAdvance(order, next)}>
                   <Check className="h-4 w-4" /> {statusMeta(next).label}

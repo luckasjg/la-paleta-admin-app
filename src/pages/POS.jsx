@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Card } from '@/components/ui/card';
@@ -22,6 +22,7 @@ import { applyCategoryOrder } from '@/lib/categoryOrder';
 import RegisterOpenGate from '@/components/pos/RegisterOpenGate';
 import OrderTicket from '@/components/pos/OrderTicket';
 import { getActiveSession, setActiveSession, clearActiveSession } from '@/lib/cashSession';
+import { getPendingOrder, clearPendingOrder, buildCartFromOrder } from '@/lib/posHandoff';
 import {
   splitGramsEqually,
   traySurchargePerGram as traySurchargePerGramShared,
@@ -102,6 +103,18 @@ export default function POS() {
     queryKey: ['wallets'],
     queryFn: () => base44.entities.Wallet.list(),
   });
+
+  // ── Pedido del menú móvil enviado al POS para cobrar ─────────────────────
+  const [linkedOrder, setLinkedOrder] = useState(null);
+  useEffect(() => {
+    if (products.length === 0) return;
+    const pending = getPendingOrder();
+    if (!pending) return;
+    clearPendingOrder();
+    setCart(buildCartFromOrder(pending, products));
+    setLinkedOrder(pending);
+    toast.success(`Pedido ${pending.order_number || ''} cargado en el carrito`);
+  }, [products]);
 
   const activeProducts = products.filter(p => p.is_active !== false);
 
@@ -428,6 +441,14 @@ export default function POS() {
         staff_name: activeSession.staff_name,
       });
 
+      // Vincular el pedido del menú móvil con esta venta (si aplica)
+      if (linkedOrder?.id) {
+        await base44.entities.Order.update(linkedOrder.id, {
+          linked_sale_id: sale?.id,
+          payment_method_agreed: legacyMethod,
+        });
+      }
+
       // Depositar pagos en las billeteras vinculadas (no bloquea si falla)
       try {
         await depositSalePaymentsToWallets({
@@ -446,6 +467,8 @@ export default function POS() {
       qc.invalidateQueries({ queryKey: ['sales'] });
       qc.invalidateQueries({ queryKey: ['wallets'] });
       qc.invalidateQueries({ queryKey: ['wallet_transactions'] });
+      qc.invalidateQueries({ queryKey: ['orders'] });
+      setLinkedOrder(null);
       setCart([]);
       setPayDialog(false);
       toast.success('¡Venta registrada!');
@@ -547,6 +570,12 @@ export default function POS() {
           <h2 className="font-semibold">Orden Actual</h2>
           <Badge variant="secondary" className="ml-auto">{cart.length}</Badge>
         </div>
+
+        {linkedOrder && (
+          <div className="px-4 py-2 bg-blue-100 text-blue-700 text-xs border-b border-border">
+            Cobrando pedido <strong>{linkedOrder.order_number}</strong> · {linkedOrder.customer_name}
+          </div>
+        )}
 
         <div className="flex-1 overflow-y-auto p-3 space-y-2 min-h-0">
           {cart.map((item, idx) => (
