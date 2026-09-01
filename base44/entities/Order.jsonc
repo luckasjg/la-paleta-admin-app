@@ -1,0 +1,133 @@
+{
+  "name": "Order",
+  "type": "object",
+  "properties": {
+    "order_number": {
+      "type": "string",
+      "description": "C\u00f3digo legible del pedido, ej. P-260901-4821"
+    },
+    "customer_id": {
+      "type": "string",
+      "description": "Cliente registrado (opcional en pedido express)"
+    },
+    "customer_name": {
+      "type": "string"
+    },
+    "customer_phone": {
+      "type": "string"
+    },
+    "customer_address": {
+      "type": "string"
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "product_id": {
+            "type": "string"
+          },
+          "product_name": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "number"
+          },
+          "unit_price": {
+            "type": "number"
+          },
+          "subtotal": {
+            "type": "number"
+          },
+          "flavor": {
+            "type": "string"
+          },
+          "notes": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "total": {
+      "type": "number"
+    },
+    "channel": {
+      "type": "string",
+      "enum": [
+        "local",
+        "pickup",
+        "delivery"
+      ],
+      "default": "pickup",
+      "description": "Canal de despacho elegido por el cliente"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pendiente",
+        "confirmado",
+        "en_preparacion",
+        "listo",
+        "despachado",
+        "cancelado"
+      ],
+      "default": "pendiente"
+    },
+    "payment_method_agreed": {
+      "type": "string",
+      "description": "M\u00e9todo de pago acordado con el cliente por WhatsApp"
+    },
+    "linked_sale_id": {
+      "type": "string",
+      "description": "Venta del POS con la que se cobr\u00f3 este pedido"
+    },
+    "whatsapp_message": {
+      "type": "string",
+      "description": "Mensaje enviado por el cliente, tal como se gener\u00f3"
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "customer_name",
+    "customer_phone",
+    "total"
+  ],
+  "rls": {
+    "create": {},
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "user"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "user"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

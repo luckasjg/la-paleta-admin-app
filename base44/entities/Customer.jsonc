@@ -1,0 +1,51 @@
+{
+  "name": "Customer",
+  "type": "object",
+  "properties": {
+    "full_name": {
+      "type": "string",
+      "description": "Nombre del cliente"
+    },
+    "phone": {
+      "type": "string",
+      "description": "Tel\u00e9fono de contacto (identificador para volver a entrar)"
+    },
+    "address": {
+      "type": "string",
+      "description": "Direcci\u00f3n para delivery"
+    },
+    "email": {
+      "type": "string"
+    },
+    "is_registered": {
+      "type": "boolean",
+      "default": true,
+      "description": "true = cre\u00f3 cuenta; false = pedido express puntual"
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "full_name",
+    "phone"
+  ],
+  "rls": {
+    "create": {},
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

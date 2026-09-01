@@ -1,6 +1,10 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { base44 } from '@/api/base44Client';
 import { formatUSD } from '@/lib/useExchangeRate';
+import { Plus } from 'lucide-react';
+import { useMobileCart } from '@/lib/useMobileCart';
+import CartSheet from '@/components/menu/CartSheet';
+import CheckoutSheet from '@/components/menu/CheckoutSheet';
 
 const POLL_MS = 30000;
 const FALLBACK_IMG =
@@ -13,6 +17,9 @@ export default function MenuMovil() {
   const [trays, setTrays] = useState([]);
   const [recipes, setRecipes] = useState([]);
   const [products, setProducts] = useState([]);
+  const [isCartOpen, setIsCartOpen] = useState(false);
+  const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+  const cart = useMobileCart();
 
   const fetchData = useCallback(async () => {
     try {
@@ -63,7 +70,7 @@ export default function MenuMovil() {
   }, {});
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#1a0e0a] via-[#2a1410] to-[#0f0806] text-white">
+    <div className="min-h-screen bg-gradient-to-b from-[#1a0e0a] via-[#2a1410] to-[#0f0806] text-white pb-24">
       {/* Header */}
       <header className="px-5 py-6 border-b border-amber-500/20 bg-black/30 text-center">
         <img
@@ -137,9 +144,9 @@ export default function MenuMovil() {
                 {items.map((p) => (
                   <div
                     key={p.id}
-                    className="flex items-baseline justify-between gap-2 border-b border-dashed border-amber-500/10 pb-1.5"
+                    className="flex items-center justify-between gap-2 border-b border-dashed border-amber-500/10 pb-2"
                   >
-                    <span className="text-sm text-amber-50">
+                    <span className="text-sm text-amber-50 flex-1">
                       {p.name}
                       {p.size_label && (
                         <span className="text-amber-300/60 text-xs ml-1">
@@ -150,6 +157,16 @@ export default function MenuMovil() {
                     <span className="text-sm font-black font-mono text-amber-200 whitespace-nowrap">
                       {formatUSD(p.price)}
                     </span>
+                    <button
+                      onClick={() => {
+                        cart.addProduct(p);
+                        setIsCartOpen(true);
+                      }}
+                      aria-label={`Agregar ${p.name}`}
+                      className="h-9 w-9 shrink-0 rounded-lg bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-200 active:bg-amber-500/40"
+                    >
+                      <Plus className="h-4 w-4" />
+                    </button>
                   </div>
                 ))}
               </div>
@@ -166,6 +183,32 @@ export default function MenuMovil() {
           Síguenos en instagram · @lapaletacafe
         </p>
       </footer>
+
+      <CartSheet
+        items={cart.items}
+        total={cart.total}
+        count={cart.count}
+        isOpen={isCartOpen}
+        onToggle={() => setIsCartOpen((v) => !v)}
+        onSetQuantity={cart.setQuantity}
+        onSetFlavor={cart.setFlavor}
+        onRemove={cart.removeItem}
+        onCheckout={() => setIsCheckoutOpen(true)}
+        flavorOptions={uniqueFlavors.map((f) => f.name)}
+      />
+
+      {isCheckoutOpen && (
+        <CheckoutSheet
+          items={cart.items}
+          total={cart.total}
+          onClose={() => setIsCheckoutOpen(false)}
+          onSent={() => {
+            cart.clear();
+            setIsCheckoutOpen(false);
+            setIsCartOpen(false);
+          }}
+        />
+      )}
     </div>
   );
 }
