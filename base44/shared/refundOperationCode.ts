@@ -23,14 +23,13 @@ export async function nextOperationCode(base44) {
 }
 
 // Extrae el código de operación y el n° de referencia de un mensaje de Slack.
-// Ej: "cod op: 0001 ref: 123456" → { code: '0001', reference: '123456' }
+// Formato simplificado: el mensaje debe empezar con "0001 123456789"
+// (código de operación, espacio, n° de referencia).
 export function parseConfirmationMessage(text) {
-  const t = (text || '').toLowerCase();
-  const codeMatch = t.match(/c[oó]d[a-zó]*\.?\s*op[a-zó]*\.?\s*[:#-]?\s*(\d{1,8})/);
-  const refMatch = t.match(/ref[a-zó]*\.?\s*[:#-]?\s*(\d{3,24})/);
-  if (!codeMatch || !refMatch) return null;
+  const m = (text || '').trim().match(/^(\d{1,8})\s+(\d{3,24})/);
+  if (!m) return null;
   return {
-    code: formatOperationCode(parseInt(codeMatch[1], 10)),
-    reference: refMatch[1],
+    code: formatOperationCode(parseInt(m[1], 10)),
+    reference: m[2],
   };
 }

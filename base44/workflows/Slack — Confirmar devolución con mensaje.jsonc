@@ -1,8 +1,8 @@
 {
   "name": "Slack \u2014 Confirmar devoluci\u00f3n con mensaje",
-  "description": "Cuando el operador escribe en #caja un mensaje con el c\u00f3digo de operaci\u00f3n y el n\u00b0 de referencia (ej. 'cod op: 0001 ref: 123456'), la app marca esa devoluci\u00f3n como pagada.",
+  "description": "Cuando el operador escribe en #caja un mensaje que empieza con el c\u00f3digo de operaci\u00f3n y el n\u00b0 de referencia (ej. '0001 123456789'), la app marca esa devoluci\u00f3n como pagada.",
   "trigger": {
-    "condition": "${ .trigger.data.event.channel == \"C0B6G2TQEJJ\" and ((.trigger.data.event.text // \"\") | ascii_downcase | (test(\"op\") and test(\"ref\"))) }",
+    "condition": "${ .trigger.data.event.channel == \"C0B6G2TQEJJ\" and ((.trigger.data.event.text // \"\") | test(\"^ *[0-9]+ +[0-9]{3,}\")) }",
     "config": {
       "trigger_type": "connector",
       "integration_type": "slack",

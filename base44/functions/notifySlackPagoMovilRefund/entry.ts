@@ -42,7 +42,7 @@ export default async function (req: Request): Promise<Response> {
       `*Sale de:* ${refund.wallet_name || '—'}\n` +
       `*Motivo:* ${refund.reference || '—'}\n` +
       `*Cajero:* ${refund.staff_name || user.full_name || '—'}\n` +
-      `_Al enviar el dinero, escribe en este canal: *cod op: ${operationCode} ref: <n° de referencia>*_`;
+      `_Al enviar el dinero, escribe en este canal: *${operationCode} <n° de referencia>*  (ej. ${operationCode} 123456789)_`;
 
     const token = await getSharedSlackToken(base44);
     if (!token) return Response.json({ skipped: true, reason: 'no slack token' });
