@@ -29,6 +29,7 @@ import { useExchangeRate } from '@/lib/useExchangeRate';
 import { getActiveSession, clearActiveSession } from '@/lib/cashSession';
 import { getPendingAuditRegisters } from '@/lib/pendingAudits';
 import PendingAuditsBanner from '@/components/cashregister/PendingAuditsBanner';
+import RefundsSessionCard from '@/components/cashregister/RefundsSessionCard';
 
 export default function CashRegister() {
   const [closeDialog, setCloseDialog] = useState(false);
@@ -71,6 +72,12 @@ export default function CashRegister() {
   const { data: audits = [] } = useQuery({
     queryKey: ['ice_cream_audits'],
     queryFn: () => base44.entities.IceCreamAudit.list('-created_date', 200),
+  });
+
+  // Devoluciones por pago móvil/transferencia — se concilian en el reporte de caja.
+  const { data: refunds = [] } = useQuery({
+    queryKey: ['refund_requests'],
+    queryFn: () => base44.entities.RefundRequest.list('-created_date', 500),
   });
 
   const { data: me } = useQuery({
@@ -190,6 +197,9 @@ export default function CashRegister() {
     });
   };
 
+  const getRefundsForRegister = (register) =>
+    register?.id ? refunds.filter(r => r.cash_register_id === register.id) : [];
+
   const closeMut = useMutation({
     mutationFn: async () => {
       // Re-verificamos en el backend si hay alguna sesión abierta justo antes
@@ -305,6 +315,7 @@ export default function CashRegister() {
       operator: openRegister?.staff_name || openRegister?.operator || '—',
       sales: openSales,
       register: openRegister || null,
+      refunds: getRefundsForRegister(openRegister),
     });
     setTimeout(() => window.print(), 50);
   };
@@ -317,6 +328,7 @@ export default function CashRegister() {
       operator: register.staff_name || register.operator || '—',
       sales: regSales,
       register,
+      refunds: getRefundsForRegister(register),
     });
     setTimeout(() => window.print(), 50);
   };
@@ -428,6 +440,8 @@ export default function CashRegister() {
             </CardContent>
           </Card>
 
+          <RefundsSessionCard refunds={getRefundsForRegister(openRegister)} />
+
           <PendingAuditsBanner
             pending={pendingAudits}
             selectedId={auditingRegister?.id}
@@ -537,6 +551,7 @@ export default function CashRegister() {
           sales={printContext.sales}
           supplies={supplies}
           register={printContext.register}
+          refunds={printContext.refunds || []}
         />
       )}
 
