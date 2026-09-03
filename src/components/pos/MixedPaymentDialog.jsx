@@ -9,6 +9,9 @@ import { formatUSD, formatVES } from '@/lib/useExchangeRate';
 import { usePaymentMethods } from '@/lib/usePaymentMethods';
 import { useCurrencySymbol } from '@/lib/useCurrencySymbol';
 import ChangePanel from '@/components/pos/ChangePanel';
+import { isRefundDataComplete } from '@/components/pos/RefundCustomerFields';
+
+const EMPTY_CHANGE = { currency: 'VES', walletId: '', method: 'efectivo', customerData: { tipo_cuenta: 'pago_movil' }, reference: '' };
 
 const makeRow = (methods, method, amount = '') => {
   const fallback = methods[0] || { value: 'efectivo_usd', defaultCurrency: 'USD' };
@@ -48,14 +51,14 @@ export default function MixedPaymentDialog({ open, onOpenChange, totalUSD, excha
   ]);
 
   // Vuelto: moneda elegida por el cajero y billetera de donde sale el dinero.
-  const [change, setChange] = useState({ currency: 'VES', walletId: '' });
+  const [change, setChange] = useState(EMPTY_CHANGE);
 
   // On open: snapshot the current rate and reset rows pre-filled with full total
   useEffect(() => {
     if (open) {
       setLockedRate(exchangeRate);
       setRows([makeRow(PAYMENT_METHODS, defaultMethodValue, prefillAmount(totalUSD, 'USD', exchangeRate))]);
-      setChange({ currency: 'VES', walletId: '' });
+      setChange(EMPTY_CHANGE);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
@@ -110,7 +113,9 @@ export default function MixedPaymentDialog({ open, onOpenChange, totalUSD, excha
   }));
 
   const hasChange = diff > 0.005;
-  const changeReady = !hasChange || !!change.walletId;
+  const isDigitalRefund = change.method === 'pago_movil' || change.method === 'transferencia';
+  const changeReady = !hasChange
+    || (!!change.walletId && (!isDigitalRefund || isRefundDataComplete(change.customerData, change.reference)));
 
   const handleConfirm = () => {
     const payments = computed
@@ -132,6 +137,11 @@ export default function MixedPaymentDialog({ open, onOpenChange, totalUSD, excha
       amount_usd_equivalent: +diff.toFixed(2),
       wallet_id: change.walletId,
       wallet_name: wallets.find(w => w.id === change.walletId)?.name || '',
+      method: change.method,
+      ...(isDigitalRefund ? {
+        customer_data: change.customerData,
+        reference: change.reference,
+      } : {}),
     } : null;
     onConfirm({ payments, exchange_rate: lockedRate, change: changePayload });
   };
@@ -235,6 +245,9 @@ export default function MixedPaymentDialog({ open, onOpenChange, totalUSD, excha
             wallets={wallets}
             currency={change.currency}
             walletId={change.walletId}
+            method={change.method}
+            customerData={change.customerData}
+            reference={change.reference}
             onChange={patch => setChange(c => ({ ...c, ...patch }))}
           />
         )}

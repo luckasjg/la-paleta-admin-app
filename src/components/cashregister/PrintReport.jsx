@@ -11,7 +11,11 @@ const PAYMENT_LABELS = {
   mixto: 'Mixto',
 };
 
-export default function PrintReport({ date, shift, operator, sales: rawSales = [], supplies = [], register = null }) {
+const refundMoney = (r) => (r.currency === 'VES'
+  ? `Bs. ${(r.amount_native || 0).toFixed(2)}`
+  : `$${(r.amount_native || 0).toFixed(2)}`);
+
+export default function PrintReport({ date, shift, operator, sales: rawSales = [], supplies = [], register = null, refunds = [] }) {
   // Excluir ventas anuladas de todos los totales del reporte impreso
   const sales = rawSales.filter(s => s.status !== 'voided');
   const total = sales.reduce((s, v) => s + (v.total || 0), 0);
@@ -128,6 +132,43 @@ export default function PrintReport({ date, shift, operator, sales: rawSales = [
               <span>{name}:</span><span>{qty}</span>
             </div>
           ))}
+        </>
+      )}
+
+      {refunds.length > 0 && (
+        <>
+          <hr style={{ borderTop: '1px dashed black', margin: '8px 0' }} />
+          <h2 style={{ fontSize: 13, fontWeight: 'bold', margin: '8px 0' }}>
+            DEVOLUCIONES (PAGO MÓVIL / TRANSFERENCIA)
+          </h2>
+          {refunds.map((r, i) => (
+            <div key={r.id || i} className="sale-row" style={{ marginBottom: 6 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold' }}>
+                <span>
+                  {moment(r.created_date).format('HH:mm')} — {r.method === 'transferencia' ? 'Transferencia' : 'Pago Móvil'}
+                  {' '}[{r.status === 'pagada' ? 'PAGADA' : 'PENDIENTE'}]
+                </span>
+                <span>{refundMoney(r)}</span>
+              </div>
+              <div style={{ marginLeft: 10, fontSize: 11 }}>
+                <div>Cliente: {r.customer_data?.titular || '—'} · CI {r.customer_data?.cedula || '—'}</div>
+                <div>{r.customer_data?.banco || '—'} · {r.customer_data?.numero_cuenta || '—'} · {r.customer_data?.telefono || '—'}</div>
+                <div>Sale de: {r.wallet_name || '—'} · ≈ ${(r.amount_usd_equivalent || 0).toFixed(2)}</div>
+                {r.reference && <div>Motivo: {r.reference}</div>}
+                {r.status === 'pagada' && (
+                  <div>
+                    Confirmada por {r.confirmed_by_name || '—'}
+                    {r.confirmed_at ? ` el ${moment(r.confirmed_at).format('DD/MM HH:mm')}` : ''}
+                    {r.confirmation_reference ? ` · Op. ${r.confirmation_reference}` : ''}
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold' }}>
+            <span>Total devoluciones:</span>
+            <span>${refunds.reduce((s, r) => s + (r.amount_usd_equivalent || 0), 0).toFixed(2)}</span>
+          </div>
         </>
       )}
 

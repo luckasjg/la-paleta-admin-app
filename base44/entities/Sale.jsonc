@@ -95,6 +95,47 @@
     "change_wallet_name": {
       "type": "string"
     },
+    "change_method": {
+      "type": "string",
+      "enum": [
+        "efectivo",
+        "pago_movil",
+        "transferencia"
+      ],
+      "default": "efectivo",
+      "description": "V\u00eda por la que se entreg\u00f3/devolver\u00e1 el vuelto"
+    },
+    "change_customer_data": {
+      "type": "object",
+      "description": "Datos bancarios del cliente cuando el vuelto se devuelve por pago m\u00f3vil/transferencia",
+      "properties": {
+        "titular": {
+          "type": "string"
+        },
+        "cedula": {
+          "type": "string"
+        },
+        "banco": {
+          "type": "string"
+        },
+        "tipo_cuenta": {
+          "type": "string"
+        },
+        "numero_cuenta": {
+          "type": "string"
+        },
+        "telefono": {
+          "type": "string"
+        }
+      }
+    },
+    "change_reference": {
+      "type": "string",
+      "description": "Motivo / referencia de la devoluci\u00f3n"
+    },
+    "change_refund_request_id": {
+      "type": "string"
+    },
     "sale_date": {
       "type": "string",
       "format": "date-time"

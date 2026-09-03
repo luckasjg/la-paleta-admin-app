@@ -1,0 +1,121 @@
+{
+  "name": "RefundRequest",
+  "type": "object",
+  "properties": {
+    "sale_id": {
+      "type": "string"
+    },
+    "method": {
+      "type": "string",
+      "enum": [
+        "pago_movil",
+        "transferencia"
+      ],
+      "default": "pago_movil",
+      "description": "V\u00eda por la que se devolver\u00e1 el dinero"
+    },
+    "amount_native": {
+      "type": "number",
+      "description": "Monto a devolver en la moneda de currency"
+    },
+    "currency": {
+      "type": "string",
+      "enum": [
+        "USD",
+        "VES"
+      ],
+      "default": "VES"
+    },
+    "amount_usd_equivalent": {
+      "type": "number"
+    },
+    "exchange_rate": {
+      "type": "number"
+    },
+    "customer_data": {
+      "type": "object",
+      "properties": {
+        "titular": {
+          "type": "string"
+        },
+        "cedula": {
+          "type": "string"
+        },
+        "banco": {
+          "type": "string"
+        },
+        "tipo_cuenta": {
+          "type": "string",
+          "enum": [
+            "ahorro",
+            "corriente",
+            "pago_movil"
+          ]
+        },
+        "numero_cuenta": {
+          "type": "string"
+        },
+        "telefono": {
+          "type": "string"
+        }
+      }
+    },
+    "reference": {
+      "type": "string",
+      "description": "Motivo o referencia de la devoluci\u00f3n"
+    },
+    "wallet_id": {
+      "type": "string"
+    },
+    "wallet_name": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pendiente",
+        "pagada"
+      ],
+      "default": "pendiente"
+    },
+    "confirmed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "confirmed_by_id": {
+      "type": "string"
+    },
+    "confirmed_by_name": {
+      "type": "string"
+    },
+    "confirmation_reference": {
+      "type": "string",
+      "description": "N\u00b0 de operaci\u00f3n del pago m\u00f3vil realizado"
+    },
+    "cash_register_id": {
+      "type": "string"
+    },
+    "staff_name": {
+      "type": "string",
+      "description": "Cajero que origin\u00f3 la devoluci\u00f3n"
+    },
+    "slack_notified": {
+      "type": "boolean",
+      "default": false
+    }
+  },
+  "required": [
+    "amount_native",
+    "currency"
+  ],
+  "rls": {
+    "create": {},
+    "read": {},
+    "update": {},
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

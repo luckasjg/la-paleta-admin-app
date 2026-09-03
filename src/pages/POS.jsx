@@ -20,6 +20,8 @@ import SearchableCombobox from '@/components/shared/SearchableCombobox';
 import { buildStockDelta, getStockAt, LOCATION_LABEL } from '@/lib/stockHelpers';
 import { applyCategoryOrder } from '@/lib/categoryOrder';
 import RegisterOpenGate from '@/components/pos/RegisterOpenGate';
+import PosTabs from '@/components/pos/PosTabs';
+import RefundQueue from '@/components/pos/RefundQueue';
 import OrderTicket from '@/components/pos/OrderTicket';
 import { getActiveSession, setActiveSession, clearActiveSession } from '@/lib/cashSession';
 import { getPendingOrder, clearPendingOrder, buildCartFromOrder } from '@/lib/posHandoff';
@@ -35,6 +37,8 @@ export default function POS() {
   const [flavorDialog, setFlavorDialog] = useState(null);
   const [selectedFlavors, setSelectedFlavors] = useState([]);
   const [payDialog, setPayDialog] = useState(false);
+  // Pestañas del POS: cobro de ventas y cola de devoluciones por pago móvil.
+  const [posTab, setPosTab] = useState('vender');
   // Diálogo para elegir Taza (cerámica) vs Vaso (desechable) — sólo en productos con vessel_optional
   const [vesselDialog, setVesselDialog] = useState(null);
   // Origen de Materia Prima para esta venta (aplica a toda la orden).
@@ -103,6 +107,13 @@ export default function POS() {
     queryKey: ['wallets'],
     queryFn: () => base44.entities.Wallet.list(),
   });
+
+  // Devoluciones por pago móvil aún no enviadas — alimenta el badge de la pestaña.
+  const { data: pendingRefunds = [] } = useQuery({
+    queryKey: ['refund_requests', 'pendiente'],
+    queryFn: () => base44.entities.RefundRequest.filter({ status: 'pendiente' }, 'created_date'),
+  });
+  const pendingRefundsCount = pendingRefunds.length;
 
   // ── Pedido del menú móvil enviado al POS para cobrar ─────────────────────
   const [linkedOrder, setLinkedOrder] = useState(null);
@@ -426,6 +437,27 @@ export default function POS() {
         throw new Error('No hay sesión de caja abierta. Abre la caja antes de vender.');
       }
 
+      // ── Devolución por pago móvil / transferencia ────────────────────
+      // Se crea la solicitud ANTES de la venta para poder enlazarla en el mismo
+      // create (los cajeros no tienen permiso de editar ventas ya creadas).
+      let refund = null;
+      if (change && (change.method === 'pago_movil' || change.method === 'transferencia')) {
+        refund = await base44.entities.RefundRequest.create({
+          method: change.method,
+          amount_native: change.amount,
+          currency: change.currency,
+          amount_usd_equivalent: change.amount_usd_equivalent,
+          exchange_rate,
+          customer_data: change.customer_data || {},
+          reference: change.reference || '',
+          wallet_id: change.wallet_id,
+          wallet_name: change.wallet_name,
+          status: 'pendiente',
+          cash_register_id: activeSession.id,
+          staff_name: activeSession.staff_name,
+        });
+      }
+
       const sale = await base44.entities.Sale.create({
         items: cart,
         total,
@@ -445,8 +477,23 @@ export default function POS() {
           change_amount_usd_equivalent: change.amount_usd_equivalent,
           change_wallet_id: change.wallet_id,
           change_wallet_name: change.wallet_name,
+          change_method: change.method || 'efectivo',
+          ...(change.customer_data ? { change_customer_data: change.customer_data } : {}),
+          ...(change.reference ? { change_reference: change.reference } : {}),
+          ...(refund ? { change_refund_request_id: refund.id } : {}),
         } : {}),
       });
+
+      // Enlazar la devolución con la venta y notificar a Slack #caja para que
+      // el encargado ejecute el envío; la cola se gestiona en POS → Devoluciones.
+      if (refund) {
+        await base44.entities.RefundRequest.update(refund.id, { sale_id: sale?.id });
+        try {
+          await base44.functions.invoke('notifySlackPagoMovilRefund', { refund_request_id: refund?.id });
+        } catch (e) {
+          console.error('Error notificando devolución a Slack:', e);
+        }
+      }
 
       // Vincular el pedido del menú móvil con esta venta (si aplica)
       if (linkedOrder?.id) {
@@ -479,6 +526,7 @@ export default function POS() {
       qc.invalidateQueries({ queryKey: ['wallets'] });
       qc.invalidateQueries({ queryKey: ['wallet_transactions'] });
       qc.invalidateQueries({ queryKey: ['orders'] });
+      qc.invalidateQueries({ queryKey: ['refund_requests'] });
       setLinkedOrder(null);
       setCart([]);
       setPayDialog(false);
@@ -505,8 +553,19 @@ export default function POS() {
     return <RegisterOpenGate onOpened={() => qc.invalidateQueries({ queryKey: ['active_cash_session'] })} />;
   }
 
+  if (posTab === 'devoluciones') {
+    return (
+      <div className="space-y-4">
+        <PosTabs value={posTab} onChange={setPosTab} pendingRefunds={pendingRefundsCount} />
+        <RefundQueue />
+      </div>
+    );
+  }
+
   return (
-    <div className="flex flex-col md:flex-row gap-3 lg:gap-4 h-[calc(100vh-5rem)]">
+    <>
+    <PosTabs value={posTab} onChange={setPosTab} pendingRefunds={pendingRefundsCount} />
+    <div className="flex flex-col md:flex-row gap-3 lg:gap-4 h-[calc(100vh-8rem)] mt-3">
       {/* Product Grid */}
       <div className="flex-1 flex flex-col min-h-0">
         <div className="mb-3 space-y-2">
@@ -855,5 +914,6 @@ export default function POS() {
       {/* Comanda oculta — sólo visible al imprimir */}
       <OrderTicket cart={cart} staffName={activeSession.staff_name} shift={activeSession.shift} />
     </div>
+    </>
   );
 }
