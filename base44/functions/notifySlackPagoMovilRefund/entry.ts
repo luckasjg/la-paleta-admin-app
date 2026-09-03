@@ -1,5 +1,6 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.44';
 import { getSharedSlackToken, resolveChannelId, postToChannel } from '../../shared/slackChannel.ts';
+import { nextOperationCode } from '../../shared/refundOperationCode.ts';
 
 const CHANNEL_NAME = 'caja';
 
@@ -24,6 +25,8 @@ export default async function (req: Request): Promise<Response> {
     if (!refund) return Response.json({ skipped: true, reason: 'refund not found' });
     if (refund.slack_notified) return Response.json({ skipped: true, reason: 'already notified' });
 
+    const operationCode = refund.operation_code || (await nextOperationCode(base44));
+
     const c = refund.customer_data || {};
     const money = refund.currency === 'VES'
       ? `Bs. ${(Number(refund.amount_native) || 0).toFixed(2)}`
@@ -31,6 +34,7 @@ export default async function (req: Request): Promise<Response> {
 
     const text =
       `💸 *Devolución por ${methodLabel(refund.method)}* — pendiente de procesar\n` +
+      `*COD OP: ${operationCode}*\n` +
       `*Monto:* ${money}  (≈ $${(Number(refund.amount_usd_equivalent) || 0).toFixed(2)})\n` +
       `*Titular:* ${c.titular || '—'}  ·  *C.I.:* ${c.cedula || '—'}\n` +
       `*Banco:* ${c.banco || '—'}  ·  *Tipo:* ${accountLabel(c.tipo_cuenta)}\n` +
@@ -38,7 +42,7 @@ export default async function (req: Request): Promise<Response> {
       `*Sale de:* ${refund.wallet_name || '—'}\n` +
       `*Motivo:* ${refund.reference || '—'}\n` +
       `*Cajero:* ${refund.staff_name || user.full_name || '—'}\n` +
-      `_Al enviar el dinero, reacciona con ✅ a este mensaje (o márcala como pagada en el POS → Devoluciones)._`;
+      `_Al enviar el dinero, escribe en este canal: *cod op: ${operationCode} ref: <n° de referencia>*_`;
 
     const token = await getSharedSlackToken(base44);
     if (!token) return Response.json({ skipped: true, reason: 'no slack token' });
@@ -49,6 +53,7 @@ export default async function (req: Request): Promise<Response> {
     await base44.asServiceRole.entities.RefundRequest.update(refundId, {
       slack_notified: true,
       slack_message_ts: posted?.ts || undefined,
+      operation_code: operationCode,
     });
 
     return Response.json({ ok: true, refund_request_id: refundId });

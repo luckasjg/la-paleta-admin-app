@@ -41,9 +41,16 @@ export default function RefundQueueCard({ refund, onConfirm, isConfirming }) {
       <CardContent className="p-4 space-y-3">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <Badge variant="outline" className="mb-1 gap-1">
-              <Icon className="h-3 w-3" /> {methodLabel(refund.method)}
-            </Badge>
+            <div className="flex items-center gap-1.5 mb-1">
+              <Badge variant="outline" className="gap-1">
+                <Icon className="h-3 w-3" /> {methodLabel(refund.method)}
+              </Badge>
+              {refund.operation_code && (
+                <Badge className="bg-slate-900 text-white font-mono">
+                  COD OP {refund.operation_code}
+                </Badge>
+              )}
+            </div>
             <p className="text-2xl font-bold text-amber-900 font-mono leading-tight">{money}</p>
             <p className="text-xs text-muted-foreground">≈ ${(refund.amount_usd_equivalent || 0).toFixed(2)}</p>
           </div>

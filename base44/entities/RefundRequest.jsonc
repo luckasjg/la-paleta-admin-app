@@ -105,7 +105,11 @@
     },
     "slack_message_ts": {
       "type": "string",
-      "description": "Timestamp (ts) del mensaje de Slack en #caja que corresponde a esta devoluci\u00f3n"
+      "description": "Timestamp (ts) del mensaje de Slack en #caja (en desuso)"
+    },
+    "operation_code": {
+      "type": "string",
+      "description": "C\u00f3digo de operaci\u00f3n consecutivo (ej. 0001) que el operador escribe en Slack para confirmar el pago"
     }
   },
   "required": [
