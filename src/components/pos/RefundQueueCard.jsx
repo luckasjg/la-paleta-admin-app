@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { CheckCircle2, Smartphone, Landmark, Copy } from 'lucide-react';
 import moment from 'moment';
 import { toast } from 'sonner';
+import CancelRefundButton from '@/components/pos/CancelRefundButton';
 
 const methodLabel = (m) => (m === 'transferencia' ? 'Transferencia' : 'Pago Móvil');
 const accountLabel = (t) =>
@@ -28,7 +29,7 @@ const Row = ({ label, value, copyable }) => (
   </div>
 );
 
-export default function RefundQueueCard({ refund, onConfirm, isConfirming }) {
+export default function RefundQueueCard({ refund, onConfirm, isConfirming, onCancel, isCancelling }) {
   const [ref, setRef] = useState('');
   const c = refund.customer_data || {};
   const Icon = refund.method === 'transferencia' ? Landmark : Smartphone;
@@ -85,6 +86,7 @@ export default function RefundQueueCard({ refund, onConfirm, isConfirming }) {
           >
             <CheckCircle2 className="h-4 w-4 mr-1.5" /> Marcar pagada
           </Button>
+          <CancelRefundButton refund={refund} onCancel={onCancel} isCancelling={isCancelling} />
         </div>
       </CardContent>
     </Card>

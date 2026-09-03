@@ -1,4 +1,5 @@
 import { base44 } from '@/api/base44Client';
+import { cancelPendingRefundsForSale } from '@/lib/cancelRefund';
 
 /**
  * Anula una venta y revierte todo el inventario asociado.
@@ -76,4 +77,7 @@ export async function voidSale({ sale, reason = '', operatorEmail = '' }) {
     voided_by: operatorEmail || '',
     void_reason: reason || '',
   });
+
+  // 5) Eliminar las devoluciones pendientes de esta venta y avisar en #caja
+  await cancelPendingRefundsForSale(sale.id, `Venta anulada${reason ? ` — ${reason}` : ''}`);
 }

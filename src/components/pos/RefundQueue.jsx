@@ -5,6 +5,7 @@ import { Card } from '@/components/ui/card';
 import { CheckCircle2, Inbox } from 'lucide-react';
 import { toast } from 'sonner';
 import RefundQueueCard from '@/components/pos/RefundQueueCard';
+import { cancelRefund } from '@/lib/cancelRefund';
 
 /**
  * Cola de devoluciones por pago móvil / transferencia.
@@ -37,6 +38,15 @@ export default function RefundQueue() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['refund_requests'] });
       toast.success('Devolución marcada como pagada');
+    },
+    onError: (err) => toast.error(err.message),
+  });
+
+  const cancelRefundMut = useMutation({
+    mutationFn: ({ refund, reason }) => cancelRefund(refund, reason),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['refund_requests'] });
+      toast.success('Devolución cancelada y avisada en #caja');
     },
     onError: (err) => toast.error(err.message),
   });
@@ -77,6 +87,8 @@ export default function RefundQueue() {
           refund={r}
           isConfirming={confirmRefund.isPending}
           onConfirm={(refund, confirmationReference) => confirmRefund.mutate({ refund, confirmationReference })}
+          isCancelling={cancelRefundMut.isPending}
+          onCancel={(refund, reason) => cancelRefundMut.mutate({ refund, reason })}
         />
       ))}
     </div>

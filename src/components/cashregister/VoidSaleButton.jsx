@@ -28,6 +28,7 @@ export default function VoidSaleButton({ sale, size = 'sm', variant = 'destructi
       qc.invalidateQueries({ queryKey: ['sales'] });
       qc.invalidateQueries({ queryKey: ['trays'] });
       qc.invalidateQueries({ queryKey: ['supplies'] });
+      qc.invalidateQueries({ queryKey: ['refund_requests'] });
       toast.success('Venta anulada e inventario repuesto');
       setOpen(false);
       setReason('');
