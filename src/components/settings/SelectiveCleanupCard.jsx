@@ -110,22 +110,37 @@ export default function SelectiveCleanupCard() {
       return msg.includes('rate limit') || msg.includes('too many');
     };
 
-    const deleteWithRetry = async (entity, id, entityName, maxRetries = 8) => {
+    // Borra un lote completo de IDs en una sola llamada, con reintentos del lote
+    // entero si el servidor responde con rate limit. Devuelve cuántos se borraron.
+    const deleteBatch = async (entity, ids, entityName, maxRetries = 6) => {
       let attempt = 0;
       while (true) {
         try {
-          await entity.delete(id);
-          return true;
+          await entity.deleteMany({ id: { $in: ids } });
+          return ids.length;
         } catch (e) {
           if (isRateLimitError(e) && attempt < maxRetries) {
-            // Backoff exponencial: 1s, 2s, 4s, 8s, 16s, 32s, 60s, 60s
+            // Backoff exponencial: 1s, 2s, 4s, 8s, 16s, 32s
             const wait = Math.min(60000, 1000 * Math.pow(2, attempt));
             await new Promise(r => setTimeout(r, wait));
             attempt += 1;
             continue;
           }
-          errors.push(`${entityName} (${id}): ${e.message || 'error'}`);
-          return false;
+          errors.push(`${entityName} (lote de ${ids.length}): ${e.message || 'error'}`);
+          return 0;
+        }
+      }
+    };
+
+    // Vacía una entidad completa borrando en lotes de 500 IDs.
+    const purgeInBatches = async (entity, entityName) => {
+      for (let pass = 0; pass < 4; pass++) {
+        const records = await listAll(entity, entityName);
+        if (records.length === 0) break;
+
+        for (let i = 0; i < records.length; i += 500) {
+          const ids = records.slice(i, i + 500).map(r => r.id);
+          totalDeleted += await deleteBatch(entity, ids, entityName);
         }
       }
     };
@@ -167,20 +182,7 @@ export default function SelectiveCleanupCard() {
         return;
       }
 
-      // Borrado SECUENCIAL con pausa entre cada delete para evitar 429.
-      // Más lento pero confiable: el rate limit anterior aparecía con concurrencia.
-      const PAUSE_BETWEEN_DELETES = 120; // ms
-
-      for (let pass = 0; pass < 10; pass++) {
-        const records = await listAll(entity, entityName);
-        if (records.length === 0) break;
-
-        for (const r of records) {
-          const ok = await deleteWithRetry(entity, r.id, entityName);
-          if (ok) totalDeleted += 1;
-          await new Promise(res => setTimeout(res, PAUSE_BETWEEN_DELETES));
-        }
-      }
+      await purgeInBatches(entity, entityName);
     };
 
     try {
@@ -199,17 +201,9 @@ export default function SelectiveCleanupCard() {
       // montos fantasma acumulados de ventas borradas.
       const salesSelected = selectedDepartments.some(d => d.id === 'sales');
       if (salesSelected) {
-        // 1. Borrar TODOS los WalletTransaction paginando y secuencialmente (evita 429).
+        // 1. Borrar TODOS los WalletTransaction en lotes.
         try {
-          for (let pass = 0; pass < 10; pass++) {
-            const txs = await listAll(base44.entities.WalletTransaction, 'WalletTransaction');
-            if (txs.length === 0) break;
-            for (const t of txs) {
-              const ok = await deleteWithRetry(base44.entities.WalletTransaction, t.id, 'WalletTransaction');
-              if (ok) totalDeleted += 1;
-              await new Promise(r => setTimeout(r, 120));
-            }
-          }
+          await purgeInBatches(base44.entities.WalletTransaction, 'WalletTransaction');
         } catch (e) {
           errors.push(`WalletTransaction (listado): ${e.message || 'error'}`);
         }
