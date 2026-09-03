@@ -91,6 +91,7 @@ export default function ChangePanel({
           </p>
           <RefundCustomerFields
             data={customerData || {}}
+            method={method}
             reference={reference}
             onChange={d => onChange({ customerData: d })}
             onReferenceChange={r => onChange({ reference: r })}

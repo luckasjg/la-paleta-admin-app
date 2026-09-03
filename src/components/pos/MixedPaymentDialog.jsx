@@ -115,7 +115,7 @@ export default function MixedPaymentDialog({ open, onOpenChange, totalUSD, excha
   const hasChange = diff > 0.005;
   const isDigitalRefund = change.method === 'pago_movil' || change.method === 'transferencia';
   const changeReady = !hasChange
-    || (!!change.walletId && (!isDigitalRefund || isRefundDataComplete(change.customerData, change.reference)));
+    || (!!change.walletId && (!isDigitalRefund || isRefundDataComplete(change.customerData, change.reference, change.method)));
 
   const handleConfirm = () => {
     const payments = computed

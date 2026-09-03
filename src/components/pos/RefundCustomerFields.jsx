@@ -4,11 +4,15 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
-// Campos obligatorios para poder ejecutar el pago móvil / transferencia.
-export const REFUND_REQUIRED_FIELDS = ['titular', 'cedula', 'banco', 'numero_cuenta', 'telefono'];
+// Campos obligatorios para poder ejecutar la devolución.
+// El pago móvil se procesa por teléfono, así que no exige número de cuenta.
+export const getRefundRequiredFields = (method = 'pago_movil') =>
+  method === 'pago_movil'
+    ? ['titular', 'cedula', 'banco', 'telefono']
+    : ['titular', 'cedula', 'banco', 'numero_cuenta', 'telefono'];
 
-export const isRefundDataComplete = (data = {}, reference = '') =>
-  REFUND_REQUIRED_FIELDS.every(f => String(data[f] || '').trim().length > 0) &&
+export const isRefundDataComplete = (data = {}, reference = '', method = 'pago_movil') =>
+  getRefundRequiredFields(method).every(f => String(data[f] || '').trim().length > 0) &&
   String(reference || '').trim().length > 0;
 
 const Field = ({ label, children }) => (
@@ -18,8 +22,9 @@ const Field = ({ label, children }) => (
   </div>
 );
 
-export default function RefundCustomerFields({ data, reference, onChange, onReferenceChange }) {
+export default function RefundCustomerFields({ data, reference, onChange, onReferenceChange, method = 'pago_movil' }) {
   const set = (key) => (e) => onChange({ ...data, [key]: e.target.value });
+  const accountRequired = method !== 'pago_movil';
 
   return (
     <div className="space-y-2.5 pt-1">
@@ -43,7 +48,7 @@ export default function RefundCustomerFields({ data, reference, onChange, onRefe
             </SelectContent>
           </Select>
         </Field>
-        <Field label="N° de cuenta *">
+        <Field label={accountRequired ? 'N° de cuenta *' : 'N° de cuenta (opcional)'}>
           <Input value={data.numero_cuenta || ''} onChange={set('numero_cuenta')} placeholder="0000-0000-00-0000000000" className="h-9 text-sm font-mono" />
         </Field>
         <Field label="Teléfono *">
