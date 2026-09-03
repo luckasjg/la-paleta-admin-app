@@ -1,0 +1,44 @@
+{
+  "name": "Slack \u2014 Confirmar devoluci\u00f3n con reacci\u00f3n",
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "slack_confirmar_devolucion",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "confirmar_devolucion": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "confirmRefundFromSlackReaction",
+            "args": {
+              "channel": "${ .trigger.data.event.item.channel }",
+              "message_ts": "${ .trigger.data.event.item.ts }",
+              "reaction": "${ .trigger.data.event.reaction }",
+              "user": "${ .trigger.data.event.user }"
+            }
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Marcar devoluci\u00f3n como pagada",
+            "description": "Busca por el mensaje de Slack"
+          }
+        }
+      }
+    ]
+  },
+  "trigger": {
+    "condition": "${ .trigger.data.event.item.channel == \"C0B6G2TQEJJ\" and .trigger.data.event.reaction == \"white_check_mark\" }",
+    "config": {
+      "trigger_type": "connector",
+      "events": [
+        "reaction_added"
+      ],
+      "integration_type": "slack",
+      "resource_id": null
+    }
+  },
+  "description": "Cuando alguien reacciona con \u2705 a un mensaje de devoluci\u00f3n en #caja, marca la devoluci\u00f3n como pagada en la app."
+}

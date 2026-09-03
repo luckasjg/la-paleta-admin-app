@@ -102,6 +102,10 @@
     "slack_notified": {
       "type": "boolean",
       "default": false
+    },
+    "slack_message_ts": {
+      "type": "string",
+      "description": "Timestamp (ts) del mensaje de Slack en #caja que corresponde a esta devoluci\u00f3n"
     }
   },
   "required": [

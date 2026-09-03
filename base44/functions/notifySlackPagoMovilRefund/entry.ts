@@ -38,15 +38,18 @@ export default async function (req: Request): Promise<Response> {
       `*Sale de:* ${refund.wallet_name || '—'}\n` +
       `*Motivo:* ${refund.reference || '—'}\n` +
       `*Cajero:* ${refund.staff_name || user.full_name || '—'}\n` +
-      `_Al enviar el dinero, márcala como pagada en el POS → Devoluciones._`;
+      `_Al enviar el dinero, reacciona con ✅ a este mensaje (o márcala como pagada en el POS → Devoluciones)._`;
 
     const token = await getSharedSlackToken(base44);
     if (!token) return Response.json({ skipped: true, reason: 'no slack token' });
 
     const channelId = await resolveChannelId(token, CHANNEL_NAME);
-    await postToChannel(token, channelId, text);
+    const posted = await postToChannel(token, channelId, text);
 
-    await base44.asServiceRole.entities.RefundRequest.update(refundId, { slack_notified: true });
+    await base44.asServiceRole.entities.RefundRequest.update(refundId, {
+      slack_notified: true,
+      slack_message_ts: posted?.ts || undefined,
+    });
 
     return Response.json({ ok: true, refund_request_id: refundId });
   } catch (error) {

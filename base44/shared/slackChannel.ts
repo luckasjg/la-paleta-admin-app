@@ -27,6 +27,17 @@ export async function resolveChannelId(accessToken, channelName) {
   throw new Error(`canal #${channelName} no encontrado`);
 }
 
+// Resuelve el nombre legible de un usuario de Slack a partir de su ID.
+export async function getSlackUserName(accessToken, userId) {
+  if (!userId) return null;
+  const url = new URL('https://slack.com/api/users.info');
+  url.searchParams.set('user', userId);
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
+  const data = await res.json();
+  if (!data.ok) return null;
+  return data.user?.profile?.real_name || data.user?.real_name || data.user?.name || null;
+}
+
 export async function postToChannel(accessToken, channelId, text) {
   const res = await fetch('https://slack.com/api/chat.postMessage', {
     method: 'POST',
