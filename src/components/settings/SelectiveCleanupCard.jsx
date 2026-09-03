@@ -261,11 +261,19 @@ export default function SelectiveCleanupCard() {
         console.error('Errores de limpieza selectiva:', errors);
       }
 
-      setConfirmOpen(false);
       setSelected({});
-      setConfirmText('');
+    } catch (e) {
+      toast({
+        variant: 'destructive',
+        title: 'La limpieza se interrumpió',
+        description: e?.message || 'Ocurrió un error inesperado durante el borrado.',
+      });
+      console.error('Error en limpieza selectiva:', e);
     } finally {
+      // El cierre va en finally: si el borrado falla, la ventana igual se cierra.
       setRunning(false);
+      setConfirmOpen(false);
+      setConfirmText('');
     }
   };
 
