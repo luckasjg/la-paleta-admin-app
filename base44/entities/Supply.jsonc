@@ -49,6 +49,16 @@
       "type": "boolean",
       "default": false
     },
+    "low_stock_alerted": {
+      "type": "boolean",
+      "default": false,
+      "description": "true si ya se notific\u00f3 por Slack que este insumo est\u00e1 bajo el m\u00ednimo"
+    },
+    "low_stock_alerted_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "\u00daltima vez que se envi\u00f3 alerta de stock bajo por Slack"
+    },
     "package_format": {
       "type": "object",
       "properties": {
