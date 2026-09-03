@@ -8,6 +8,7 @@ import { Plus, Trash2 } from 'lucide-react';
 import { formatUSD, formatVES } from '@/lib/useExchangeRate';
 import { usePaymentMethods } from '@/lib/usePaymentMethods';
 import { useCurrencySymbol } from '@/lib/useCurrencySymbol';
+import ChangePanel from '@/components/pos/ChangePanel';
 
 const makeRow = (methods, method, amount = '') => {
   const fallback = methods[0] || { value: 'efectivo_usd', defaultCurrency: 'USD' };
@@ -27,7 +28,7 @@ const prefillAmount = (usdAmount, currency, rate) => {
   return val.toFixed(2);
 };
 
-export default function MixedPaymentDialog({ open, onOpenChange, totalUSD, exchangeRate, onConfirm, isProcessing }) {
+export default function MixedPaymentDialog({ open, onOpenChange, totalUSD, exchangeRate, wallets = [], onConfirm, isProcessing }) {
   // Métodos dinámicos desde la entidad PaymentMethod (sólo activos).
   const { posMethods } = usePaymentMethods({ activeOnly: true });
   const { symbol } = useCurrencySymbol();
@@ -46,11 +47,15 @@ export default function MixedPaymentDialog({ open, onOpenChange, totalUSD, excha
     makeRow(PAYMENT_METHODS, defaultMethodValue, prefillAmount(totalUSD, 'USD', exchangeRate)),
   ]);
 
+  // Vuelto: moneda elegida por el cajero y billetera de donde sale el dinero.
+  const [change, setChange] = useState({ currency: 'VES', walletId: '' });
+
   // On open: snapshot the current rate and reset rows pre-filled with full total
   useEffect(() => {
     if (open) {
       setLockedRate(exchangeRate);
       setRows([makeRow(PAYMENT_METHODS, defaultMethodValue, prefillAmount(totalUSD, 'USD', exchangeRate))]);
+      setChange({ currency: 'VES', walletId: '' });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
@@ -104,6 +109,9 @@ export default function MixedPaymentDialog({ open, onOpenChange, totalUSD, excha
     return next;
   }));
 
+  const hasChange = diff > 0.005;
+  const changeReady = !hasChange || !!change.walletId;
+
   const handleConfirm = () => {
     const payments = computed
       .filter(r => r.amt > 0)
@@ -118,7 +126,14 @@ export default function MixedPaymentDialog({ open, onOpenChange, totalUSD, excha
         }
         return base;
       });
-    onConfirm({ payments, exchange_rate: lockedRate });
+    const changePayload = hasChange ? {
+      amount: +(change.currency === 'USD' ? diff : diff * lockedRate).toFixed(2),
+      currency: change.currency,
+      amount_usd_equivalent: +diff.toFixed(2),
+      wallet_id: change.walletId,
+      wallet_name: wallets.find(w => w.id === change.walletId)?.name || '',
+    } : null;
+    onConfirm({ payments, exchange_rate: lockedRate, change: changePayload });
   };
 
   return (
@@ -212,11 +227,23 @@ export default function MixedPaymentDialog({ open, onOpenChange, totalUSD, excha
           ) : null}
         </div>
 
+        {/* Panel de vuelto — sólo cuando el cliente pagó de más */}
+        {hasChange && (
+          <ChangePanel
+            excessUSD={diff}
+            exchangeRate={lockedRate}
+            wallets={wallets}
+            currency={change.currency}
+            walletId={change.walletId}
+            onChange={patch => setChange(c => ({ ...c, ...patch }))}
+          />
+        )}
+
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
           <Button
             onClick={handleConfirm}
-            disabled={!isComplete || isProcessing}
+            disabled={!isComplete || !changeReady || isProcessing}
             className="flex-1"
           >
             {isProcessing ? 'Procesando...' : 'Confirmar Venta'}

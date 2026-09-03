@@ -58,3 +58,37 @@ export async function depositSalePaymentsToWallets({ payments, exchange_rate, sa
     });
   }
 }
+
+/**
+ * Registra la entrega de un vuelto: descuenta el monto de la billetera elegida
+ * y crea una WalletTransaction negativa vinculada a la venta.
+ * - change: { amount, currency, wallet_id, amount_usd_equivalent }
+ */
+export async function withdrawChangeFromWallet({ change, exchange_rate, sale_id, wallets }) {
+  if (!change?.wallet_id || !(change.amount > 0)) return;
+
+  const wallet = wallets.find(w => w.id === change.wallet_id);
+  if (!wallet) return;
+
+  // El saldo se lleva en la moneda nativa de la billetera: si la moneda del
+  // vuelto difiere, convertimos usando la tasa de la venta.
+  const usdEq = change.amount_usd_equivalent || 0;
+  const amountNative = wallet.currency === 'USD' ? usdEq : usdEq * exchange_rate;
+  if (!(amountNative > 0)) return;
+
+  await base44.entities.WalletTransaction.create({
+    wallet_id: wallet.id,
+    wallet_name: wallet.name,
+    type: 'change_given',
+    amount_native: -amountNative,
+    amount_usd_equivalent: -usdEq,
+    exchange_rate,
+    sale_id,
+    notes: `Vuelto entregado al cliente (${change.amount.toFixed(2)} ${change.currency})`,
+    transaction_date: new Date().toISOString(),
+  });
+
+  await base44.entities.Wallet.update(wallet.id, {
+    balance: (wallet.balance || 0) - amountNative,
+  });
+}

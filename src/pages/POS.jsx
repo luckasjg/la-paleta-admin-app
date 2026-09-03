@@ -14,7 +14,7 @@ import { useExchangeRate, formatUSD, formatVES } from '@/lib/useExchangeRate';
 import { useCurrencySymbol } from '@/lib/useCurrencySymbol';
 import ExchangeRateInput from '@/components/pos/ExchangeRateInput';
 import MixedPaymentDialog from '@/components/pos/MixedPaymentDialog';
-import { depositSalePaymentsToWallets } from '@/lib/walletHelpers';
+import { depositSalePaymentsToWallets, withdrawChangeFromWallet } from '@/lib/walletHelpers';
 import StockLocationSelector from '@/components/shared/StockLocationSelector';
 import SearchableCombobox from '@/components/shared/SearchableCombobox';
 import { buildStockDelta, getStockAt, LOCATION_LABEL } from '@/lib/stockHelpers';
@@ -329,7 +329,7 @@ export default function POS() {
   };
 
   const completeSale = useMutation({
-    mutationFn: async ({ payments, exchange_rate }) => {
+    mutationFn: async ({ payments, exchange_rate, change }) => {
       // ── Aggregate ALL grams demanded per tray across the ENTIRE cart ────────
       // Previously we updated each tray multiple times inside the loop, which
       // overwrote earlier deductions when the same tray appeared in several items.
@@ -439,6 +439,13 @@ export default function POS() {
         cash_register_id: activeSession.id,
         staff_id: activeSession.staff_id,
         staff_name: activeSession.staff_name,
+        ...(change ? {
+          change_amount: change.amount,
+          change_currency: change.currency,
+          change_amount_usd_equivalent: change.amount_usd_equivalent,
+          change_wallet_id: change.wallet_id,
+          change_wallet_name: change.wallet_name,
+        } : {}),
       });
 
       // Vincular el pedido del menú móvil con esta venta (si aplica)
@@ -457,8 +464,12 @@ export default function POS() {
           sale_id: sale?.id,
           wallets,
         });
+        // Salida del vuelto desde la billetera elegida por el cajero
+        if (change) {
+          await withdrawChangeFromWallet({ change, exchange_rate, sale_id: sale?.id, wallets });
+        }
       } catch (e) {
-        console.error('Error depositando en billeteras:', e);
+        console.error('Error actualizando billeteras:', e);
       }
     },
     onSuccess: () => {
@@ -836,6 +847,7 @@ export default function POS() {
         onOpenChange={setPayDialog}
         totalUSD={total}
         exchangeRate={exchangeRate}
+        wallets={wallets}
         isProcessing={completeSale.isPending}
         onConfirm={(data) => completeSale.mutate(data)}
       />

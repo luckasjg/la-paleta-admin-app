@@ -72,6 +72,29 @@
     "digital_amount": {
       "type": "number"
     },
+    "change_amount": {
+      "type": "number",
+      "description": "Monto del vuelto entregado, en la moneda de change_currency"
+    },
+    "change_currency": {
+      "type": "string",
+      "enum": [
+        "USD",
+        "VES"
+      ],
+      "description": "Moneda en la que se entreg\u00f3 el vuelto"
+    },
+    "change_amount_usd_equivalent": {
+      "type": "number",
+      "description": "Equivalente en USD del vuelto entregado"
+    },
+    "change_wallet_id": {
+      "type": "string",
+      "description": "Billetera desde la que sali\u00f3 el dinero del vuelto"
+    },
+    "change_wallet_name": {
+      "type": "string"
+    },
     "sale_date": {
       "type": "string",
       "format": "date-time"

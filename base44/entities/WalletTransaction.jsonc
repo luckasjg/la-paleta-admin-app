@@ -12,6 +12,7 @@
       "type": "string",
       "enum": [
         "sale_income",
+        "change_given",
         "conversion_out",
         "conversion_in",
         "manual_adjust",
