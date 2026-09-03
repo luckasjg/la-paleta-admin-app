@@ -1,0 +1,44 @@
+{
+  "name": "AdjustmentReason",
+  "type": "object",
+  "properties": {
+    "value": {
+      "type": "string",
+      "description": "Identificador \u00fanico del motivo (slug)"
+    },
+    "label": {
+      "type": "string",
+      "description": "Texto visible en el selector"
+    },
+    "is_default": {
+      "type": "boolean",
+      "default": false
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true
+    }
+  },
+  "required": [
+    "value",
+    "label"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {},
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

@@ -20,13 +20,7 @@
     },
     "reason": {
       "type": "string",
-      "enum": [
-        "derrame",
-        "producto_da\u00f1ado",
-        "conteo_fisico",
-        "devolucion",
-        "otro"
-      ]
+      "description": "Motivo del ajuste (value de AdjustmentReason)"
     },
     "notes": {
       "type": "string"

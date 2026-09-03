@@ -9,14 +9,10 @@ import SearchableCombobox from '@/components/shared/SearchableCombobox';
 import StockLocationSelector from '@/components/shared/StockLocationSelector';
 import QuantityInput from '@/components/adjustments/QuantityInput';
 import { getStockAt, LOCATION_LABEL } from '@/lib/stockHelpers';
-
-export const REASONS = [
-  { value: 'derrame', label: 'Derrame' },
-  { value: 'producto_dañado', label: 'Producto Dañado' },
-  { value: 'conteo_fisico', label: 'Conteo Físico' },
-  { value: 'devolucion', label: 'Devolución' },
-  { value: 'otro', label: 'Otro' },
-];
+import { useAdjustmentReasons } from '@/lib/useAdjustmentReasons';
+import { useRole } from '@/lib/useRole';
+import AdjustmentReasonManager from '@/components/adjustments/AdjustmentReasonManager';
+import { Settings2 } from 'lucide-react';
 
 const locationFromNotes = (notes) => {
   const prefix = (notes || '').match(/^\[([^\]]+)\]/);
@@ -35,6 +31,9 @@ export default function AdjustmentDialog({ open, onOpenChange, editing, supplies
   const [reason, setReason] = useState('conteo_fisico');
   const [notes, setNotes] = useState('');
   const [resetKey, setResetKey] = useState(0);
+  const [reasonManagerOpen, setReasonManagerOpen] = useState(false);
+  const { reasons } = useAdjustmentReasons();
+  const { isAdmin } = useRole();
 
   useEffect(() => {
     if (!open) return;
@@ -218,9 +217,24 @@ export default function AdjustmentDialog({ open, onOpenChange, editing, supplies
 
           <div>
             <Label>Motivo</Label>
-            <Select value={reason} onValueChange={setReason}>
+            <Select
+              value={reason}
+              onValueChange={v => {
+                if (v === '__manage__') { setReasonManagerOpen(true); return; }
+                setReason(v);
+              }}
+            >
               <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>{REASONS.map(r => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}</SelectContent>
+              <SelectContent>
+                {reasons.map(r => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}
+                {isAdmin && (
+                  <SelectItem value="__manage__" className="text-primary font-medium">
+                    <span className="flex items-center gap-1.5">
+                      <Settings2 className="h-3.5 w-3.5" /> Gestionar motivos...
+                    </span>
+                  </SelectItem>
+                )}
+              </SelectContent>
             </Select>
           </div>
 
@@ -236,6 +250,8 @@ export default function AdjustmentDialog({ open, onOpenChange, editing, supplies
             {isPending ? 'Aplicando...' : isEdit ? 'Guardar Cambios' : 'Aplicar Ajuste'}
           </Button>
         </DialogFooter>
+
+        <AdjustmentReasonManager open={reasonManagerOpen} onOpenChange={setReasonManagerOpen} />
       </DialogContent>
     </Dialog>
   );

@@ -8,8 +8,23 @@ import { Package, Ruler } from 'lucide-react';
  * Emite siempre el valor en la UNIDAD BASE (g / ml / unidad), o null si está vacío.
  * Si el insumo no tiene package_format.net_content válido, sólo se muestra la unidad base.
  */
+/**
+ * Convierte el contenido neto del paquete a la unidad base del insumo.
+ * Ej.: net_content=1 con package_unit='kg' e insumo en 'g' → 1000 g.
+ */
+function netContentInBaseUnit(packageFormat, unit) {
+  const raw = packageFormat?.net_content;
+  if (!Number.isFinite(raw) || raw <= 0) return null;
+  const pkgUnit = (packageFormat?.package_unit || '').trim().toLowerCase();
+  const base = (unit || '').trim().toLowerCase();
+  if (!pkgUnit || pkgUnit === base) return raw;
+  if ((pkgUnit === 'kg' && base === 'g') || (pkgUnit === 'l' && base === 'ml')) return raw * 1000;
+  if ((pkgUnit === 'g' && base === 'kg') || (pkgUnit === 'ml' && base === 'l')) return raw / 1000;
+  return raw;
+}
+
 export default function QuantityInput({ unit = 'unidad', packageFormat, onChange, resetKey, label }) {
-  const net = packageFormat?.net_content;
+  const net = netContentInBaseUnit(packageFormat, unit);
   const hasPkg = Number.isFinite(net) && net > 0;
   const pkgName = packageFormat?.presentation || packageFormat?.label || 'Paquetes';
 

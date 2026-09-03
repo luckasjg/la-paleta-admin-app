@@ -10,13 +10,15 @@ import PageHeader from '@/components/shared/PageHeader';
 import { toast } from 'sonner';
 import moment from 'moment';
 import { buildStockDelta, getStockAt, LOCATION_LABEL } from '@/lib/stockHelpers';
-import AdjustmentDialog, { REASONS } from '@/components/adjustments/AdjustmentDialog';
+import AdjustmentDialog from '@/components/adjustments/AdjustmentDialog';
+import { useAdjustmentReasons, reasonLabel } from '@/lib/useAdjustmentReasons';
 
 export default function Adjustments() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editAdj, setEditAdj] = useState(null);
 
   const qc = useQueryClient();
+  const { reasons } = useAdjustmentReasons();
 
   const { data: adjustments = [] } = useQuery({
     queryKey: ['adjustments'],
@@ -153,7 +155,7 @@ export default function Adjustments() {
                     </TableCell>
                     <TableCell><Badge variant="secondary">{a.type === 'supply' ? 'Insumo' : 'Bandeja'}</Badge></TableCell>
                     <TableCell className="font-medium">{a.reference_name}</TableCell>
-                    <TableCell><Badge variant="secondary">{REASONS.find(r => r.value === a.reason)?.label || a.reason}</Badge></TableCell>
+                    <TableCell><Badge variant="secondary">{reasonLabel(a.reason, reasons)}</Badge></TableCell>
                     <TableCell className={`text-right font-mono font-semibold ${a.quantity_change > 0 ? 'text-green-600' : 'text-destructive'}`}>
                       {a.quantity_change > 0 ? '+' : ''}{a.quantity_change}
                       {a.is_edited && a.original_quantity_change !== undefined && (
