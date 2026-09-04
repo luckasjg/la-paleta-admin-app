@@ -118,7 +118,7 @@ export default function MenuMovil() {
     'mb-3 flex items-center gap-2 text-[22px] font-[950] leading-none tracking-[-0.04em] text-[#24252b] before:block before:h-[22px] before:w-[10px] before:rounded-full before:bg-[#F0A23B] before:shadow-[7px_0_#F6D5C0]';
 
   return (
-    <div className="menu-font relative min-h-screen overflow-x-hidden bg-[#F4F4F6] pb-[86px] text-[#24252b]">
+    <div className="menu-font relative min-h-screen overflow-x-clip bg-[#F4F4F6] pb-[86px] text-[#24252b]">
       <MenuHero profile={profile} onForget={forget} />
 
       <ChannelSelector value={channel} onChange={handleChannelChange} />
