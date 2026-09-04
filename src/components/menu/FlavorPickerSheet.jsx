@@ -53,25 +53,29 @@ export default function FlavorPickerSheet({ product, trays, recipes, onCancel, o
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end bg-black/70">
-      <div className="w-full bg-[#1a0e0a] border-t-2 border-amber-500/40 rounded-t-2xl px-4 py-5 max-h-[85vh] overflow-y-auto">
-        <div className="flex items-start justify-between mb-1">
-          <h3 className="text-base font-black text-amber-100">Elige tus sabores</h3>
-          <button onClick={onCancel} className="text-amber-300/70 p-1">
-            <X className="h-5 w-5" />
+    <div className="menu-font fixed inset-0 z-50 flex items-end bg-[#16161d99]">
+      <div className="menu-anim-cardin max-h-[85vh] w-full overflow-y-auto rounded-t-[22px] border-t-4 border-[#F0A23B] bg-[#24252b] px-4 py-5 text-white">
+        <div className="mb-1 flex items-start justify-between">
+          <h3 className="m-0 text-[18px] font-[950] leading-none">Elige tus sabores</h3>
+          <button
+            onClick={onCancel}
+            aria-label="Cerrar"
+            className="menu-btn flex h-8 w-8 items-center justify-center rounded-full border-0 bg-[#303139] text-white"
+          >
+            <X className="h-4 w-4" />
           </button>
         </div>
-        <p className="text-xs text-amber-300/60 mb-4">
+        <p className="mb-3.5 text-[12px] leading-[1.35] text-[#D7D7DD]">
           {product.name} · {targetGrams}g en total · hasta {maxFlavors} sabor{maxFlavors > 1 ? 'es' : ''}
         </p>
 
-        <div className="space-y-3">
+        <div className="space-y-2.5">
           {slots.map((fl, idx) => (
             <div key={idx} className="flex items-center gap-2">
               <select
                 value={fl.tray_id}
                 onChange={(e) => setTray(idx, e.target.value)}
-                className="flex-1 bg-black/40 border border-amber-500/30 rounded-lg px-2 py-3 text-sm text-amber-50"
+                className="min-h-[45px] flex-1 rounded-[13px] border border-[#676872] bg-[#303139] px-2.5 text-[13px] font-[850] text-white"
               >
                 <option value="">Sabor {idx + 1}...</option>
                 {trays.map((t) => (
@@ -80,11 +84,14 @@ export default function FlavorPickerSheet({ product, trays, recipes, onCancel, o
                   </option>
                 ))}
               </select>
-              <span className="text-xs font-mono text-amber-300/70 w-12 text-right">{fl.grams}g</span>
+              <span className="w-12 text-right text-[11px] font-[900] text-[#F6D5C0]">
+                {fl.grams}g
+              </span>
               {slots.length > 1 && (
                 <button
                   onClick={() => removeSlot(idx)}
-                  className="h-10 w-10 rounded-lg bg-red-500/15 border border-red-500/30 flex items-center justify-center text-red-300 shrink-0"
+                  aria-label="Quitar sabor"
+                  className="menu-btn flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-full border border-[#676872] bg-[#303139] text-[#ffb4a2]"
                 >
                   <Trash2 className="h-4 w-4" />
                 </button>
@@ -96,24 +103,24 @@ export default function FlavorPickerSheet({ product, trays, recipes, onCancel, o
         {slots.length < maxFlavors && (
           <button
             onClick={addSlot}
-            className="mt-3 w-full h-11 rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-200 text-sm font-bold flex items-center justify-center gap-1"
+            className="menu-btn mt-2.5 flex min-h-[45px] w-full items-center justify-center gap-1 rounded-[13px] border border-[#676872] bg-[#303139] text-[12px] font-[900] text-white"
           >
             <Plus className="h-4 w-4" /> Agregar sabor ({slots.length}/{maxFlavors})
           </button>
         )}
 
-        <div className="mt-4 rounded-lg border border-amber-500/25 bg-black/30 p-3 text-xs font-mono space-y-1">
-          <div className="flex justify-between text-amber-300/70">
+        <div className="mt-3.5 space-y-1 rounded-[20px] bg-[#303139] p-4 text-[12px]">
+          <div className="flex justify-between text-[#D7D7DD]">
             <span>Precio base</span>
             <span>{formatUSD(product.price || 0)}</span>
           </div>
           {surcharge > 0 && (
-            <div className="flex justify-between text-amber-400">
+            <div className="flex justify-between font-extrabold text-[#F0A23B]">
               <span>Recargo sabor premium</span>
               <span>+{formatUSD(surcharge)}</span>
             </div>
           )}
-          <div className="flex justify-between font-black text-amber-100 border-t border-amber-500/20 pt-1">
+          <div className="flex justify-between border-t border-[#ffffff22] pt-1 text-[13px] font-[950] text-white">
             <span>Total</span>
             <span>{formatUSD(finalPrice)}</span>
           </div>
@@ -122,7 +129,7 @@ export default function FlavorPickerSheet({ product, trays, recipes, onCancel, o
         <button
           onClick={confirm}
           disabled={!allFilled}
-          className="w-full mt-4 h-14 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 text-black font-black text-base disabled:opacity-50"
+          className="menu-btn mt-3.5 h-[52px] w-full rounded-[13px] border-0 bg-[#F0A23B] text-[15px] font-[950] text-[#24252b] disabled:opacity-50"
         >
           Agregar al pedido
         </button>

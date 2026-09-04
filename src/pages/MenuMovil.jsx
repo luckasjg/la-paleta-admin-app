@@ -1,8 +1,10 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { base44 } from '@/api/base44Client';
-import { formatUSD } from '@/lib/useExchangeRate';
-import { Plus } from 'lucide-react';
 import { useMobileCart } from '@/lib/useMobileCart';
+import { useCustomerProfile } from '@/lib/useCustomerProfile';
+import MenuHero from '@/components/menu/MenuHero';
+import FlavorCarousel from '@/components/menu/FlavorCarousel';
+import ProductCatalog from '@/components/menu/ProductCatalog';
 import CartSheet from '@/components/menu/CartSheet';
 import CheckoutSheet from '@/components/menu/CheckoutSheet';
 import ChannelSelector from '@/components/menu/ChannelSelector';
@@ -10,8 +12,6 @@ import FlavorPickerSheet from '@/components/menu/FlavorPickerSheet';
 import VesselPickerSheet from '@/components/menu/VesselPickerSheet';
 
 const POLL_MS = 30000;
-const FALLBACK_IMG =
-  'https://images.unsplash.com/photo-1501443762994-82bd5dace89a?w=400&q=70&auto=format&fit=crop';
 
 /**
  * Menú móvil optimizado para QR — versión ligera y rápida.
@@ -27,6 +27,7 @@ export default function MenuMovil() {
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const cart = useMobileCart();
+  const { profile, register, forget } = useCustomerProfile();
 
   const fetchData = useCallback(async () => {
     try {
@@ -113,115 +114,35 @@ export default function MenuMovil() {
     return acc;
   }, {});
 
+  const sectionTitle =
+    'mb-3 flex items-center gap-2 text-[22px] font-[950] leading-none tracking-[-0.04em] text-[#24252b] before:block before:h-[22px] before:w-[10px] before:rounded-full before:bg-[#F0A23B] before:shadow-[7px_0_#F6D5C0]';
+
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#1a0e0a] via-[#2a1410] to-[#0f0806] text-white pb-24">
-      {/* Header */}
-      <header className="px-5 py-6 border-b border-amber-500/20 bg-black/30 text-center">
-        <img
-          src="https://media.base44.com/images/public/69e078117e2725c0776d724e/649909b33_logoPaletaMesadetrabajo8-111.png"
-          alt="Logo"
-          className="h-16 w-auto mx-auto mb-2 drop-shadow-lg"
-        />
-        <h1 className="text-2xl font-black tracking-tight bg-gradient-to-r from-amber-200 to-amber-500 bg-clip-text text-transparent">
-          LA PALETA CAFE
-        </h1>
-        <p className="text-amber-300/70 text-[10px] uppercase tracking-[0.3em] mt-1">
-          Helados artesanales
-        </p>
-      </header>
+    <div className="menu-font relative min-h-screen overflow-x-hidden bg-[#F4F4F6] pb-[86px] text-[#24252b]">
+      <MenuHero profile={profile} onForget={forget} />
 
       <ChannelSelector value={channel} onChange={handleChannelChange} />
       {channelNotice && (
-        <p className="mx-4 mt-3 text-[11px] text-amber-100 bg-amber-500/10 border border-amber-500/30 rounded-lg px-3 py-2">
+        <p className="mx-[14px] mb-4 rounded-[14px] bg-[#FFF3E8] px-2.5 py-2 text-[11px] text-[#4a3023]">
           {channelNotice}
         </p>
       )}
 
       {/* Sabores */}
-      <section className="px-4 py-6">
-        <h2 className="text-xl font-black mb-4 text-amber-100 flex items-center gap-2">
-          <span className="w-1.5 h-6 bg-amber-400 rounded-full" />
-          Sabores Disponibles
-        </h2>
-
-        {uniqueFlavors.length === 0 ? (
-          <p className="text-amber-200/40 text-center py-6">Preparando sabores...</p>
-        ) : (
-          <div className="grid grid-cols-2 gap-3">
-            {uniqueFlavors.map((f) => (
-              <div
-                key={f.id}
-                className="relative overflow-hidden rounded-xl border border-amber-400/30 bg-amber-900/20 aspect-square"
-              >
-                <img
-                  src={f.imageUrl || FALLBACK_IMG}
-                  alt={f.name}
-                  loading="lazy"
-                  className="absolute inset-0 w-full h-full object-cover"
-                  onError={(e) => {
-                    if (e.currentTarget.src !== FALLBACK_IMG)
-                      e.currentTarget.src = FALLBACK_IMG;
-                  }}
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent" />
-                {f.tag && f.tag !== 'Regular' && (
-                  <span className="absolute top-2 right-2 bg-amber-400 text-black text-[9px] font-black uppercase px-1.5 py-0.5 rounded">
-                    {f.tag}
-                  </span>
-                )}
-                <p className="absolute bottom-2 left-2 right-2 text-sm font-black text-amber-50 leading-tight drop-shadow-lg">
-                  {f.name}
-                </p>
-              </div>
-            ))}
-          </div>
-        )}
+      <section className="menu-wave menu-anim-rise menu-delay-25 relative mb-5 px-4 pb-[25px] pt-[17px]">
+        <h2 className={sectionTitle}>Sabores Disponibles</h2>
+        <div className="relative z-[1]">
+          <FlavorCarousel flavors={uniqueFlavors} />
+        </div>
       </section>
 
       {/* Precios */}
-      <section className="px-4 pb-10">
-        <h2 className="text-xl font-black mb-4 text-amber-100 flex items-center gap-2">
-          <span className="w-1.5 h-6 bg-amber-400 rounded-full" />
-          Carta y Precios
-        </h2>
-
-        <div className="space-y-5">
-          {Object.entries(productsByCategory).map(([cat, items]) => (
-            <div key={cat}>
-              <h3 className="text-[10px] uppercase tracking-[0.3em] text-amber-400/80 font-bold mb-2 border-b border-amber-500/20 pb-1">
-                {cat}
-              </h3>
-              <div className="space-y-2">
-                {items.map((p) => (
-                  <div
-                    key={p.id}
-                    className="flex items-center justify-between gap-2 border-b border-dashed border-amber-500/10 pb-2"
-                  >
-                    <span className="text-sm text-amber-50 flex-1">
-                      {p.name}
-                      {p.size_label && (
-                        <span className="text-amber-300/60 text-xs ml-1">
-                          {p.size_label}
-                        </span>
-                      )}
-                    </span>
-                    <span className="text-sm font-black font-mono text-amber-200 whitespace-nowrap">
-                      {formatUSD(p.price)}
-                    </span>
-                    <button
-                      onClick={() => handleAddProduct(p)}
-                      aria-label={`Agregar ${p.name}`}
-                      className="h-9 w-9 shrink-0 rounded-lg bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-200 active:bg-amber-500/40"
-                    >
-                      <Plus className="h-4 w-4" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
+      <section className="menu-wave menu-anim-rise menu-delay-35 relative mb-5 px-4 pb-[25px] pt-[17px]">
+        <h2 className={sectionTitle}>Carta y Precios</h2>
+        <div className="relative z-[1]">
+          <ProductCatalog productsByCategory={productsByCategory} onAdd={handleAddProduct} />
           {products.length === 0 && (
-            <p className="text-amber-200/40 text-center py-6">
+            <p className="menu-anim-cardin rounded-[20px] bg-white p-6 text-center text-[12px] font-extrabold text-[#777984] shadow-[0_10px_22px_#16161d12]">
               {channel === 'delivery'
                 ? 'Aún no hay productos habilitados para delivery.'
                 : 'Sin productos publicados'}
@@ -230,10 +151,8 @@ export default function MenuMovil() {
         </div>
       </section>
 
-      <footer className="px-4 py-4 border-t border-amber-500/20 bg-black/40 text-center">
-        <p className="text-[10px] text-amber-300/50 uppercase tracking-[0.3em]">
-          Síguenos en instagram · @lapaletacafe
-        </p>
+      <footer className="mt-[18px] border-t border-[#E1E1E6] bg-white px-4 pb-6 pt-[22px] text-center text-[10px] font-[900] uppercase tracking-[0.13em] text-[#777984]">
+        Síguenos en instagram · @lapaletacafe
       </footer>
 
       {flavorProduct && (
@@ -279,6 +198,8 @@ export default function MenuMovil() {
           total={cart.total}
           channel={channel}
           onChannelChange={handleChannelChange}
+          profile={profile}
+          onRegister={register}
           onClose={() => setIsCheckoutOpen(false)}
           onSent={() => {
             cart.clear();
