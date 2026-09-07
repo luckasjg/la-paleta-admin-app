@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, ShoppingCart, Package, BookOpen, Factory,
   DollarSign, Warehouse, SlidersHorizontal, Menu, X, IceCream, FlaskConical, ClipboardCheck, Percent, Wallet, Coins, ArrowLeftRight, ClipboardList, Settings as SettingsIcon } from
@@ -9,6 +9,8 @@ import { cn } from '@/lib/utils';
 import { usePermission } from '@/lib/usePermission';
 import LogoutButton from '@/components/layout/LogoutButton';
 import { usePendingOrdersCount } from '@/lib/usePendingOrdersCount';
+import { useUnsavedChangesStore } from '@/lib/UnsavedChangesContext';
+import LeaveConfirmDialog from '@/components/layout/LeaveConfirmDialog';
 
 // Cada item declara el módulo de permisos al que pertenece.
 const navItems = [
@@ -36,6 +38,27 @@ export default function Sidebar() {
   const { can } = usePermission();
   const visibleItems = navItems.filter((item) => can(item.module, 'view'));
   const pendingOrders = usePendingOrdersCount();
+  const navigate = useNavigate();
+  const { dirty, clearAll } = useUnsavedChangesStore();
+  // Ruta pendiente de confirmación cuando hay cambios sin guardar.
+  const [pendingPath, setPendingPath] = useState(null);
+
+  const handleNavClick = (e, path) => {
+    if (!dirty || path === location.pathname) {
+      setMobileOpen(false);
+      return;
+    }
+    e.preventDefault();
+    setPendingPath(path);
+  };
+
+  const confirmLeave = () => {
+    const path = pendingPath;
+    setPendingPath(null);
+    clearAll();
+    setMobileOpen(false);
+    if (path) navigate(path);
+  };
 
   return (
     <>
@@ -76,7 +99,7 @@ export default function Sidebar() {
               <Link
                 key={item.path}
                 to={item.path}
-                onClick={() => setMobileOpen(false)}
+                onClick={(e) => handleNavClick(e, item.path)}
                 className={cn(
                   "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all",
                   isActive ?
@@ -101,6 +124,12 @@ export default function Sidebar() {
           <p className="text-xs text-muted-foreground text-center">Gelato & Café v1.0</p>
         </div>
       </aside>
+
+      <LeaveConfirmDialog
+        open={!!pendingPath}
+        onOpenChange={(o) => !o && setPendingPath(null)}
+        onConfirm={confirmLeave}
+      />
     </>);
 
 }

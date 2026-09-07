@@ -8,6 +8,7 @@ import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { usePaymentMethods } from '@/lib/usePaymentMethods';
+import UnsavedFlag from '@/components/shared/UnsavedFlag';
 
 const empty = {
   name: '',
@@ -82,6 +83,7 @@ export default function WalletForm({ open, onOpenChange, wallet, onSave, isEditi
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
+        <UnsavedFlag active={!!form.name?.trim()} />
         <DialogHeader>
           <DialogTitle>{isEditing ? 'Editar Billetera' : 'Nueva Billetera'}</DialogTitle>
         </DialogHeader>

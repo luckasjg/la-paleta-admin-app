@@ -25,6 +25,7 @@ import RefundQueue from '@/components/pos/RefundQueue';
 import OrderTicket from '@/components/pos/OrderTicket';
 import { getActiveSession, setActiveSession, clearActiveSession } from '@/lib/cashSession';
 import { getPendingOrder, clearPendingOrder, buildCartFromOrder } from '@/lib/posHandoff';
+import { usePosDraft, clearPosDraft } from '@/lib/usePosDraft';
 import {
   splitGramsEqually,
   traySurchargePerGram as traySurchargePerGramShared,
@@ -126,6 +127,14 @@ export default function POS() {
     setLinkedOrder(pending);
     toast.success(`Pedido ${pending.order_number || ''} cargado en el carrito`);
   }, [products]);
+
+  // ── Borrador de la venta en curso ────────────────────────────────────────
+  // Conserva el carrito, el origen de insumos y el pedido vinculado en el
+  // dispositivo, para que cambiar de departamento no borre la venta a medias.
+  const { restored, dismissRestored } = usePosDraft(
+    { cart, sourceLocation, linkedOrder },
+    { setCart, setSourceLocation, setLinkedOrder }
+  );
 
   const activeProducts = products.filter(p => p.is_active !== false);
 
@@ -529,6 +538,7 @@ export default function POS() {
       qc.invalidateQueries({ queryKey: ['refund_requests'] });
       setLinkedOrder(null);
       setCart([]);
+      clearPosDraft();
       setPayDialog(false);
       toast.success('¡Venta registrada!');
     },
@@ -640,6 +650,16 @@ export default function POS() {
           <h2 className="font-semibold">Orden Actual</h2>
           <Badge variant="secondary" className="ml-auto">{cart.length}</Badge>
         </div>
+
+        {restored && cart.length > 0 && (
+          <button
+            type="button"
+            onClick={dismissRestored}
+            className="w-full px-4 py-2 bg-emerald-50 text-emerald-800 text-[11px] text-left border-b border-emerald-200 hover:bg-emerald-100 transition-colors"
+          >
+            Borrador recuperado · tu venta en curso se conservó
+          </button>
+        )}
 
         {linkedOrder && (
           <div className="px-4 py-2 bg-blue-100 text-blue-700 text-xs border-b border-border">

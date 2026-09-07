@@ -16,6 +16,7 @@ import POSCategoryManager from '@/components/products/POSCategoryManager';
 import LinkedSuppliesEditor from '@/components/products/LinkedSuppliesEditor';
 import SearchableCombobox from '@/components/shared/SearchableCombobox';
 import { applyCategoryOrder } from '@/lib/categoryOrder';
+import UnsavedFlag from '@/components/shared/UnsavedFlag';
 
 const DEFAULT_CATEGORIES = ['helado', 'cafe', 'merengada', 'adicional', 'otro'];
 const HIDDEN_CATS_KEY = 'pos_hidden_categories';
@@ -333,6 +334,7 @@ export default function Products() {
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="w-[90vw] sm:max-w-2xl overflow-x-hidden flex flex-col max-h-[90vh] p-0">
+          <UnsavedFlag active={dialogOpen && !!form.name} />
           <DialogHeader className="px-6 pt-6 pb-0 flex-shrink-0">
             <DialogTitle>{editing ? 'Editar Producto' : 'Nuevo Producto'}</DialogTitle>
           </DialogHeader>

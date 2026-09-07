@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Repeat } from 'lucide-react';
+import UnsavedFlag from '@/components/shared/UnsavedFlag';
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -79,6 +80,7 @@ export default function ExpenseForm({ open, onOpenChange, onSubmit, initialValue
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+        <UnsavedFlag active={!!form.description || !!form.amount || !!form.notes} />
         <DialogHeader>
           <DialogTitle>{initialValue ? 'Editar Gasto' : 'Nuevo Gasto'}</DialogTitle>
         </DialogHeader>

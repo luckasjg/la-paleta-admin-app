@@ -19,6 +19,7 @@ import PurchaseFormatPanel, { getPackageUnit } from '@/components/inventory/Purc
 import SearchableCombobox from '@/components/shared/SearchableCombobox';
 import { getStockAt, getStockTotal } from '@/lib/stockHelpers';
 import { Warehouse as WarehouseIcon, FlaskConical } from 'lucide-react';
+import UnsavedFlag from '@/components/shared/UnsavedFlag';
 
 const SECTORS = [
   { value: 'materia_prima', label: 'Materia Prima', description: 'Ingredientes para producción de helados' },
@@ -440,6 +441,7 @@ export default function Inventory() {
       {/* Create / Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+          <UnsavedFlag active={dialogOpen && !!form.name} />
           <DialogHeader>
             <DialogTitle>{editing ? 'Editar Item' : 'Nuevo Item'}</DialogTitle>
           </DialogHeader>

@@ -13,6 +13,7 @@ import { useAdjustmentReasons } from '@/lib/useAdjustmentReasons';
 import { useRole } from '@/lib/useRole';
 import AdjustmentReasonManager from '@/components/adjustments/AdjustmentReasonManager';
 import { Settings2 } from 'lucide-react';
+import UnsavedFlag from '@/components/shared/UnsavedFlag';
 
 const locationFromNotes = (notes) => {
   const prefix = (notes || '').match(/^\[([^\]]+)\]/);
@@ -94,6 +95,7 @@ export default function AdjustmentDialog({ open, onOpenChange, editing, supplies
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+        <UnsavedFlag active={magnitude !== null || !!refId || !!notes} />
         <DialogHeader>
           <DialogTitle>
             {isEdit ? `Editar Ajuste — ${editing.reference_name}` : 'Nuevo Ajuste de Inventario'}

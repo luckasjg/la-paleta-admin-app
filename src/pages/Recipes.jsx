@@ -16,6 +16,7 @@ import { exportRecipesToCSV } from '@/lib/exportRecipesCSV';
 import SearchableCombobox from '@/components/shared/SearchableCombobox';
 import ImageUploadField from '@/components/shared/ImageUploadField';
 import { useRole } from '@/lib/useRole';
+import UnsavedFlag from '@/components/shared/UnsavedFlag';
 
 const TYPES = [
   { value: 'helado', label: 'Helado' },
@@ -268,6 +269,7 @@ export default function Recipes() {
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <UnsavedFlag active={dialogOpen && (!!form.name || form.ingredients.length > 0)} />
           <DialogHeader>
             <DialogTitle>{editing ? 'Editar Receta' : 'Nueva Receta'}</DialogTitle>
           </DialogHeader>
