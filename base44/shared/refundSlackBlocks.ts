@@ -1,4 +1,4 @@
-// Bloques de Block Kit para el mensaje de devolución en #caja.
+// Bloques de Block Kit para el mensaje informativo de devolución en #caja.
 
 const methodLabel = (m) => (m === 'transferencia' ? 'Transferencia' : 'Pago Móvil');
 const accountLabel = (t) =>
@@ -14,7 +14,7 @@ export function refundSummaryText(refund, operationCode) {
   return `💸 Devolución por ${methodLabel(refund.method)} — COD OP ${operationCode} — ${amountLabel(refund)}`;
 }
 
-// Mensaje con datos de la devolución + botón "Registrar Pago".
+// Mensaje informativo con los datos de la devolución.
 export function buildRefundBlocks(refund, operationCode, staffName) {
   const c = refund.customer_data || {};
   const details =
