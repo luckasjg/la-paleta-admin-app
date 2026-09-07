@@ -11,7 +11,9 @@ const fmt = (r) => (r.currency === 'VES'
   : `$${(r.amount_native || 0).toFixed(2)}`);
 
 /** Devoluciones por pago móvil/transferencia del turno, para conciliación. */
-export default function RefundsSessionCard({ refunds = [] }) {
+export default function RefundsSessionCard({ refunds: allRefunds = [] }) {
+  // Las canceladas se conservan como respaldo pero no cuentan en la conciliación.
+  const refunds = allRefunds.filter(r => r.status !== 'cancelada');
   if (refunds.length === 0) return null;
 
   const totalUSD = refunds.reduce((s, r) => s + (r.amount_usd_equivalent || 0), 0);

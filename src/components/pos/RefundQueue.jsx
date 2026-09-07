@@ -1,10 +1,12 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Card } from '@/components/ui/card';
 import { CheckCircle2, Inbox } from 'lucide-react';
 import { toast } from 'sonner';
+import moment from 'moment';
 import RefundQueueCard from '@/components/pos/RefundQueueCard';
+import RefundCompletedSection from '@/components/pos/RefundCompletedSection';
 import { cancelRefund } from '@/lib/cancelRefund';
 
 /**
@@ -25,6 +27,20 @@ export default function RefundQueue() {
     queryKey: ['refund_requests', 'pendiente'],
     queryFn: () => base44.entities.RefundRequest.filter({ status: 'pendiente' }, 'created_date'),
   });
+
+  const { data: paidToday = [] } = useQuery({
+    queryKey: ['refund_requests', 'pagada'],
+    queryFn: () => base44.entities.RefundRequest.filter({ status: 'pagada' }, '-confirmed_at', 50),
+    select: (rows) => rows.filter(r => r.confirmed_at && moment(r.confirmed_at).isSame(moment(), 'day')),
+  });
+
+  // Refresca al instante cuando Slack confirma un pago desde el modal.
+  useEffect(() => {
+    const unsubscribe = base44.entities.RefundRequest.subscribe(() => {
+      qc.invalidateQueries({ queryKey: ['refund_requests'] });
+    });
+    return unsubscribe;
+  }, [qc]);
 
   const confirmRefund = useMutation({
     mutationFn: ({ refund, confirmationReference }) =>
@@ -61,6 +77,7 @@ export default function RefundQueue() {
 
   if (pending.length === 0) {
     return (
+      <div className="space-y-3 max-w-3xl">
       <Card className="flex flex-col items-center justify-center text-center gap-3 py-16 px-6">
         <div className="w-14 h-14 rounded-full bg-emerald-50 flex items-center justify-center">
           <CheckCircle2 className="h-7 w-7 text-emerald-600" />
@@ -72,6 +89,8 @@ export default function RefundQueue() {
           </p>
         </div>
       </Card>
+      <RefundCompletedSection refunds={paidToday} />
+      </div>
     );
   }
 
@@ -91,6 +110,7 @@ export default function RefundQueue() {
           onCancel={(refund, reason) => cancelRefundMut.mutate({ refund, reason })}
         />
       ))}
+      <RefundCompletedSection refunds={paidToday} />
     </div>
   );
 }

@@ -1,12 +1,9 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.44';
 import { getSharedSlackToken, resolveChannelId, postToChannel } from '../../shared/slackChannel.ts';
 import { nextOperationCode } from '../../shared/refundOperationCode.ts';
+import { buildRefundBlocks, refundSummaryText } from '../../shared/refundSlackBlocks.ts';
 
 const CHANNEL_NAME = 'caja';
-
-const methodLabel = (m) => (m === 'transferencia' ? 'Transferencia' : 'Pago Móvil');
-const accountLabel = (t) =>
-  t === 'ahorro' ? 'Ahorro' : t === 'corriente' ? 'Corriente' : t === 'pago_movil' ? 'Pago Móvil' : '—';
 
 export default async function (req: Request): Promise<Response> {
   try {
@@ -26,33 +23,23 @@ export default async function (req: Request): Promise<Response> {
     if (refund.slack_notified) return Response.json({ skipped: true, reason: 'already notified' });
 
     const operationCode = refund.operation_code || (await nextOperationCode(base44));
-
-    const c = refund.customer_data || {};
-    const money = refund.currency === 'VES'
-      ? `Bs. ${(Number(refund.amount_native) || 0).toFixed(2)}`
-      : `$${(Number(refund.amount_native) || 0).toFixed(2)}`;
-
-    const text =
-      `💸 *Devolución por ${methodLabel(refund.method)}* — pendiente de procesar\n` +
-      `*COD OP: ${operationCode}*\n` +
-      `*Monto:* ${money}  (≈ $${(Number(refund.amount_usd_equivalent) || 0).toFixed(2)})\n` +
-      `*Titular:* ${c.titular || '—'}  ·  *C.I.:* ${c.cedula || '—'}\n` +
-      `*Banco:* ${c.banco || '—'}  ·  *Tipo:* ${accountLabel(c.tipo_cuenta)}\n` +
-      `*Cuenta:* ${c.numero_cuenta || '—'}  ·  *Teléfono:* ${c.telefono || '—'}\n` +
-      `*Sale de:* ${refund.wallet_name || '—'}\n` +
-      `*Motivo:* ${refund.reference || '—'}\n` +
-      `*Cajero:* ${refund.staff_name || user.full_name || '—'}\n` +
-      `_Al enviar el dinero, escribe en este canal: *${operationCode} <n° de referencia>*  (ej. ${operationCode} 123456789)_`;
+    const staffName = refund.staff_name || user.full_name || '—';
 
     const token = await getSharedSlackToken(base44);
     if (!token) return Response.json({ skipped: true, reason: 'no slack token' });
 
     const channelId = await resolveChannelId(token, CHANNEL_NAME);
-    const posted = await postToChannel(token, channelId, text);
+    const posted = await postToChannel(
+      token,
+      channelId,
+      refundSummaryText(refund, operationCode),
+      buildRefundBlocks(refund, operationCode, staffName),
+    );
 
     await base44.asServiceRole.entities.RefundRequest.update(refundId, {
       slack_notified: true,
       slack_message_ts: posted?.ts || undefined,
+      slack_channel: posted?.channel || channelId,
       operation_code: operationCode,
     });
 

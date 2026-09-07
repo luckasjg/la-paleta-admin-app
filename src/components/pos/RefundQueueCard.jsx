@@ -6,6 +6,7 @@ import { CheckCircle2, Smartphone, Landmark, Copy } from 'lucide-react';
 import moment from 'moment';
 import { toast } from 'sonner';
 import CancelRefundButton from '@/components/pos/CancelRefundButton';
+import RefundPaidDetails from '@/components/pos/RefundPaidDetails';
 
 const methodLabel = (m) => (m === 'transferencia' ? 'Transferencia' : 'Pago Móvil');
 const accountLabel = (t) =>
@@ -31,6 +32,7 @@ const Row = ({ label, value, copyable }) => (
 
 export default function RefundQueueCard({ refund, onConfirm, isConfirming, onCancel, isCancelling }) {
   const [ref, setRef] = useState('');
+  const isPaid = refund.status === 'pagada';
   const c = refund.customer_data || {};
   const Icon = refund.method === 'transferencia' ? Landmark : Smartphone;
   const money = refund.currency === 'VES'
@@ -38,7 +40,7 @@ export default function RefundQueueCard({ refund, onConfirm, isConfirming, onCan
     : `$${(refund.amount_native || 0).toFixed(2)}`;
 
   return (
-    <Card className="border-amber-300">
+    <Card className={isPaid ? 'border-emerald-300' : 'border-amber-300'}>
       <CardContent className="p-4 space-y-3">
         <div className="flex items-start justify-between gap-3">
           <div>
@@ -72,6 +74,7 @@ export default function RefundQueueCard({ refund, onConfirm, isConfirming, onCan
           <Row label="Motivo" value={refund.reference} />
         </div>
 
+        {isPaid ? <RefundPaidDetails refund={refund} /> : (
         <div className="flex flex-col sm:flex-row gap-2 pt-1">
           <input
             value={ref}
@@ -88,6 +91,7 @@ export default function RefundQueueCard({ refund, onConfirm, isConfirming, onCan
           </Button>
           <CancelRefundButton refund={refund} onCancel={onCancel} isCancelling={isCancelling} />
         </div>
+        )}
       </CardContent>
     </Card>
   );

@@ -38,16 +38,46 @@ export async function getSlackUserName(accessToken, userId) {
   return data.user?.profile?.real_name || data.user?.real_name || data.user?.name || null;
 }
 
-export async function postToChannel(accessToken, channelId, text) {
+export async function postToChannel(accessToken, channelId, text, blocks) {
   const res = await fetch('https://slack.com/api/chat.postMessage', {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${accessToken}`,
       'Content-Type': 'application/json; charset=utf-8',
     },
-    body: JSON.stringify({ channel: channelId, text }),
+    body: JSON.stringify({ channel: channelId, text, ...(blocks ? { blocks } : {}) }),
   });
   const data = await res.json();
   if (!data.ok) throw new Error(`slack chat.postMessage: ${data.error}`);
+  return data;
+}
+
+// Reemplaza el contenido de un mensaje ya publicado.
+export async function updateMessage(accessToken, channelId, ts, text, blocks) {
+  const res = await fetch('https://slack.com/api/chat.update', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json; charset=utf-8',
+    },
+    body: JSON.stringify({ channel: channelId, ts, text, ...(blocks ? { blocks } : {}) }),
+  });
+  const data = await res.json();
+  if (!data.ok) throw new Error(`slack chat.update: ${data.error}`);
+  return data;
+}
+
+// Abre un modal a partir de un trigger_id de interactividad.
+export async function openView(accessToken, triggerId, view) {
+  const res = await fetch('https://slack.com/api/views.open', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json; charset=utf-8',
+    },
+    body: JSON.stringify({ trigger_id: triggerId, view }),
+  });
+  const data = await res.json();
+  if (!data.ok) throw new Error(`slack views.open: ${data.error}`);
   return data;
 }

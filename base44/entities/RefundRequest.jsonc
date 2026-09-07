@@ -74,7 +74,8 @@
       "type": "string",
       "enum": [
         "pendiente",
-        "pagada"
+        "pagada",
+        "cancelada"
       ],
       "default": "pendiente"
     },
@@ -92,6 +93,13 @@
       "type": "string",
       "description": "N\u00b0 de operaci\u00f3n del pago m\u00f3vil realizado"
     },
+    "cancelled_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "cancel_reason": {
+      "type": "string"
+    },
     "cash_register_id": {
       "type": "string"
     },
@@ -105,11 +113,15 @@
     },
     "slack_message_ts": {
       "type": "string",
-      "description": "Timestamp (ts) del mensaje de Slack en #caja (en desuso)"
+      "description": "Timestamp (ts) del mensaje de Slack en #caja"
+    },
+    "slack_channel": {
+      "type": "string",
+      "description": "ID del canal de Slack donde se public\u00f3 el mensaje"
     },
     "operation_code": {
       "type": "string",
-      "description": "C\u00f3digo de operaci\u00f3n consecutivo (ej. 0001) que el operador escribe en Slack para confirmar el pago"
+      "description": "C\u00f3digo de operaci\u00f3n consecutivo (ej. 0001) que identifica la devoluci\u00f3n"
     }
   },
   "required": [
