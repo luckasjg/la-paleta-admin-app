@@ -1,5 +1,6 @@
 import { base44 } from '@/api/base44Client';
 import { cancelPendingRefundsForSale } from '@/lib/cancelRefund';
+import { reverseSaleWalletMovements } from '@/lib/reverseSaleWallets';
 
 /**
  * Anula una venta y revierte todo el inventario asociado.
@@ -11,7 +12,7 @@ import { cancelPendingRefundsForSale } from '@/lib/cancelRefund';
  *
  * Marca la venta como status='voided' y guarda auditoría (voided_at, voided_by, void_reason).
  */
-export async function voidSale({ sale, reason = '', operatorEmail = '' }) {
+export async function voidSale({ sale, reason = '', operatorEmail = '', reversePaidRefundIds = [] }) {
   if (!sale) throw new Error('Venta no encontrada');
   if (sale.status === 'voided') throw new Error('Esta venta ya fue anulada');
 
@@ -80,4 +81,19 @@ export async function voidSale({ sale, reason = '', operatorEmail = '' }) {
 
   // 5) Eliminar las devoluciones pendientes de esta venta y avisar en #caja
   await cancelPendingRefundsForSale(sale.id, `Venta anulada${reason ? ` — ${reason}` : ''}`);
+
+  // 6) Revertir los movimientos de billetera (ingresos y vuelto entregado).
+  // Si el vuelto ya fue enviado al cliente (devolución pagada) y el admin no
+  // pidió reversarlo, ese movimiento se deja intacto.
+  // Si el vuelto ya se envió (devolución pagada) sólo se reversa cuando el
+  // admin lo marcó explícitamente en el diálogo de anulación.
+  const paidRefunds = await base44.entities.RefundRequest.filter({ sale_id: sale.id, status: 'pagada' });
+  const skipChangeReversal =
+    paidRefunds.length > 0 && !paidRefunds.some(r => reversePaidRefundIds.includes(r.id));
+
+  await reverseSaleWalletMovements({
+    saleId: sale.id,
+    skipChangeReversal,
+    reason,
+  });
 }

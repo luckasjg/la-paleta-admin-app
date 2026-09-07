@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { base44 } from '@/api/base44Client';
+import PaidRefundsReversalList from '@/components/cashregister/PaidRefundsReversalList';
 import { Button } from '@/components/ui/button';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -20,18 +22,36 @@ export default function VoidSaleButton({ sale, size = 'sm', variant = 'destructi
   const { isAdmin, user } = useRole();
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState('');
+  const [reverseIds, setReverseIds] = useState([]);
   const qc = useQueryClient();
 
+  const { data: paidRefunds = [] } = useQuery({
+    queryKey: ['refund_requests', 'pagada', sale?.id],
+    queryFn: () => base44.entities.RefundRequest.filter({ sale_id: sale.id, status: 'pagada' }),
+    enabled: open && !!sale?.id,
+  });
+
+  const toggleReverse = (id) =>
+    setReverseIds(prev => (prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]));
+
   const mut = useMutation({
-    mutationFn: () => voidSale({ sale, reason, operatorEmail: user?.email || '' }),
+    mutationFn: () => voidSale({
+      sale,
+      reason,
+      operatorEmail: user?.email || '',
+      reversePaidRefundIds: reverseIds,
+    }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['sales'] });
       qc.invalidateQueries({ queryKey: ['trays'] });
       qc.invalidateQueries({ queryKey: ['supplies'] });
       qc.invalidateQueries({ queryKey: ['refund_requests'] });
-      toast.success('Venta anulada e inventario repuesto');
+      qc.invalidateQueries({ queryKey: ['wallets'] });
+      qc.invalidateQueries({ queryKey: ['wallet_transactions'] });
+      toast.success('Venta anulada: inventario repuesto y billeteras reversadas');
       setOpen(false);
       setReason('');
+      setReverseIds([]);
     },
     onError: (err) => toast.error(err.message || 'Error al anular la venta'),
   });
@@ -61,7 +81,12 @@ export default function VoidSaleButton({ sale, size = 'sm', variant = 'destructi
               y se excluirá del cierre de caja y reportes. El registro se conserva como respaldo.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <div className="space-y-2">
+          <div className="space-y-3">
+            <PaidRefundsReversalList
+              refunds={paidRefunds}
+              selectedIds={reverseIds}
+              onToggle={toggleReverse}
+            />
             <Label className="text-xs">Motivo (opcional)</Label>
             <Textarea
               value={reason}
