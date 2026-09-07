@@ -31,15 +31,12 @@ export function buildRefundBlocks(refund, operationCode, staffName) {
   return [
     { type: 'section', text: { type: 'mrkdwn', text: details } },
     {
-      type: 'actions',
-      block_id: 'acciones_devolucion',
+      type: 'context',
+      block_id: 'instruccion_confirmacion',
       elements: [
         {
-          type: 'button',
-          text: { type: 'plain_text', text: 'Registrar Pago', emoji: true },
-          style: 'primary',
-          action_id: 'abrir_modal_pago',
-          value: refund.id,
+          type: 'mrkdwn',
+          text: `✍️ Para confirmar el pago, escribe en este canal: \`${operationCode} NUMERO_DE_REFERENCIA\``,
         },
       ],
     },
