@@ -77,7 +77,8 @@ export default function VoidSaleButton({ sale, size = 'sm', variant = 'destructi
             <AlertDialogTitle>¿Anular esta venta?</AlertDialogTitle>
             <AlertDialogDescription>
               Esta acción <strong>repondrá el inventario</strong>: gramos a las bandejas, insumos de
-              recetas y utensilios vinculados. La venta quedará marcada como <strong>Anulada</strong>{' '}
+              recetas y utensilios vinculados, y <strong>reversará los movimientos de billetera</strong>{' '}
+              de esta venta. La venta quedará marcada como <strong>Anulada</strong>{' '}
               y se excluirá del cierre de caja y reportes. El registro se conserva como respaldo.
             </AlertDialogDescription>
           </AlertDialogHeader>
