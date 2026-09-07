@@ -17,6 +17,7 @@ import PageHeader from '@/components/shared/PageHeader';
 import { toast } from 'sonner';
 import moment from 'moment';
 import StockLocationSelector from '@/components/shared/StockLocationSelector';
+import SearchableCombobox from '@/components/shared/SearchableCombobox';
 import { getStockAt, buildStockDelta, LOCATION_LABEL } from '@/lib/stockHelpers';
 import IngredientCheckList from '@/components/production/IngredientCheckList';
 import { buildIngredientPlan, computeRealCost, SUBSTITUTION_REASON } from '@/lib/productionSubstitutes';
@@ -556,10 +557,14 @@ export default function Production() {
 
             <div>
               <Label>Sabor (Receta)</Label>
-              <Select value={recipeId} onValueChange={(v) => { setRecipeId(v); setTargetTrayId('new'); setSubstitutions({}); }}>
-                <SelectTrigger><SelectValue placeholder="Seleccionar sabor" /></SelectTrigger>
-                <SelectContent>{iceRecipes.map(r => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}</SelectContent>
-              </Select>
+              <SearchableCombobox
+                value={recipeId}
+                onChange={(v) => { setRecipeId(v); setTargetTrayId('new'); setSubstitutions({}); }}
+                options={iceRecipes.map(r => ({ value: r.id, label: r.name }))}
+                placeholder="Seleccionar sabor"
+                searchPlaceholder="Buscar sabor..."
+                emptyText="Ningún sabor coincide"
+              />
             </div>
 
             {recipeId && refillableTrays.length > 0 && (
