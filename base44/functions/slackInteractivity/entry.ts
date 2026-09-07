@@ -18,8 +18,17 @@ export default async function (req: Request): Promise<Response> {
     );
     if (!valid) return Response.json({ error: 'invalid signature' }, { status: 401 });
 
+    // Slack envía la interactividad como form-encoded (campo "payload"),
+    // pero el handshake de verificación llega como JSON plano.
     const params = new URLSearchParams(rawBody);
-    const payload = JSON.parse(params.get('payload') || '{}');
+    const payload = params.get('payload')
+      ? JSON.parse(params.get('payload'))
+      : JSON.parse(rawBody || '{}');
+
+    // Handshake al guardar la Request URL: devolver el challenge tal cual.
+    if (payload.type === 'url_verification') {
+      return Response.json({ challenge: payload.challenge });
+    }
 
     const base44 = createClientFromRequest(req);
     const token = await getSharedSlackBotToken(base44);
