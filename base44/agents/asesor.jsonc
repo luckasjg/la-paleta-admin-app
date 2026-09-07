@@ -110,9 +110,9 @@
   "selected_skill_names": [],
   "selected_workspace_skill_ids": [],
   "model": "automatic",
-  "whatsapp_greeting": null,
+  "whatsapp_greeting": "",
   "telegram_greeting": "\u00a1Hola! Soy La Paleta Asesor \ud83c\udf66 Preg\u00fantame sobre ventas, caja, gastos, inventario o rentabilidad y te respondo con tus datos reales. Si me pides un cambio, te preparo una propuesta que apruebas dentro de la app.",
-  "line_greeting": null,
+  "line_greeting": "",
   "memory_config": {
     "enabled": true,
     "scope": "both",
