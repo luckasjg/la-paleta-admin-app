@@ -1,6 +1,6 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.44';
 import { secrets } from 'base44:runtime';
-import { getSharedSlackToken, getSlackUserName, updateMessage, openView } from '../../shared/slackChannel.ts';
+import { getSharedSlackBotToken, getSlackUserName, updateMessage, openView } from '../../shared/slackChannel.ts';
 import { verifySlackSignature, buildPaymentModal } from '../../shared/slackInteractivity.ts';
 import { amountLabel, buildPaidBlocks, refundSummaryText } from '../../shared/refundSlackBlocks.ts';
 
@@ -22,7 +22,7 @@ export default async function (req: Request): Promise<Response> {
     const payload = JSON.parse(params.get('payload') || '{}');
 
     const base44 = createClientFromRequest(req);
-    const token = await getSharedSlackToken(base44);
+    const token = await getSharedSlackBotToken(base44);
 
     // a) Clic en el botón "Registrar Pago" → abrir el modal.
     if (payload.type === 'block_actions') {

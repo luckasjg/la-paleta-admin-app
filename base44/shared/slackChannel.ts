@@ -6,6 +6,13 @@ export async function getSharedSlackToken(base44) {
   return conn?.accessToken;
 }
 
+// Token del bot ("Slack La Paleta Bot"). Necesario para Block Kit interactivo:
+// views.open sólo acepta tokens de bot (xoxb-).
+export async function getSharedSlackBotToken(base44) {
+  const conn = await base44.asServiceRole.connectors.getConnection('slackbot');
+  return conn?.accessToken;
+}
+
 // Resuelve el ID de un canal por nombre (Slack pagina de a 200).
 export async function resolveChannelId(accessToken, channelName) {
   let cursor;
@@ -38,14 +45,14 @@ export async function getSlackUserName(accessToken, userId) {
   return data.user?.profile?.real_name || data.user?.real_name || data.user?.name || null;
 }
 
-export async function postToChannel(accessToken, channelId, text, blocks) {
+export async function postToChannel(accessToken, channelId, text, blocks, identity) {
   const res = await fetch('https://slack.com/api/chat.postMessage', {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${accessToken}`,
       'Content-Type': 'application/json; charset=utf-8',
     },
-    body: JSON.stringify({ channel: channelId, text, ...(blocks ? { blocks } : {}) }),
+    body: JSON.stringify({ channel: channelId, text, ...(blocks ? { blocks } : {}), ...(identity || {}) }),
   });
   const data = await res.json();
   if (!data.ok) throw new Error(`slack chat.postMessage: ${data.error}`);

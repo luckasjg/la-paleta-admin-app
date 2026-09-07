@@ -1,5 +1,8 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.44';
-import { getSharedSlackToken, resolveChannelId, postToChannel } from '../../shared/slackChannel.ts';
+import { getSharedSlackBotToken, resolveChannelId, postToChannel } from '../../shared/slackChannel.ts';
+
+// Identidad visible del bot al publicar en #caja.
+const BOT_IDENTITY = { username: 'La Paleta', icon_emoji: ':ice_cream:' };
 import { nextOperationCode } from '../../shared/refundOperationCode.ts';
 import { buildRefundBlocks, refundSummaryText } from '../../shared/refundSlackBlocks.ts';
 
@@ -25,8 +28,10 @@ export default async function (req: Request): Promise<Response> {
     const operationCode = refund.operation_code || (await nextOperationCode(base44));
     const staffName = refund.staff_name || user.full_name || '—';
 
-    const token = await getSharedSlackToken(base44);
-    if (!token) return Response.json({ skipped: true, reason: 'no slack token' });
+    // Token de bot: el mensaje debe pertenecer al bot para poder abrir el modal
+    // y actualizar el mensaje al confirmar el pago.
+    const token = await getSharedSlackBotToken(base44);
+    if (!token) return Response.json({ skipped: true, reason: 'no slack bot token' });
 
     const channelId = await resolveChannelId(token, CHANNEL_NAME);
     const posted = await postToChannel(
@@ -34,6 +39,7 @@ export default async function (req: Request): Promise<Response> {
       channelId,
       refundSummaryText(refund, operationCode),
       buildRefundBlocks(refund, operationCode, staffName),
+      BOT_IDENTITY,
     );
 
     await base44.asServiceRole.entities.RefundRequest.update(refundId, {
