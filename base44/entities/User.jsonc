@@ -2,6 +2,16 @@
   "name": "User",
   "type": "object",
   "properties": {
+    "role": {
+      "type": "string",
+      "enum": [
+        "admin",
+        "gerente",
+        "user"
+      ],
+      "default": "user",
+      "description": "admin = acceso total; gerente = operaci\u00f3n amplia sin Configuraci\u00f3n; user = s\u00f3lo m\u00f3dulos habilitados"
+    },
     "permissions": {
       "type": "object",
       "description": "Matriz de permisos granulares por m\u00f3dulo. Estructura: { [moduleKey]: { view: boolean, edit: boolean, delete: boolean } }",

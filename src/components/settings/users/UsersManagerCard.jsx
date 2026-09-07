@@ -4,7 +4,7 @@ import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Users, Shield, KeyRound } from "lucide-react";
+import { Users, Shield, KeyRound, UserCog } from "lucide-react";
 import UserPermissionsDialog from "./UserPermissionsDialog";
 
 export default function UsersManagerCard() {
@@ -61,6 +61,7 @@ export default function UsersManagerCard() {
               <tbody>
                 {users.map((u) => {
                   const isAdmin = u.role === "admin";
+                  const isGerente = u.role === "gerente";
                   const activeCount = countActivePermissions(u);
                   return (
                     <tr key={u.id} className="border-t">
@@ -71,8 +72,12 @@ export default function UsersManagerCard() {
                           <Badge className="bg-primary/10 text-primary border-primary/20 gap-1">
                             <Shield className="w-3 h-3" /> Admin
                           </Badge>
+                        ) : isGerente ? (
+                          <Badge className="bg-blue-100 text-blue-700 border-blue-200 gap-1">
+                            <UserCog className="w-3 h-3" /> Gerente
+                          </Badge>
                         ) : (
-                          <Badge variant="outline">{u.role || "user"}</Badge>
+                          <Badge variant="outline">Cajero</Badge>
                         )}
                       </td>
                       <td className="p-3">

@@ -38,6 +38,8 @@ export function buildEmptyPermissionsMatrix() {
 export function hasPermission(user, moduleKey, action = "view") {
   if (!user) return false;
   if (user.role === "admin") return true;
+  // Configuración es exclusiva del administrador (gerentes y cajeros nunca entran).
+  if (moduleKey === "configuracion") return false;
   // Los permisos pueden venir en la raíz del usuario o anidados en `data`,
   // según cómo la plataforma devuelva los campos personalizados.
   const perms = user.permissions || user.data?.permissions || {};
