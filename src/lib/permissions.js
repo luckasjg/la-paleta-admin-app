@@ -18,6 +18,7 @@ export const PERMISSION_MODULES = [
   { key: "rentabilidad",   label: "Rentabilidad",      path: "/rentabilidad" },
   { key: "gastos",         label: "Gastos",            path: "/gastos" },
   { key: "billeteras",     label: "Billeteras",        path: "/billeteras" },
+  { key: "asesor",         label: "Asesor IA",         path: "/asesor" },
   { key: "configuracion",  label: "Configuración",     path: "/configuracion" },
 ];
 

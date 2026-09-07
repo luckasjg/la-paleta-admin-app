@@ -28,6 +28,7 @@ import AuditHistory from '@/pages/AuditHistory.jsx';
 import ProfitabilityAnalysis from '@/pages/ProfitabilityAnalysis.jsx';
 import ExpensesManager from '@/pages/ExpensesManager.jsx';
 import Wallets from '@/pages/Wallets.jsx';
+import Asesor from '@/pages/Asesor.jsx';
 import Settings from '@/pages/Settings.jsx';
 import DigitalMenuTV from '@/pages/DigitalMenuTV.jsx';
 import TVSabores from '@/pages/TVSabores.jsx';
@@ -81,6 +82,7 @@ const AuthenticatedApp = () => {
           <Route path="/rentabilidad" element={<RequirePermission module="rentabilidad"><ProfitabilityAnalysis /></RequirePermission>} />
           <Route path="/gastos" element={<RequirePermission module="gastos"><ExpensesManager /></RequirePermission>} />
           <Route path="/billeteras" element={<RequirePermission module="billeteras"><Wallets /></RequirePermission>} />
+          <Route path="/asesor" element={<RequirePermission module="asesor"><Asesor /></RequirePermission>} />
           <Route path="/configuracion" element={<RequireAdmin><Settings /></RequireAdmin>} />
         </Route>
       </Route>
