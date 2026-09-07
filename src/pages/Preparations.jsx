@@ -123,7 +123,7 @@ export default function Preparations() {
       };
 
       // Stock inicial: sólo aplica al crear (no en edición) y cuando el switch está activo.
-      // La carga inicial se asigna al ALMACÉN por defecto (el usuario podrá transferir luego).
+      // La carga inicial se asigna siempre al LABORATORIO DE PRODUCCIÓN.
       const initialStock = (!editing && loadInitialStock)
         ? (parseFloat(formData.yield_amount) || 0)
         : 0;
@@ -133,8 +133,8 @@ export default function Preparations() {
       } else {
         const newSupply = await base44.entities.Supply.create({
           ...supplyPayload,
-          stock_warehouse: initialStock,
-          stock_production: 0,
+          stock_warehouse: 0,
+          stock_production: initialStock,
           stock_current: initialStock,
         });
         linkedSupplyId = newSupply.id;
@@ -164,7 +164,7 @@ export default function Preparations() {
       qc.invalidateQueries({ queryKey: ['supplies'] });
       close();
       if (seeded) {
-        toast.success(`Preparado creado con carga inicial de ${initialStock}${unit} en inventario.`);
+        toast.success(`Preparado creado con carga inicial de ${initialStock}${unit} en el Laboratorio de Producción.`);
       } else {
         toast.success('Preparado guardado y sincronizado con inventario');
       }
@@ -242,13 +242,14 @@ export default function Preparations() {
       }
 
       // Add yield to linked supply (siempre, también en carga inicial).
-      // El preparado se acumula en la ubicación de origen (lugar donde se realizó la mezcla).
+      // El preparado SIEMPRE se acumula en el Laboratorio de Producción,
+      // independientemente de dónde se descontó la materia prima.
       const yieldQty = parseFloat(prep.yield_amount) || 0;
       // Releemos el linked supply en caso de que recién se haya creado.
       const linkedFresh = linked.id === linkedId ? linked : supplies.find(s => s.id === linkedId) || linked;
       await base44.entities.Supply.update(
         linkedId,
-        buildStockDelta(linkedFresh, sourceLocation, yieldQty)
+        buildStockDelta(linkedFresh, 'production', yieldQty)
       );
 
       return { prep, skipped: skipInventoryDeduction };
@@ -259,9 +260,9 @@ export default function Preparations() {
       setProduceDialog(null);
       setSkipInventoryDeduction(false);
       if (skipped) {
-        toast.success(`Carga inicial de ${prep.name} (+${prep.yield_amount}${prep.yield_unit}) sin descontar insumos.`);
+        toast.success(`Carga inicial de ${prep.name} (+${prep.yield_amount}${prep.yield_unit}) en Laboratorio, sin descontar insumos.`);
       } else {
-        toast.success(`Lote de ${prep.name} producido (+${prep.yield_amount}${prep.yield_unit})`);
+        toast.success(`Lote de ${prep.name} producido (+${prep.yield_amount}${prep.yield_unit} en Laboratorio)`);
       }
     },
     onError: (e) => {
@@ -539,8 +540,8 @@ export default function Preparations() {
 
             <p className="text-sm text-muted-foreground">
               {skipInventoryDeduction
-                ? <>Se sumarán <strong className="text-foreground">{produceDialog?.yield_amount} {produceDialog?.yield_unit}</strong> al stock como carga inicial, sin descontar insumos.</>
-                : <>Se producirán <strong className="text-foreground">{produceDialog?.yield_amount} {produceDialog?.yield_unit}</strong> y se descontarán los insumos.</>
+                ? <>Se sumarán <strong className="text-foreground">{produceDialog?.yield_amount} {produceDialog?.yield_unit}</strong> al <strong className="text-foreground">Laboratorio de Producción</strong> como carga inicial, sin descontar insumos.</>
+                : <>Se producirán <strong className="text-foreground">{produceDialog?.yield_amount} {produceDialog?.yield_unit}</strong> que ingresan al <strong className="text-foreground">Laboratorio de Producción</strong>, descontando los insumos del origen seleccionado.</>
               }
             </p>
 
