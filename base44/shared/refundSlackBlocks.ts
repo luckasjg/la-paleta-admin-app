@@ -28,32 +28,5 @@ export function buildRefundBlocks(refund, operationCode, staffName) {
     `*Motivo:* ${refund.reference || '—'}\n` +
     `*Cajero:* ${staffName || '—'}`;
 
-  return [
-    { type: 'section', text: { type: 'mrkdwn', text: details } },
-    {
-      type: 'context',
-      block_id: 'instruccion_confirmacion',
-      elements: [
-        {
-          type: 'mrkdwn',
-          text: `✍️ Para confirmar el pago, escribe en este canal: \`${operationCode} NUMERO_DE_REFERENCIA\``,
-        },
-      ],
-    },
-  ];
-}
-
-// Reemplaza el botón por la confirmación del pago.
-export function buildPaidBlocks(refund, operationCode, staffName, userName, reference, code) {
-  const [firstBlock] = buildRefundBlocks(refund, operationCode, staffName);
-  return [
-    firstBlock,
-    {
-      type: 'section',
-      text: {
-        type: 'mrkdwn',
-        text: `✅ *Pagado por @${userName}* | Ref: *${reference}* | Cód: *${code}*`,
-      },
-    },
-  ];
+  return [{ type: 'section', text: { type: 'mrkdwn', text: details } }];
 }
