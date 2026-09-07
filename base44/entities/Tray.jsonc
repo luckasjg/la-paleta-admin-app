@@ -59,6 +59,44 @@
       "type": "string",
       "format": "date-time",
       "description": "Momento en que la bandeja qued\u00f3 agotada"
+    },
+    "real_cost_total": {
+      "type": "number",
+      "description": "Costo real acumulado de la materia prima usada (incluye sustituciones)"
+    },
+    "real_cost_per_gram": {
+      "type": "number",
+      "description": "Costo real por gramo de la bandeja"
+    },
+    "substitutions": {
+      "type": "array",
+      "description": "Sustituciones de insumos aplicadas al producir esta bandeja",
+      "items": {
+        "type": "object",
+        "properties": {
+          "original_supply_id": {
+            "type": "string"
+          },
+          "original_supply_name": {
+            "type": "string"
+          },
+          "substitute_supply_id": {
+            "type": "string"
+          },
+          "substitute_supply_name": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "number"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "saved_as_preferred": {
+            "type": "boolean"
+          }
+        }
+      }
     }
   },
   "required": [

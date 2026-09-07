@@ -18,6 +18,8 @@ import { toast } from 'sonner';
 import moment from 'moment';
 import StockLocationSelector from '@/components/shared/StockLocationSelector';
 import { getStockAt, buildStockDelta, LOCATION_LABEL } from '@/lib/stockHelpers';
+import IngredientCheckList from '@/components/production/IngredientCheckList';
+import { buildIngredientPlan, computeRealCost, SUBSTITUTION_REASON } from '@/lib/productionSubstitutes';
 
 export default function Production() {
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -35,6 +37,8 @@ export default function Production() {
   const [editTray, setEditTray] = useState(null); // tray being edited
   const [editForm, setEditForm] = useState({ recipe_id: '', recipe_name: '', remaining_grams: 0 });
   const [depositSearch, setDepositSearch] = useState('');
+  // Sustituciones de insumos elegidas por el operario: índice de ingrediente → { supply_id, save_preferred }
+  const [substitutions, setSubstitutions] = useState({});
   const [consumableDialog, setConsumableDialog] = useState(false);
   const [selectedUtensil, setSelectedUtensil] = useState('');
   const qc = useQueryClient();
@@ -62,19 +66,24 @@ export default function Production() {
   );
 
   // Escribe la bandeja: crea una nueva o completa una existente (mismo sabor)
-  const commitTray = async (recipe, gramsToAdd) => {
+  const commitTray = async (recipe, gramsToAdd, cost = null, subs = []) => {
     const today = moment().format('YYYY-MM-DD');
     const target = targetTrayId !== 'new' ? trays.find(t => t.id === targetTrayId) : null;
 
     if (target) {
+      const totalGrams = (target.initial_grams || 0) + gramsToAdd;
+      const costTotal = (target.real_cost_total || 0) + (cost || 0);
       await base44.entities.Tray.update(target.id, {
         remaining_grams: (target.remaining_grams || 0) + gramsToAdd,
-        initial_grams: (target.initial_grams || 0) + gramsToAdd,
+        initial_grams: totalGrams,
         status: 'activa',
         production_date: today,
         first_production_date: target.first_production_date || target.production_date || today,
         refill_count: (target.refill_count || 0) + 1,
         last_refill_date: today,
+        real_cost_total: costTotal,
+        real_cost_per_gram: totalGrams > 0 ? costTotal / totalGrams : 0,
+        substitutions: [...(target.substitutions || []), ...subs],
       });
       return { refilled: true, name: target.recipe_name };
     }
@@ -88,6 +97,9 @@ export default function Production() {
       production_date: today,
       first_production_date: today,
       refill_count: 0,
+      real_cost_total: cost || 0,
+      real_cost_per_gram: gramsToAdd > 0 ? (cost || 0) / gramsToAdd : 0,
+      substitutions: subs,
     });
     return { refilled: false, name: recipe.name };
   };
@@ -105,32 +117,30 @@ export default function Production() {
     return supply || null;
   }, [supplies]);
 
-  // Pre-compute ingredient requirements for the dialog (current recipe + grams)
+  // Plan de consumo del diálogo (receta + gramos + sustituciones elegidas).
+  // El stock disponible se mide ESTRICTAMENTE en la ubicación de origen seleccionada.
   const selectedRecipe = recipes.find(r => r.id === recipeId);
-  const ingredientCheck = React.useMemo(() => {
-    if (!selectedRecipe || !grams) return [];
-    const multiplier = grams / (selectedRecipe.yield_amount || 1);
-    return (selectedRecipe.ingredients || []).map(ing => {
-      const supply = resolveSupply(ing);
-      const needed = (ing.quantity || 0) * multiplier;
-      // El stock disponible se mide ESTRICTAMENTE en la ubicación de origen seleccionada.
-      const available = supply ? getStockAt(supply, sourceLocation) : 0;
-      const isInfinite = supply?.is_infinite === true;
-      const missing = !supply || (!isInfinite && available < needed);
-      return {
-        name: supply?.name || ing.supply_name || 'Insumo desconocido',
-        unit: supply?.unit || ing.unit || '',
-        needed,
-        available,
-        isInfinite,
-        missing,
-        notFound: !supply,
-        relinked: supply && ing.supply_id && supply.id !== ing.supply_id,
-      };
-    });
-  }, [selectedRecipe, grams, supplies, resolveSupply, sourceLocation]);
+  const ingredientPlan = React.useMemo(
+    () => buildIngredientPlan({
+      recipe: selectedRecipe,
+      grams,
+      supplies,
+      sourceLocation,
+      substitutions,
+      resolveSupply,
+    }),
+    [selectedRecipe, grams, supplies, sourceLocation, substitutions, resolveSupply]
+  );
 
-  const missingIngredients = ingredientCheck.filter(i => i.missing);
+  const realCost = React.useMemo(() => computeRealCost(ingredientPlan), [ingredientPlan]);
+  const missingIngredients = ingredientPlan.filter(i => i.missing);
+
+  const selectSubstitute = (index, supplyId) =>
+    setSubstitutions(prev => ({ ...prev, [index]: { supply_id: supplyId, save_preferred: false } }));
+  const clearSubstitute = (index) =>
+    setSubstitutions(prev => { const next = { ...prev }; delete next[index]; return next; });
+  const togglePreferred = (index, value) =>
+    setSubstitutions(prev => ({ ...prev, [index]: { ...prev[index], save_preferred: value } }));
   // En modo bypass (carga inicial) no se valida disponibilidad de materia prima.
   const canProduce = recipeId && grams > 0 && (skipInventoryDeduction || missingIngredients.length === 0);
 
@@ -147,53 +157,81 @@ export default function Production() {
       }
 
       // 1:1 ratio: peso real procesado = peso final de la bandeja (sin overrun, sin conversión a volumen)
-      const multiplier = grams / (recipe.yield_amount || 1);
       const ingredients = recipe.ingredients || [];
-
-      // Resolve each ingredient and detect any that were re-linked by name (stale id)
-      const resolved = ingredients.map(ing => ({ ing, supply: resolveSupply(ing) }));
-      const relinked = resolved.filter(r => r.supply && r.ing.supply_id && r.supply.id !== r.ing.supply_id);
+      const plan = ingredientPlan;
 
       // Final validation (defensive — UI already blocks this).
       // Validamos contra el stock de la ubicación de origen elegida.
-      const missing = [];
-      for (const { ing, supply } of resolved) {
-        if (!supply) {
-          missing.push(`${ing.supply_name || 'Insumo'} (no existe en inventario)`);
-          continue;
-        }
-        if (supply.is_infinite) continue;
-        const needed = (ing.quantity || 0) * multiplier;
-        const avail = getStockAt(supply, sourceLocation);
-        if (avail < needed) {
-          missing.push(`${supply.name}: faltan ${(needed - avail).toFixed(0)}${supply.unit} en ${LOCATION_LABEL[sourceLocation]}`);
-        }
-      }
+      const missing = plan
+        .filter(row => row.missing)
+        .map(row =>
+          row.effective
+            ? `${row.effective.name}: faltan ${(row.needed - row.available).toFixed(0)}${row.unit} en ${LOCATION_LABEL[sourceLocation]}`
+            : `${row.originalName} (no existe en inventario)`
+        );
       if (missing.length > 0) {
         throw new Error(`Insumos insuficientes — ${missing.join(' · ')}`);
       }
 
-      // Auto-heal: persist the fresh supply ids in the recipe so this doesn't repeat
-      if (relinked.length > 0) {
-        const fixedIngredients = ingredients.map(ing => {
-          const fix = relinked.find(r => r.ing === ing);
-          return fix ? { ...ing, supply_id: fix.supply.id, supply_name: fix.supply.name, unit: fix.supply.unit } : ing;
+      // Persistir ids frescos en la receta: auto-heal por nombre + sustitutos marcados
+      // como "preferido" por el operario.
+      const needsRecipeUpdate = plan.some(
+        row => row.relinked || (row.isSubstituted && row.savePreferred)
+      );
+      if (needsRecipeUpdate) {
+        const fixedIngredients = ingredients.map((ing, i) => {
+          const row = plan[i];
+          if (!row) return ing;
+          if (row.isSubstituted && row.savePreferred) {
+            return { ...ing, supply_id: row.substitute.id, supply_name: row.substitute.name, unit: row.substitute.unit };
+          }
+          if (row.relinked) {
+            return { ...ing, supply_id: row.original.id, supply_name: row.original.name, unit: row.original.unit };
+          }
+          return ing;
         });
         await base44.entities.Recipe.update(recipe.id, { ingredients: fixedIngredients });
       }
 
       // Deduct supplies (skip infinite ones) from the SELECTED location.
-      for (const { ing, supply } of resolved) {
-        if (!supply || supply.is_infinite) continue;
-        const needed = (ing.quantity || 0) * multiplier;
+      for (const row of plan) {
+        if (!row.effective || row.effective.is_infinite) continue;
         await base44.entities.Supply.update(
-          supply.id,
-          buildStockDelta(supply, sourceLocation, -needed)
+          row.effective.id,
+          buildStockDelta(row.effective, sourceLocation, -row.needed)
+        );
+      }
+
+      // Trazabilidad de cada sustitución aplicada
+      const subs = plan.filter(row => row.isSubstituted);
+      if (subs.length > 0) {
+        await base44.entities.InventoryAdjustment.bulkCreate(
+          subs.map(row => ({
+            type: 'supply',
+            reference_id: row.substitute.id,
+            reference_name: row.substitute.name,
+            quantity_change: -row.needed,
+            reason: SUBSTITUTION_REASON,
+            notes: `${recipe.name}: ${row.originalName} → ${row.substitute.name} (${row.needed.toFixed(1)}${row.unit})`,
+          }))
         );
       }
 
       // Bandeja nueva o completar existente — 1:1 con el peso real procesado
-      return await commitTray(recipe, grams);
+      return await commitTray(
+        recipe,
+        grams,
+        computeRealCost(plan),
+        subs.map(row => ({
+          original_supply_id: row.original?.id || '',
+          original_supply_name: row.originalName,
+          substitute_supply_id: row.substitute.id,
+          substitute_supply_name: row.substitute.name,
+          quantity: row.needed,
+          unit: row.unit,
+          saved_as_preferred: row.savePreferred === true,
+        }))
+      );
     },
     onSuccess: (result) => {
       qc.invalidateQueries({ queryKey: ['trays'] });
@@ -202,6 +240,7 @@ export default function Production() {
       setDialogOpen(false);
       setSkipInventoryDeduction(false);
       setTargetTrayId('new');
+      setSubstitutions({});
       const base = result?.refilled
         ? `Bandeja de ${result.name} completada con ${grams}g nuevos.`
         : 'Bandeja nueva registrada.';
@@ -487,7 +526,7 @@ export default function Production() {
       </Dialog>
 
       {/* Produce Dialog */}
-      <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) setSkipInventoryDeduction(false); }}>
+      <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) { setSkipInventoryDeduction(false); setSubstitutions({}); } }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Producir Bandeja de Helado</DialogTitle>
@@ -517,7 +556,7 @@ export default function Production() {
 
             <div>
               <Label>Sabor (Receta)</Label>
-              <Select value={recipeId} onValueChange={(v) => { setRecipeId(v); setTargetTrayId('new'); }}>
+              <Select value={recipeId} onValueChange={(v) => { setRecipeId(v); setTargetTrayId('new'); setSubstitutions({}); }}>
                 <SelectTrigger><SelectValue placeholder="Seleccionar sabor" /></SelectTrigger>
                 <SelectContent>{iceRecipes.map(r => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}</SelectContent>
               </Select>
@@ -557,48 +596,14 @@ export default function Production() {
 
             {/* Ingredient check — oculto en modo bypass */}
             {!skipInventoryDeduction && selectedRecipe && grams > 0 && (
-              <div className="border border-border rounded-lg overflow-hidden">
-                <div className={`px-3 py-2 flex items-center gap-2 text-sm font-medium ${
-                  missingIngredients.length > 0
-                    ? 'bg-destructive/10 text-destructive'
-                    : 'bg-green-50 text-green-700'
-                }`}>
-                  {missingIngredients.length > 0 ? (
-                    <><AlertTriangle className="h-4 w-4" /> Faltan {missingIngredients.length} insumo(s)</>
-                  ) : (
-                    <><CheckCircle2 className="h-4 w-4" /> Inventario suficiente</>
-                  )}
-                </div>
-                <div className="divide-y divide-border max-h-56 overflow-y-auto">
-                  {ingredientCheck.map((ing, i) => (
-                    <div key={i} className="px-3 py-2 flex items-center justify-between text-sm">
-                      <div className="flex-1 min-w-0">
-                        <p className={`truncate ${ing.missing ? 'text-destructive font-medium' : ''}`}>
-                          {ing.name}
-                          {ing.notFound && <span className="text-xs ml-1">(no encontrado)</span>}
-                        </p>
-                        <p className="text-xs text-muted-foreground font-mono">
-                          Requiere: {ing.needed.toFixed(1)}{ing.unit}
-                          {!ing.isInfinite && !ing.notFound && (
-                            <> · Disponible: {ing.available?.toFixed(1)}{ing.unit}</>
-                          )}
-                          {ing.isInfinite && <> · (ilimitado)</>}
-                        </p>
-                      </div>
-                      {ing.missing ? (
-                        <Badge className="bg-destructive/15 text-destructive hover:bg-destructive/15 flex-shrink-0">
-                          Falta {Math.max(0, ing.needed - ing.available).toFixed(1)}{ing.unit}
-                        </Badge>
-                      ) : (
-                        <CheckCircle2 className="h-4 w-4 text-green-600 flex-shrink-0" />
-                      )}
-                    </div>
-                  ))}
-                  {ingredientCheck.length === 0 && (
-                    <p className="px-3 py-3 text-xs text-muted-foreground">Esta receta no tiene ingredientes definidos.</p>
-                  )}
-                </div>
-              </div>
+              <IngredientCheckList
+                plan={ingredientPlan}
+                sourceLocation={sourceLocation}
+                realCost={realCost}
+                onSelectSubstitute={selectSubstitute}
+                onClearSubstitute={clearSubstitute}
+                onTogglePreferred={togglePreferred}
+              />
             )}
           </div>
           <DialogFooter>
