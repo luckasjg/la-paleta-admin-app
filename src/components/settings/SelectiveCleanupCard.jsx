@@ -80,6 +80,7 @@ export default function SelectiveCleanupCard() {
   const [selected, setSelected] = useState({});
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmText, setConfirmText] = useState('');
+  const [cutoffDate, setCutoffDate] = useState('');
   const [running, setRunning] = useState(false);
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -133,9 +134,12 @@ export default function SelectiveCleanupCard() {
     };
 
     // Vacía una entidad completa borrando en lotes de 500 IDs.
+    // Para CashRegister, si hay fecha límite, sólo borra los cierres con date anterior.
     const purgeInBatches = async (entity, entityName) => {
+      const useCutoff = entityName === 'CashRegister' && !!cutoffDate;
       for (let pass = 0; pass < 4; pass++) {
-        const records = await listAll(entity, entityName);
+        let records = await listAll(entity, entityName);
+        if (useCutoff) records = records.filter(r => r.date && r.date < cutoffDate);
         if (records.length === 0) break;
 
         for (let i = 0; i < records.length; i += 500) {
@@ -256,6 +260,7 @@ export default function SelectiveCleanupCard() {
       }
 
       setSelected({});
+      setCutoffDate('');
     } catch (e) {
       toast({
         variant: 'destructive',
@@ -311,6 +316,26 @@ export default function SelectiveCleanupCard() {
             ))}
           </div>
 
+          {selected.cash_register && (
+            <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-1.5">
+              <Label htmlFor="cleanup-cutoff" className="text-sm">
+                Borrar sólo cierres anteriores a (opcional)
+              </Label>
+              <Input
+                id="cleanup-cutoff"
+                type="date"
+                value={cutoffDate}
+                onChange={(e) => setCutoffDate(e.target.value)}
+                className="max-w-[200px]"
+              />
+              <p className="text-xs text-muted-foreground">
+                {cutoffDate
+                  ? `Se conservarán los cierres desde el ${cutoffDate} en adelante.`
+                  : 'Si lo dejas vacío, se borrarán TODOS los cierres de caja.'}
+              </p>
+            </div>
+          )}
+
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 pt-2 border-t">
             <p className="text-xs text-muted-foreground">
               {hasSelection
@@ -357,6 +382,12 @@ export default function SelectiveCleanupCard() {
                 ))}
               </ul>
             </div>
+
+            {selected.cash_register && cutoffDate && (
+              <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900">
+                Los cierres de caja se borrarán <strong>sólo si son anteriores al {cutoffDate}</strong>.
+              </div>
+            )}
 
             <div className="rounded-lg bg-muted/40 p-3 text-xs text-muted-foreground">
               <p className="mb-1"><strong>Se mantendrán intactos:</strong></p>
