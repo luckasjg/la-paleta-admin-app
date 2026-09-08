@@ -147,14 +147,20 @@ export default function CashRegister() {
   }, [sales, calendarSales, lastCloseTime, openRegister?.id]);
 
   // Lista visible en la pestaña "Hoy": si la caja sigue abierta mostramos TODAS
-  // las ventas de esa sesión (aunque el turno cruce la medianoche). Sólo cuando
-  // no hay sesión abierta caemos al día calendario.
+  // las ventas de esa sesión (aunque el turno cruce la medianoche). Si no hay
+  // sesión abierta mostramos el día calendario PERO excluyendo las ventas que ya
+  // quedaron archivadas en un cierre, para que no "revivan" tras cerrar la caja.
+  const closedRegisterIds = useMemo(
+    () => new Set(registers.filter(r => r.status === 'cerrada').map(r => r.id)),
+    [registers]
+  );
+
   const todaySales = useMemo(() => {
     if (openRegister?.id) {
       return sales.filter(s => s.cash_register_id === openRegister.id);
     }
-    return calendarSales;
-  }, [sales, calendarSales, openRegister?.id]);
+    return calendarSales.filter(s => !closedRegisterIds.has(s.cash_register_id));
+  }, [sales, calendarSales, openRegister?.id, closedRegisterIds]);
 
   // Sesiones cerradas sin auditoría de helados registrada
   const pendingAudits = useMemo(
