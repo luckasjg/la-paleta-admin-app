@@ -192,10 +192,14 @@ export default function POS() {
   const addToCart = (product) => {
     if (productNeedsFlavor(product)) {
       const totalGrams = product.grams_per_serving || 80;
-      // Start with 1 flavor; cashier can add up to max_flavors
-      const portions = splitGramsEqually(totalGrams, 1);
+      // Abrimos con tantos sabores como permita el producto, ya repartidos en
+      // partes iguales (ej. 200g / 2 sabores → 100g + 100g). Así el descuento
+      // cae sobre las dos bandejas sin que el cajero tenga que recordarlo.
+      // Si el cliente quiere un solo sabor, el cajero puede quitar un slot.
+      const slots = productMaxFlavors(product);
+      const portions = splitGramsEqually(totalGrams, slots);
       setFlavorDialog(product);
-      setSelectedFlavors([{ tray_id: '', grams: portions[0] }]);
+      setSelectedFlavors(portions.map(g => ({ tray_id: '', grams: g })));
     } else if (product.vessel_optional) {
       // Pide elección de recipiente antes de añadir
       setVesselDialog(product);
