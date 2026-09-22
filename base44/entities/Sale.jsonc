@@ -86,15 +86,37 @@
           },
           "subtotal": {
             "type": "number"
+          },
+          "unit_price_eur": {
+            "type": "number",
+            "description": "Precio unitario cobrado en EUR (precio base USD \u00d7 cross USD\u2192EUR)"
+          },
+          "subtotal_eur": {
+            "type": "number",
+            "description": "Subtotal cobrado en EUR"
           }
         }
       }
     },
     "total": {
-      "type": "number"
+      "type": "number",
+      "description": "Total en USD (base contable)"
+    },
+    "total_eur": {
+      "type": "number",
+      "description": "Total efectivamente cobrado al cliente en EUR"
     },
     "exchange_rate": {
-      "type": "number"
+      "type": "number",
+      "description": "Tasa USD\u2194VES vigente en la venta"
+    },
+    "exchange_rate_eur_ves": {
+      "type": "number",
+      "description": "Tasa EUR\u2194VES vigente en la venta"
+    },
+    "exchange_rate_usd_eur": {
+      "type": "number",
+      "description": "Cross usada: cu\u00e1ntos EUR equivale 1 USD base"
     },
     "payments": {
       "type": "array",
@@ -105,6 +127,9 @@
             "type": "string"
           },
           "amount_usd": {
+            "type": "number"
+          },
+          "amount_eur": {
             "type": "number"
           },
           "amount_ves": {
@@ -133,7 +158,8 @@
       "type": "string",
       "enum": [
         "USD",
-        "VES"
+        "VES",
+        "EUR"
       ],
       "description": "Moneda en la que se entreg\u00f3 el vuelto"
     },

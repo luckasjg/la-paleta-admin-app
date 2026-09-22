@@ -10,9 +10,9 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ShoppingCart, Plus, Minus, Trash2, Gift, AlertTriangle, Coffee, GlassWater, Printer } from 'lucide-react';
 import { toast } from 'sonner';
 import moment from 'moment';
-import { useExchangeRate, formatUSD, formatVES } from '@/lib/useExchangeRate';
+import { useExchangeRate, formatUSD, formatVES, formatEUR } from '@/lib/useExchangeRate';
 import { useCurrencySymbol } from '@/lib/useCurrencySymbol';
-import ExchangeRateInput from '@/components/pos/ExchangeRateInput';
+import RateBadge from '@/components/pos/RateBadge';
 import MixedPaymentDialog from '@/components/pos/MixedPaymentDialog';
 import { depositSalePaymentsToWallets, withdrawChangeFromWallet } from '@/lib/walletHelpers';
 import StockLocationSelector from '@/components/shared/StockLocationSelector';
@@ -45,7 +45,11 @@ export default function POS() {
   const [vesselDialog, setVesselDialog] = useState(null);
   // Origen de Materia Prima para esta venta (aplica a toda la orden).
   const [sourceLocation, setSourceLocation] = useState('production');
-  const { rate: exchangeRate, setRate: setExchangeRate } = useExchangeRate();
+  // Tasas centrales del BCV: el precio base sigue en USD y el cobro se hace en EUR.
+  const {
+    rate: exchangeRate, eurVes, eurPerUsd, isManual, lastFetch,
+  } = useExchangeRate();
+  const toEur = (usdAmount) => (usdAmount || 0) * eurPerUsd;
   const { symbol: currency } = useCurrencySymbol();
   const qc = useQueryClient();
 
@@ -345,7 +349,8 @@ export default function POS() {
   };
 
   const completeSale = useMutation({
-    mutationFn: async ({ payments, exchange_rate, change }) => {
+    mutationFn: async ({ payments, exchange_rate, exchange_rate_eur_ves, exchange_rate_usd_eur, change }) => {
+      const crossUsdEur = exchange_rate_usd_eur || eurPerUsd;
       // ── Aggregate ALL grams demanded per tray across the ENTIRE cart ────────
       // Una sola actualización por bandeja (evita sobrescribir deducciones cuando
       // la misma bandeja aparece en varios ítems) y el desglose por sabor manda,
@@ -455,9 +460,16 @@ export default function POS() {
       }
 
       const sale = await base44.entities.Sale.create({
-        items: cart,
+        items: cart.map(i => ({
+          ...i,
+          unit_price_eur: +((i.unit_price || 0) * crossUsdEur).toFixed(2),
+          subtotal_eur: +((i.subtotal || 0) * crossUsdEur).toFixed(2),
+        })),
         total,
+        total_eur: +(total * crossUsdEur).toFixed(2),
         exchange_rate,
+        exchange_rate_eur_ves: exchange_rate_eur_ves || eurVes,
+        exchange_rate_usd_eur: crossUsdEur,
         payments,
         payment_method: legacyMethod,
         cash_amount: +cashUSD.toFixed(2),
@@ -504,12 +516,13 @@ export default function POS() {
         await depositSalePaymentsToWallets({
           payments,
           exchange_rate,
+          eur_per_usd: crossUsdEur,
           sale_id: sale?.id,
           wallets,
         });
         // Salida del vuelto desde la billetera elegida por el cajero
         if (change) {
-          await withdrawChangeFromWallet({ change, exchange_rate, sale_id: sale?.id, wallets });
+          await withdrawChangeFromWallet({ change, exchange_rate, eur_per_usd: crossUsdEur, sale_id: sale?.id, wallets });
         }
       } catch (e) {
         console.error('Error actualizando billeteras:', e);
@@ -567,7 +580,7 @@ export default function POS() {
       <div className="flex-1 flex flex-col min-h-0">
         <div className="mb-3 space-y-2">
           <div className="flex justify-end">
-            <ExchangeRateInput rate={exchangeRate} setRate={setExchangeRate} requireConfirm={payDialog} />
+            <RateBadge eurVes={eurVes} usdVes={exchangeRate} isManual={isManual} lastFetch={lastFetch} />
           </div>
           <div className="flex flex-wrap gap-1.5 w-full">
             {categories.map(c => {
@@ -614,7 +627,7 @@ export default function POS() {
                 <p className="font-semibold text-sm leading-tight break-words">{p.name}</p>
                 {p.size_label && <p className="text-[11px] text-muted-foreground truncate">{p.size_label}</p>}
                 <div className="mt-1.5 flex items-center justify-between gap-1 min-w-0">
-                  <span className="text-base font-bold text-primary truncate">{currency}{p.price?.toFixed(2)}</span>
+                  <span className="text-base font-bold text-primary truncate">{formatEUR(toEur(p.price))}</span>
                   {p.grams_per_serving > 0 && (
                     <Badge variant="secondary" className="text-[10px] px-1.5 shrink-0">{p.grams_per_serving}g</Badge>
                   )}
@@ -673,7 +686,7 @@ export default function POS() {
                 )}
                 {item.flavor_surcharge > 0 && (
                   <p className="text-[10px] text-amber-700 font-medium">
-                    Base {currency}{item.base_price?.toFixed(2)} + recargo {currency}{item.flavor_surcharge.toFixed(2)}
+                    Base {formatEUR(toEur(item.base_price))} + recargo {formatEUR(toEur(item.flavor_surcharge))}
                   </p>
                 )}
                 {item.is_courtesy && <p className="text-xs text-amber-600 font-medium">Cortesía</p>}
@@ -688,7 +701,7 @@ export default function POS() {
                 </Button>
               </div>
               <div className={`w-20 text-right ${item.is_courtesy ? 'text-amber-600' : ''}`}>
-                <div className="text-sm font-semibold">{currency}{item.subtotal.toFixed(2)}</div>
+                <div className="text-sm font-semibold">{formatEUR(toEur(item.subtotal))}</div>
                 <div className="text-[10px] text-muted-foreground font-mono">{formatVES(item.subtotal * exchangeRate)}</div>
               </div>
               <div className="flex flex-col gap-0.5">
@@ -745,8 +758,9 @@ export default function POS() {
           <div className="flex items-end justify-between">
             <span className="text-lg font-bold">Total</span>
             <div className="text-right">
-              <div className="text-2xl font-bold text-primary leading-tight">{formatUSD(total)}</div>
+              <div className="text-2xl font-bold text-primary leading-tight">{formatEUR(toEur(total))}</div>
               <div className="text-sm text-muted-foreground font-mono">{formatVES(totalVES)}</div>
+              <div className="text-[11px] text-muted-foreground">base {formatUSD(total)}</div>
             </div>
           </div>
           <Button
@@ -755,7 +769,12 @@ export default function POS() {
             onClick={() => {
               // Orden 100% cortesía: no se pide método de pago
               if (isCourtesyOrder) {
-                completeSale.mutate({ payments: [], exchange_rate: exchangeRate });
+                completeSale.mutate({
+                  payments: [],
+                  exchange_rate: exchangeRate,
+                  exchange_rate_eur_ves: eurVes,
+                  exchange_rate_usd_eur: eurPerUsd,
+                });
               } else {
                 setPayDialog(true);
               }
@@ -844,17 +863,17 @@ export default function POS() {
               <div className="rounded-md border border-border bg-muted/40 p-2.5 text-xs space-y-1 font-mono">
                 <div className="flex justify-between text-muted-foreground">
                   <span>Precio base</span>
-                  <span>{currency}{(flavorDialog.price || 0).toFixed(2)}</span>
+                  <span>{formatEUR(toEur(flavorDialog.price || 0))}</span>
                 </div>
                 {previewSurcharge > 0 && (
                   <div className="flex justify-between text-amber-700">
                     <span>Recargo sabor</span>
-                    <span>+{currency}{previewSurcharge.toFixed(2)}</span>
+                    <span>+{formatEUR(toEur(previewSurcharge))}</span>
                   </div>
                 )}
                 <div className="flex justify-between font-bold text-primary border-t pt-1">
                   <span>Precio final</span>
-                  <span>{currency}{((flavorDialog.price || 0) + previewSurcharge).toFixed(2)}</span>
+                  <span>{formatEUR(toEur((flavorDialog.price || 0) + previewSurcharge))}</span>
                 </div>
               </div>
             )}
@@ -913,6 +932,8 @@ export default function POS() {
         onOpenChange={setPayDialog}
         totalUSD={total}
         exchangeRate={exchangeRate}
+        eurVes={eurVes}
+        eurPerUsd={eurPerUsd}
         wallets={wallets}
         isProcessing={completeSale.isPending}
         onConfirm={(data) => completeSale.mutate(data)}

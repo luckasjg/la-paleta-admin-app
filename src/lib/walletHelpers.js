@@ -21,7 +21,7 @@ export function findWalletForMethod(wallets, method) {
  * Si no encuentra billetera mapeada para un método, lo ignora silenciosamente
  * (la venta NO debe fallar por billeteras no configuradas).
  */
-export async function depositSalePaymentsToWallets({ payments, exchange_rate, sale_id, wallets, notes = '' }) {
+export async function depositSalePaymentsToWallets({ payments, exchange_rate, eur_per_usd = 1, sale_id, wallets, notes = '' }) {
   if (!Array.isArray(payments) || payments.length === 0) return;
 
   for (const payment of payments) {
@@ -32,6 +32,8 @@ export async function depositSalePaymentsToWallets({ payments, exchange_rate, sa
     let amountNative = 0;
     if (wallet.currency === 'USD') {
       amountNative = payment.amount_usd || payment.amount_usd_equivalent || 0;
+    } else if (wallet.currency === 'EUR') {
+      amountNative = payment.amount_eur || ((payment.amount_usd_equivalent || 0) * eur_per_usd);
     } else {
       // VES
       amountNative = payment.amount_ves || ((payment.amount_usd_equivalent || 0) * exchange_rate);
@@ -65,7 +67,7 @@ export async function depositSalePaymentsToWallets({ payments, exchange_rate, sa
  * y crea una WalletTransaction negativa vinculada a la venta.
  * - change: { amount, currency, wallet_id, amount_usd_equivalent }
  */
-export async function withdrawChangeFromWallet({ change, exchange_rate, sale_id, wallets }) {
+export async function withdrawChangeFromWallet({ change, exchange_rate, eur_per_usd = 1, sale_id, wallets }) {
   if (!change?.wallet_id || !(change.amount > 0)) return;
 
   const wallet = wallets.find(w => w.id === change.wallet_id);
@@ -74,7 +76,11 @@ export async function withdrawChangeFromWallet({ change, exchange_rate, sale_id,
   // El saldo se lleva en la moneda nativa de la billetera: si la moneda del
   // vuelto difiere, convertimos usando la tasa de la venta.
   const usdEq = change.amount_usd_equivalent || 0;
-  const amountNative = wallet.currency === 'USD' ? usdEq : usdEq * exchange_rate;
+  const amountNative = wallet.currency === 'USD'
+    ? usdEq
+    : wallet.currency === 'EUR'
+      ? usdEq * eur_per_usd
+      : usdEq * exchange_rate;
   if (!(amountNative > 0)) return;
 
   await base44.entities.WalletTransaction.create({

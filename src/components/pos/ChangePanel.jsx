@@ -2,7 +2,7 @@ import React from 'react';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertTriangle, Banknote, Smartphone, Landmark } from 'lucide-react';
-import { formatUSD, formatVES } from '@/lib/useExchangeRate';
+import { formatUSD, formatVES, formatEUR } from '@/lib/useExchangeRate';
 import RefundCustomerFields from '@/components/pos/RefundCustomerFields';
 
 const METHODS = [
@@ -18,13 +18,19 @@ const METHODS = [
  * capturan los datos bancarios del cliente para procesar la devolución.
  */
 export default function ChangePanel({
-  excessUSD, exchangeRate, wallets,
+  excessUSD, exchangeRate, eurPerUsd = 1, wallets,
   currency, walletId, method, customerData, reference,
   onChange,
 }) {
   const activeWallets = wallets.filter(w => w.is_active !== false);
   const selectedWallet = activeWallets.find(w => w.id === walletId);
-  const amountNative = currency === 'USD' ? excessUSD : excessUSD * exchangeRate;
+  const amountNative = currency === 'USD'
+    ? excessUSD
+    : currency === 'EUR'
+      ? excessUSD * eurPerUsd
+      : excessUSD * exchangeRate;
+  const formatNative = (n) =>
+    currency === 'USD' ? formatUSD(n) : currency === 'EUR' ? formatEUR(n) : formatVES(n);
   const mismatch = selectedWallet && selectedWallet.currency !== currency;
   const isDigital = method === 'pago_movil' || method === 'transferencia';
 
@@ -33,7 +39,7 @@ export default function ChangePanel({
       <div className="flex items-baseline justify-between">
         <Label className="text-xs uppercase tracking-wide text-amber-800">Vuelto a entregar</Label>
         <span className="font-mono text-lg font-bold text-amber-900">
-          {currency === 'USD' ? formatUSD(amountNative) : formatVES(amountNative)}
+          {formatNative(amountNative)}
         </span>
       </div>
 
@@ -53,8 +59,9 @@ export default function ChangePanel({
         <Select value={currency} onValueChange={v => onChange({ currency: v })}>
           <SelectTrigger className="w-24 h-9 bg-white"><SelectValue /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="USD">USD</SelectItem>
+            <SelectItem value="EUR">EUR</SelectItem>
             <SelectItem value="VES">VES</SelectItem>
+            <SelectItem value="USD">USD</SelectItem>
           </SelectContent>
         </Select>
         <Select value={walletId || ''} onValueChange={v => onChange({ walletId: v })}>
@@ -73,7 +80,7 @@ export default function ChangePanel({
 
       {currency === 'VES' && (
         <p className="text-[10px] text-amber-800 font-mono">
-          {formatUSD(excessUSD)} × Bs. {exchangeRate.toFixed(2)} = {formatVES(amountNative)}
+          {formatEUR(excessUSD * eurPerUsd)} × Bs. {(eurPerUsd > 0 ? exchangeRate / eurPerUsd : 0).toFixed(2)} = {formatVES(amountNative)}
         </p>
       )}
 

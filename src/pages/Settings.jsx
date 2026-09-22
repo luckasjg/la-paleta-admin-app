@@ -4,6 +4,7 @@ import BackupRestoreCard from '@/components/settings/BackupRestoreCard';
 import SelectiveCleanupCard from '@/components/settings/SelectiveCleanupCard';
 import SlackConnectionCard from '@/components/settings/SlackConnectionCard';
 import CurrencySelectorCard from '@/components/settings/CurrencySelectorCard';
+import ExchangeRatesCard from '@/components/settings/ExchangeRatesCard';
 import WhatsAppConfigCard from '@/components/settings/WhatsAppConfigCard';
 import UsersManagerCard from '@/components/settings/users/UsersManagerCard';
 import StaffPOSManagerCard from '@/components/settings/StaffPOSManagerCard';
@@ -17,6 +18,7 @@ export default function Settings() {
       />
       <UsersManagerCard />
       <StaffPOSManagerCard />
+      <ExchangeRatesCard />
       <CurrencySelectorCard />
       <WhatsAppConfigCard />
       <SlackConnectionCard />

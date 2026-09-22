@@ -1,0 +1,44 @@
+{
+  "description": "Consulta las tasas oficiales del BCV (USD\u2194VES y EUR\u2194VES) dos veces al d\u00eda y las guarda centralizadas en ShopSetting.",
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "scheduled",
+      "events": [],
+      "schedule_mode": "recurring",
+      "cron_expression": "0 9,17 * * *",
+      "one_time_date": null,
+      "timezone": "America/Caracas",
+      "interval_value": null,
+      "interval_unit": null,
+      "interval_anchor": null,
+      "ends_type": "never",
+      "ends_on_date": null,
+      "ends_after_count": null
+    }
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "sincronizar_tasas_bcv",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "sincronizar_tasas": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "fetchBcvRates"
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Consultar tasas del BCV",
+            "description": "Guarda USD\u2194VES y EUR\u2194VES"
+          }
+        }
+      }
+    ]
+  },
+  "name": "Sincronizar tasas BCV"
+}

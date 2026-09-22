@@ -9,7 +9,8 @@
       "type": "string",
       "enum": [
         "USD",
-        "VES"
+        "VES",
+        "EUR"
       ]
     },
     "balance": {
