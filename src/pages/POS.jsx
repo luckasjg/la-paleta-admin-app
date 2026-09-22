@@ -864,19 +864,6 @@ export default function POS() {
           >
             <Pause className="h-4 w-4 mr-1" /> Dejar en espera
           </Button>
-          <Button
-            variant="outline"
-            className="w-full h-10"
-            disabled={cart.length === 0}
-            onClick={() => printComanda({
-              cart,
-              staffName: activeSession.staff_name,
-              shift: activeSession.shift,
-              turn: nextTurn,
-            })}
-          >
-            <Printer className="h-4 w-4 mr-1" /> Imprimir Comanda
-          </Button>
           <div className="flex justify-center">
             <PrintRelayBadge available={relayAvailable} checking={relayChecking} />
           </div>
@@ -1025,6 +1012,12 @@ export default function POS() {
         wallets={wallets}
         isProcessing={completeSale.isPending}
         onConfirm={(data) => completeSale.mutate(data)}
+        onPrintComanda={() => printComanda({
+          cart,
+          staffName: activeSession.staff_name,
+          shift: activeSession.shift,
+          turn: nextTurn,
+        })}
       />
 
       {/* Pedidos en espera */}

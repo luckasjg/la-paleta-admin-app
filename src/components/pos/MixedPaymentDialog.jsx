@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, Printer } from 'lucide-react';
 import { formatVES, formatEUR, EUR_PER_USD } from '@/lib/useExchangeRate';
 import { usePaymentMethods } from '@/lib/usePaymentMethods';
 import ChangePanel from '@/components/pos/ChangePanel';
@@ -44,7 +44,7 @@ const toUsd = (amount, currency, eurVes) => {
 
 export default function MixedPaymentDialog({
   open, onOpenChange, totalUSD, eurVes,
-  wallets = [], onConfirm, isProcessing,
+  wallets = [], onConfirm, isProcessing, onPrintComanda,
 }) {
   // Métodos dinámicos desde la entidad PaymentMethod (sólo activos).
   const { posMethods } = usePaymentMethods({ activeOnly: true });
@@ -258,8 +258,13 @@ export default function MixedPaymentDialog({
           />
         )}
 
-        <DialogFooter>
+        <DialogFooter className="gap-2">
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
+          {onPrintComanda && (
+            <Button variant="outline" onClick={onPrintComanda} title="Imprimir comanda">
+              <Printer className="h-4 w-4" /> Comanda
+            </Button>
+          )}
           <Button
             onClick={handleConfirm}
             disabled={!isComplete || !changeReady || isProcessing}
