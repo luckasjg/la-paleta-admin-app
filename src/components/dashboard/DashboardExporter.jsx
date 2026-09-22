@@ -94,7 +94,7 @@ export default function DashboardExporter({ ctx }) {
       </Button>
 
       <Dialog open={open} onOpenChange={(o) => !busy && setOpen(o)}>
-        <DialogContent className="max-w-2xl max-h-[88vh] flex flex-col">
+        <DialogContent className="max-w-2xl max-h-[88vh] !flex flex-col">
           <DialogHeader>
             <DialogTitle>Exportar indicadores a PDF</DialogTitle>
             <p className="text-xs text-muted-foreground">
