@@ -55,6 +55,15 @@ export default function Asesor() {
     setMessages([]);
   };
 
+  /** Archiva u restaura una conversación marcándola en sus metadatos. */
+  const setArchived = async (conv, archived) => {
+    await base44.agents.updateConversation(conv.id, {
+      metadata: { ...conv.metadata, archived }
+    });
+    if (archived && conv.id === conversation?.id) startNew();
+    loadConversations();
+  };
+
   const send = async (text) => {
     const content = (text ?? input).trim();
     if (!content || sending) return;
@@ -85,7 +94,9 @@ export default function Asesor() {
           conversations={conversations}
           activeId={conversation?.id}
           onSelect={openConversation}
-          onNew={startNew} />
+          onNew={startNew}
+          onArchive={(c) => setArchived(c, true)}
+          onRestore={(c) => setArchived(c, false)} />
 
         <div className="border-t border-border">
           <TelegramConnectCard />
