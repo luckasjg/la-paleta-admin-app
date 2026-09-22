@@ -90,7 +90,7 @@ export default function IceCreamAudit({ activeTrays = [], todaySales = [], shift
         entries: rows.map(r => ({
           tray_id: r.tray.id,
           recipe_name: r.tray.recipe_name,
-          initial_grams: r.tray.remaining_grams,
+          initial_grams: r.theoreticalStock + r.gramsConsumed,
           grams_sold_theoretical: r.gramsConsumed,
           theoretical_stock: r.theoreticalStock,
           physical_weight: r.physicalWeight,
