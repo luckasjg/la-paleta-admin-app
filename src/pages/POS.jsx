@@ -7,7 +7,11 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ShoppingCart, Plus, Minus, Trash2, Gift, AlertTriangle, Coffee, GlassWater, Printer } from 'lucide-react';
+import { ShoppingCart, Plus, Minus, Trash2, Gift, AlertTriangle, Coffee, GlassWater, Printer, Pause, BaggageClaim } from 'lucide-react';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import moment from 'moment';
 import { useExchangeRate, formatUSD, formatVES, formatEUR, EUR_PER_USD } from '@/lib/useExchangeRate';
@@ -26,6 +30,9 @@ import OrderTicket from '@/components/pos/OrderTicket';
 import { getActiveSession, setActiveSession, clearActiveSession } from '@/lib/cashSession';
 import { getPendingOrder, clearPendingOrder, buildCartFromOrder } from '@/lib/posHandoff';
 import { usePosDraft, clearPosDraft } from '@/lib/usePosDraft';
+import { useHeldOrders } from '@/lib/useHeldOrders';
+import HoldOrderDialog from '@/components/pos/HoldOrderDialog';
+import HeldOrdersDialog from '@/components/pos/HeldOrdersDialog';
 import { aggregateTrayDemand } from '@/lib/trayDeduction';
 import {
   splitGramsEqually,
@@ -141,6 +148,53 @@ export default function POS() {
     { cart, sourceLocation, linkedOrder },
     { setCart, setSourceLocation, setLinkedOrder }
   );
+
+  // ── Pedidos en espera ────────────────────────────────────────────────────
+  const { heldOrders, nextTurn, hold, discard } = useHeldOrders();
+  const [holdDialog, setHoldDialog] = useState(false);
+  const [heldListDialog, setHeldListDialog] = useState(false);
+  // Pedido pendiente de reanudar mientras se confirma sobrescribir el carrito.
+  const [pendingResume, setPendingResume] = useState(null);
+  // Aviso cuando el pedido reanudado se armó en otra sesión de caja.
+  const [resumedFromOtherSession, setResumedFromOtherSession] = useState(null);
+
+  const confirmHold = (name) => {
+    hold({
+      name,
+      cart,
+      sourceLocation,
+      linkedOrder,
+      total_snapshot: toEur(cart.reduce((s, i) => s + i.subtotal, 0)),
+      eur_ves: eurVes,
+      cash_register_id: activeSession?.id || null,
+      staff_name: activeSession?.staff_name || '',
+    });
+    setCart([]);
+    setLinkedOrder(null);
+    clearPosDraft();
+    setHoldDialog(false);
+    toast.success(`Pedido guardado en espera (turno #${nextTurn})`);
+  };
+
+  const applyResume = (order) => {
+    setCart(order.cart || []);
+    setSourceLocation(order.sourceLocation || 'production');
+    setLinkedOrder(order.linkedOrder || null);
+    discard(order.id);
+    setHeldListDialog(false);
+    setPendingResume(null);
+    if (order.cash_register_id && order.cash_register_id !== activeSession?.id) {
+      setResumedFromOtherSession(order);
+    } else {
+      setResumedFromOtherSession(null);
+    }
+    toast.success(`Turno #${order.turn} reanudado`);
+  };
+
+  const requestResume = (order) => {
+    if (cart.length > 0) setPendingResume(order);
+    else applyResume(order);
+  };
 
   const activeProducts = products.filter(p => p.is_active !== false);
 
@@ -537,6 +591,7 @@ export default function POS() {
       setLinkedOrder(null);
       setCart([]);
       clearPosDraft();
+      setResumedFromOtherSession(null);
       setPayDialog(false);
       toast.success('¡Venta registrada!');
     },
@@ -577,7 +632,14 @@ export default function POS() {
       {/* Product Grid */}
       <div className="flex-1 flex flex-col min-h-0">
         <div className="mb-3 space-y-2">
-          <div className="flex justify-end">
+          <div className="flex justify-end items-center gap-2">
+            <Button
+              variant="outline" size="sm" className="h-8"
+              onClick={() => setHeldListDialog(true)}
+              disabled={heldOrders.length === 0}
+            >
+              <BaggageClaim className="h-4 w-4 mr-1" /> En espera ({heldOrders.length})
+            </Button>
             <RateBadge eurVes={eurVes} isManual={isManual} lastFetch={lastFetch} />
           </div>
           <div className="flex flex-wrap gap-1.5 w-full">
@@ -656,6 +718,18 @@ export default function POS() {
             className="w-full px-4 py-2 bg-emerald-50 text-emerald-800 text-[11px] text-left border-b border-emerald-200 hover:bg-emerald-100 transition-colors"
           >
             Borrador recuperado · tu venta en curso se conservó
+          </button>
+        )}
+
+        {resumedFromOtherSession && (
+          <button
+            type="button"
+            onClick={() => setResumedFromOtherSession(null)}
+            className="w-full px-4 py-2 bg-amber-50 text-amber-800 text-[11px] text-left border-b border-amber-200 hover:bg-amber-100 transition-colors"
+          >
+            Turno #{resumedFromOtherSession.turn} se armó en un turno anterior
+            {resumedFromOtherSession.staff_name ? ` (${resumedFromOtherSession.staff_name})` : ''} ·
+            se cobrará en la sesión de caja actual
           </button>
         )}
 
@@ -777,6 +851,14 @@ export default function POS() {
             }}
           >
             {isCourtesyOrder ? <><Gift className="h-4 w-4 mr-1" /> Confirmar Cortesía</> : 'Cobrar'}
+          </Button>
+          <Button
+            variant="secondary"
+            className="w-full h-10"
+            disabled={cart.length === 0 || completeSale.isPending}
+            onClick={() => setHoldDialog(true)}
+          >
+            <Pause className="h-4 w-4 mr-1" /> Dejar en espera
           </Button>
           <Button
             variant="outline"
@@ -932,6 +1014,41 @@ export default function POS() {
         isProcessing={completeSale.isPending}
         onConfirm={(data) => completeSale.mutate(data)}
       />
+
+      {/* Pedidos en espera */}
+      <HoldOrderDialog
+        open={holdDialog}
+        onOpenChange={setHoldDialog}
+        nextTurn={nextTurn}
+        totalLabel={formatEUR(toEur(total))}
+        onConfirm={confirmHold}
+      />
+      <HeldOrdersDialog
+        open={heldListDialog}
+        onOpenChange={setHeldListDialog}
+        heldOrders={heldOrders}
+        activeSessionId={activeSession.id}
+        onResume={requestResume}
+        onDiscard={(o) => { discard(o.id); toast.success(`Turno #${o.turn} descartado`); }}
+      />
+      <AlertDialog open={!!pendingResume} onOpenChange={() => setPendingResume(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Reemplazar la orden actual?</AlertDialogTitle>
+            <AlertDialogDescription>
+              El carrito actual tiene {cart.length} ítem(s) sin cobrar. Si reanudas el
+              turno #{pendingResume?.turn}, la orden en curso se descartará. Puedes
+              dejarla en espera primero.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={() => applyResume(pendingResume)}>
+              Reanudar de todos modos
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Comanda oculta — sólo visible al imprimir */}
       <OrderTicket cart={cart} staffName={activeSession.staff_name} shift={activeSession.shift} />
