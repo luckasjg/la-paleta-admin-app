@@ -72,19 +72,33 @@ export default function Production() {
     const target = targetTrayId !== 'new' ? trays.find(t => t.id === targetTrayId) : null;
 
     if (target) {
-      const totalGrams = (target.initial_grams || 0) + gramsToAdd;
-      const costTotal = (target.real_cost_total || 0) + (cost || 0);
+      // El contenido real de la bandeja = lo que quedaba + el helado nuevo (no acumula histórico)
+      const remainingBefore = target.remaining_grams || 0;
+      const content = remainingBefore + gramsToAdd;
+      const batchCost = cost || 0;
+      const batchCostPerGram = gramsToAdd > 0 ? batchCost / gramsToAdd : 0;
       await base44.entities.Tray.update(target.id, {
-        remaining_grams: (target.remaining_grams || 0) + gramsToAdd,
-        initial_grams: totalGrams,
+        remaining_grams: content,
+        initial_grams: content,
         status: 'activa',
         production_date: today,
         first_production_date: target.first_production_date || target.production_date || today,
         refill_count: (target.refill_count || 0) + 1,
         last_refill_date: today,
-        real_cost_total: costTotal,
-        real_cost_per_gram: totalGrams > 0 ? costTotal / totalGrams : 0,
-        substitutions: [...(target.substitutions || []), ...subs],
+        real_cost_total: batchCost,
+        real_cost_per_gram: batchCostPerGram,
+        refill_log: [
+          ...(target.refill_log || []),
+          {
+            date: today,
+            grams_added: gramsToAdd,
+            cost: batchCost,
+            cost_per_gram: batchCostPerGram,
+            remaining_before: remainingBefore,
+            remaining_after: content,
+            substitutions: subs,
+          },
+        ],
       });
       return { refilled: true, name: target.recipe_name };
     }
@@ -101,6 +115,7 @@ export default function Production() {
       real_cost_total: cost || 0,
       real_cost_per_gram: gramsToAdd > 0 ? (cost || 0) / gramsToAdd : 0,
       substitutions: subs,
+      refill_log: [],
     });
     return { refilled: false, name: recipe.name };
   };

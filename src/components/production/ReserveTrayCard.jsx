@@ -2,15 +2,21 @@ import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Pencil, Trash2, ArrowUp } from 'lucide-react';
+import { Pencil, Trash2, ArrowUp, History } from 'lucide-react';
 import moment from 'moment';
+import RefillHistoryDialog from '@/components/production/RefillHistoryDialog';
 
 export default function ReserveTrayCard({ tray, onEdit, onDelete, onPromote, busy }) {
+  const [historyOpen, setHistoryOpen] = React.useState(false);
+
   return (
     <Card className="p-3 space-y-2">
       <div className="flex items-center justify-between gap-2">
         <span className="text-sm font-medium truncate">{tray.recipe_name}</span>
         <div className="flex items-center flex-shrink-0">
+          <Button variant="ghost" size="icon" className="h-7 w-7" title="Historial de rellenos" onClick={() => setHistoryOpen(true)}>
+            <History className="h-3.5 w-3.5" />
+          </Button>
           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEdit(tray)}>
             <Pencil className="h-3.5 w-3.5" />
           </Button>
@@ -29,6 +35,7 @@ export default function ReserveTrayCard({ tray, onEdit, onDelete, onPromote, bus
       <Button variant="outline" className="w-full h-10" disabled={busy} onClick={() => onPromote(tray)}>
         <ArrowUp className="h-4 w-4 mr-1.5" /> Subir a vitrina
       </Button>
+      <RefillHistoryDialog tray={tray} open={historyOpen} onOpenChange={setHistoryOpen} />
     </Card>
   );
 }

@@ -20,7 +20,7 @@
     },
     "initial_grams": {
       "type": "number",
-      "description": "Gramos iniciales (acumulado si fue rellenada)"
+      "description": "Contenido real de la bandeja tras el \u00faltimo lote (restante anterior + helado nuevo)"
     },
     "status": {
       "type": "string",
@@ -62,15 +62,72 @@
     },
     "real_cost_total": {
       "type": "number",
-      "description": "Costo real acumulado de la materia prima usada (incluye sustituciones)"
+      "description": "Costo real de la materia prima del \u00faltimo lote producido"
     },
     "real_cost_per_gram": {
       "type": "number",
-      "description": "Costo real por gramo de la bandeja"
+      "description": "Costo real por gramo del \u00faltimo lote"
+    },
+    "refill_log": {
+      "type": "array",
+      "description": "Historial de cada relleno aplicado a esta bandeja",
+      "items": {
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "grams_added": {
+            "type": "number"
+          },
+          "cost": {
+            "type": "number"
+          },
+          "cost_per_gram": {
+            "type": "number"
+          },
+          "remaining_before": {
+            "type": "number"
+          },
+          "remaining_after": {
+            "type": "number"
+          },
+          "substitutions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "original_supply_id": {
+                  "type": "string"
+                },
+                "original_supply_name": {
+                  "type": "string"
+                },
+                "substitute_supply_id": {
+                  "type": "string"
+                },
+                "substitute_supply_name": {
+                  "type": "string"
+                },
+                "quantity": {
+                  "type": "number"
+                },
+                "unit": {
+                  "type": "string"
+                },
+                "saved_as_preferred": {
+                  "type": "boolean"
+                }
+              }
+            }
+          }
+        }
+      }
     },
     "substitutions": {
       "type": "array",
-      "description": "Sustituciones de insumos aplicadas al producir esta bandeja",
+      "description": "Sustituciones de insumos aplicadas al producir esta bandeja (hist\u00f3rico legado)",
       "items": {
         "type": "object",
         "properties": {

@@ -3,8 +3,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Pencil, ArrowDown, Ban } from 'lucide-react';
+import { Pencil, ArrowDown, Ban, History } from 'lucide-react';
 import moment from 'moment';
+import RefillHistoryDialog from '@/components/production/RefillHistoryDialog';
 
 const LEVELS = [
   { min: 40, dot: 'bg-emerald-500', bar: 'bg-emerald-500', label: 'Stock óptimo', text: 'text-emerald-700' },
@@ -15,6 +16,7 @@ const LEVELS = [
 export default function VitrineTrayCard({ tray, onEdit, onExhaust, onDemote, busy }) {
   const pct = tray.initial_grams ? Math.max(0, (tray.remaining_grams / tray.initial_grams) * 100) : 0;
   const level = LEVELS.find(l => pct > l.min) || LEVELS[LEVELS.length - 1];
+  const [historyOpen, setHistoryOpen] = React.useState(false);
 
   return (
     <Card className="border-2 border-primary/40 shadow-md">
@@ -24,9 +26,14 @@ export default function VitrineTrayCard({ tray, onEdit, onExhaust, onDemote, bus
             <span className={`h-3 w-3 rounded-full flex-shrink-0 ${level.dot}`} />
             <CardTitle className="text-base truncate">{tray.recipe_name}</CardTitle>
           </div>
-          <Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0" onClick={() => onEdit(tray)}>
-            <Pencil className="h-3.5 w-3.5" />
-          </Button>
+          <div className="flex items-center flex-shrink-0">
+            <Button variant="ghost" size="icon" className="h-7 w-7" title="Historial de rellenos" onClick={() => setHistoryOpen(true)}>
+              <History className="h-3.5 w-3.5" />
+            </Button>
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEdit(tray)}>
+              <Pencil className="h-3.5 w-3.5" />
+            </Button>
+          </div>
         </div>
         <p className={`text-xs font-medium ${level.text}`}>{level.label}</p>
       </CardHeader>
@@ -54,6 +61,7 @@ export default function VitrineTrayCard({ tray, onEdit, onExhaust, onDemote, bus
           </Button>
         </div>
       </CardContent>
+      <RefillHistoryDialog tray={tray} open={historyOpen} onOpenChange={setHistoryOpen} />
     </Card>
   );
 }
