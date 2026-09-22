@@ -1,5 +1,5 @@
 {
-  "description": "Consulta las tasas oficiales del BCV (USD\u2194VES y EUR\u2194VES) dos veces al d\u00eda y las guarda centralizadas en ShopSetting.",
+  "description": "Consulta la tasa oficial del euro BCV (EUR\u2194VES) dos veces al d\u00eda y la guarda centralizada en ShopSetting.",
   "trigger": {
     "condition": null,
     "config": {
@@ -33,8 +33,8 @@
           },
           "then": "end",
           "x-base44": {
-            "title": "Consultar tasas del BCV",
-            "description": "Guarda USD\u2194VES y EUR\u2194VES"
+            "title": "Consultar tasa del BCV",
+            "description": "Guarda la tasa EUR\u2194VES"
           }
         }
       }

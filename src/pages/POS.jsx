@@ -10,7 +10,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ShoppingCart, Plus, Minus, Trash2, Gift, AlertTriangle, Coffee, GlassWater, Printer } from 'lucide-react';
 import { toast } from 'sonner';
 import moment from 'moment';
-import { useExchangeRate, formatUSD, formatVES, formatEUR } from '@/lib/useExchangeRate';
+import { useExchangeRate, formatUSD, formatVES, formatEUR, EUR_PER_USD } from '@/lib/useExchangeRate';
 import { useCurrencySymbol } from '@/lib/useCurrencySymbol';
 import RateBadge from '@/components/pos/RateBadge';
 import MixedPaymentDialog from '@/components/pos/MixedPaymentDialog';
@@ -47,9 +47,10 @@ export default function POS() {
   const [sourceLocation, setSourceLocation] = useState('production');
   // Tasas centrales del BCV: el precio base sigue en USD y el cobro se hace en EUR.
   const {
-    rate: exchangeRate, eurVes, eurPerUsd, isManual, lastFetch,
+    eurVes, isManual, lastFetch,
   } = useExchangeRate();
-  const toEur = (usdAmount) => (usdAmount || 0) * eurPerUsd;
+  // Paridad fija del negocio: 1 USD de precio base = 1 EUR cobrado.
+  const toEur = (usdAmount) => (usdAmount || 0) * EUR_PER_USD;
   const { symbol: currency } = useCurrencySymbol();
   const qc = useQueryClient();
 
@@ -349,8 +350,7 @@ export default function POS() {
   };
 
   const completeSale = useMutation({
-    mutationFn: async ({ payments, exchange_rate, exchange_rate_eur_ves, exchange_rate_usd_eur, change }) => {
-      const crossUsdEur = exchange_rate_usd_eur || eurPerUsd;
+    mutationFn: async ({ payments, exchange_rate, change }) => {
       // ── Aggregate ALL grams demanded per tray across the ENTIRE cart ────────
       // Una sola actualización por bandeja (evita sobrescribir deducciones cuando
       // la misma bandeja aparece en varios ítems) y el desglose por sabor manda,
@@ -462,14 +462,13 @@ export default function POS() {
       const sale = await base44.entities.Sale.create({
         items: cart.map(i => ({
           ...i,
-          unit_price_eur: +((i.unit_price || 0) * crossUsdEur).toFixed(2),
-          subtotal_eur: +((i.subtotal || 0) * crossUsdEur).toFixed(2),
+          unit_price_eur: +((i.unit_price || 0) * EUR_PER_USD).toFixed(2),
+          subtotal_eur: +((i.subtotal || 0) * EUR_PER_USD).toFixed(2),
         })),
         total,
-        total_eur: +(total * crossUsdEur).toFixed(2),
+        total_eur: +(total * EUR_PER_USD).toFixed(2),
         exchange_rate,
-        exchange_rate_eur_ves: exchange_rate_eur_ves || eurVes,
-        exchange_rate_usd_eur: crossUsdEur,
+        exchange_rate_eur_ves: exchange_rate,
         payments,
         payment_method: legacyMethod,
         cash_amount: +cashUSD.toFixed(2),
@@ -516,13 +515,12 @@ export default function POS() {
         await depositSalePaymentsToWallets({
           payments,
           exchange_rate,
-          eur_per_usd: crossUsdEur,
           sale_id: sale?.id,
           wallets,
         });
         // Salida del vuelto desde la billetera elegida por el cajero
         if (change) {
-          await withdrawChangeFromWallet({ change, exchange_rate, eur_per_usd: crossUsdEur, sale_id: sale?.id, wallets });
+          await withdrawChangeFromWallet({ change, exchange_rate, sale_id: sale?.id, wallets });
         }
       } catch (e) {
         console.error('Error actualizando billeteras:', e);
@@ -545,7 +543,7 @@ export default function POS() {
     onError: (err) => toast.error(err.message),
   });
 
-  const totalVES = total * exchangeRate;
+  const totalVES = toEur(total) * eurVes;
 
   // ── Bloqueo del POS si no hay sesión de caja abierta ─────────────────────
   if (loadingSession) {
@@ -580,7 +578,7 @@ export default function POS() {
       <div className="flex-1 flex flex-col min-h-0">
         <div className="mb-3 space-y-2">
           <div className="flex justify-end">
-            <RateBadge eurVes={eurVes} usdVes={exchangeRate} isManual={isManual} lastFetch={lastFetch} />
+            <RateBadge eurVes={eurVes} isManual={isManual} lastFetch={lastFetch} />
           </div>
           <div className="flex flex-wrap gap-1.5 w-full">
             {categories.map(c => {
@@ -702,7 +700,7 @@ export default function POS() {
               </div>
               <div className={`w-20 text-right ${item.is_courtesy ? 'text-amber-600' : ''}`}>
                 <div className="text-sm font-semibold">{formatEUR(toEur(item.subtotal))}</div>
-                <div className="text-[10px] text-muted-foreground font-mono">{formatVES(item.subtotal * exchangeRate)}</div>
+                <div className="text-[10px] text-muted-foreground font-mono">{formatVES(toEur(item.subtotal) * eurVes)}</div>
               </div>
               <div className="flex flex-col gap-0.5">
                 <Button
@@ -771,9 +769,7 @@ export default function POS() {
               if (isCourtesyOrder) {
                 completeSale.mutate({
                   payments: [],
-                  exchange_rate: exchangeRate,
-                  exchange_rate_eur_ves: eurVes,
-                  exchange_rate_usd_eur: eurPerUsd,
+                  exchange_rate: eurVes,
                 });
               } else {
                 setPayDialog(true);
@@ -931,9 +927,7 @@ export default function POS() {
         open={payDialog}
         onOpenChange={setPayDialog}
         totalUSD={total}
-        exchangeRate={exchangeRate}
         eurVes={eurVes}
-        eurPerUsd={eurPerUsd}
         wallets={wallets}
         isProcessing={completeSale.isPending}
         onConfirm={(data) => completeSale.mutate(data)}

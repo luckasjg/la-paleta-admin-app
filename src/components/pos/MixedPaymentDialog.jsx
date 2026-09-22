@@ -5,14 +5,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, Trash2 } from 'lucide-react';
-import { formatUSD, formatVES, formatEUR } from '@/lib/useExchangeRate';
+import { formatVES, formatEUR, EUR_PER_USD } from '@/lib/useExchangeRate';
 import { usePaymentMethods } from '@/lib/usePaymentMethods';
 import ChangePanel from '@/components/pos/ChangePanel';
 import { isRefundDataComplete } from '@/components/pos/RefundCustomerFields';
 
 const EMPTY_CHANGE = { currency: 'VES', walletId: '', method: 'efectivo', customerData: { tipo_cuenta: 'pago_movil' }, reference: '' };
 
-// El cobro al cliente se hace en EUR (precio base USD × cross USD→EUR).
+// El cobro al cliente se hace en EUR: 1 USD de precio base = 1 EUR.
 // Los métodos cuya moneda por defecto es USD se cobran en EUR.
 const displayCurrency = (methodCurrency) => (methodCurrency === 'USD' ? 'EUR' : methodCurrency);
 
@@ -27,8 +27,23 @@ const makeRow = (methods, method, amount = '') => {
   };
 };
 
+// Conversiones: el USD es la base contable, el EUR va a paridad 1:1 y los
+// bolívares se calculan siempre con la tasa EUR↔VES del BCV.
+const toCurrency = (usdAmount, currency, eurVes) => {
+  if (usdAmount <= 0) return '';
+  if (currency === 'USD') return usdAmount.toFixed(2);
+  if (currency === 'EUR') return (usdAmount * EUR_PER_USD).toFixed(2);
+  return (usdAmount * EUR_PER_USD * eurVes).toFixed(2);
+};
+const toUsd = (amount, currency, eurVes) => {
+  if (!(amount > 0)) return 0;
+  if (currency === 'USD') return amount;
+  if (currency === 'EUR') return amount / EUR_PER_USD;
+  return eurVes > 0 ? amount / eurVes / EUR_PER_USD : 0;
+};
+
 export default function MixedPaymentDialog({
-  open, onOpenChange, totalUSD, exchangeRate, eurVes, eurPerUsd,
+  open, onOpenChange, totalUSD, eurVes,
   wallets = [], onConfirm, isProcessing,
 }) {
   // Métodos dinámicos desde la entidad PaymentMethod (sólo activos).
@@ -38,23 +53,9 @@ export default function MixedPaymentDialog({
   ];
   const getMethod = (v) => PAYMENT_METHODS.find(m => m.value === v) || PAYMENT_METHODS[0];
 
-  // Se congelan las tasas al abrir el diálogo para que los cálculos de la venta
+  // Se congela la tasa al abrir el diálogo para que los cálculos de la venta
   // en curso no cambien si el BCV se sincroniza a mitad del cobro.
-  const [locked, setLocked] = useState({ usdVes: exchangeRate, eurVes, eurPerUsd });
-
-  // Convierte un monto USD base a la moneda de la fila
-  const toCurrency = (usdAmount, currency, rates) => {
-    if (usdAmount <= 0) return '';
-    if (currency === 'USD') return usdAmount.toFixed(2);
-    if (currency === 'EUR') return (usdAmount * rates.eurPerUsd).toFixed(2);
-    return (usdAmount * rates.usdVes).toFixed(2);
-  };
-  const toUsd = (amount, currency, rates) => {
-    if (!(amount > 0)) return 0;
-    if (currency === 'USD') return amount;
-    if (currency === 'EUR') return rates.eurPerUsd > 0 ? amount / rates.eurPerUsd : 0;
-    return rates.usdVes > 0 ? amount / rates.usdVes : 0;
-  };
+  const [lockedRate, setLockedRate] = useState(eurVes);
 
   const defaultMethodValue = PAYMENT_METHODS.find(m => m.defaultCurrency === 'USD')?.value || PAYMENT_METHODS[0].value;
 
@@ -65,24 +66,22 @@ export default function MixedPaymentDialog({
 
   useEffect(() => {
     if (open) {
-      const snap = { usdVes: exchangeRate, eurVes, eurPerUsd };
-      setLocked(snap);
+      setLockedRate(eurVes);
       const first = makeRow(PAYMENT_METHODS, defaultMethodValue);
-      first.amount = toCurrency(totalUSD, first.currency, snap);
+      first.amount = toCurrency(totalUSD, first.currency, eurVes);
       setRows([first]);
       setChange(EMPTY_CHANGE);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  const totalEUR = totalUSD * locked.eurPerUsd;
-  const totalVES = totalEUR * locked.eurVes;
+  const totalEUR = totalUSD * EUR_PER_USD;
+  const totalVES = totalEUR * lockedRate;
 
   const computed = useMemo(() => rows.map(r => {
     const amt = parseFloat(r.amount) || 0;
-    return { ...r, amt, amount_usd_equivalent: toUsd(amt, r.currency, locked) };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [rows, locked]);
+    return { ...r, amt, amount_usd_equivalent: toUsd(amt, r.currency, lockedRate) };
+  }), [rows, lockedRate]);
 
   const receivedUSD = computed.reduce((s, r) => s + r.amount_usd_equivalent, 0);
   const diff = receivedUSD - totalUSD;
@@ -94,7 +93,7 @@ export default function MixedPaymentDialog({
     const vesMethod = PAYMENT_METHODS.find(m => m.defaultCurrency === 'VES');
     const newMethod = vesMethod?.value || PAYMENT_METHODS[0].value;
     const row = makeRow(PAYMENT_METHODS, newMethod);
-    row.amount = toCurrency(remainingUSD, row.currency, locked);
+    row.amount = toCurrency(remainingUSD, row.currency, lockedRate);
     setRows(rs => [...rs, row]);
   };
   const removeRow = (id) => setRows(rs => rs.length > 1 ? rs.filter(r => r.id !== id) : rs);
@@ -105,14 +104,14 @@ export default function MixedPaymentDialog({
     if (patch.method && !patch.currency) {
       const newCurrency = displayCurrency(getMethod(patch.method).defaultCurrency);
       if (newCurrency !== r.currency && r.amount !== '') {
-        const usdEq = toUsd(parseFloat(r.amount) || 0, r.currency, locked);
-        next.amount = toCurrency(usdEq, newCurrency, locked);
+        const usdEq = toUsd(parseFloat(r.amount) || 0, r.currency, lockedRate);
+        next.amount = toCurrency(usdEq, newCurrency, lockedRate);
       }
       next.currency = newCurrency;
     }
     if (patch.currency && patch.currency !== r.currency && r.amount !== '') {
-      const usdEq = toUsd(parseFloat(r.amount) || 0, r.currency, locked);
-      next.amount = toCurrency(usdEq, patch.currency, locked);
+      const usdEq = toUsd(parseFloat(r.amount) || 0, r.currency, lockedRate);
+      next.amount = toCurrency(usdEq, patch.currency, lockedRate);
     }
     return next;
   }));
@@ -133,7 +132,7 @@ export default function MixedPaymentDialog({
         return base;
       });
     const changePayload = hasChange ? {
-      amount: +parseFloat(toCurrency(diff, change.currency, locked) || 0).toFixed(2),
+      amount: +parseFloat(toCurrency(diff, change.currency, lockedRate) || 0).toFixed(2),
       currency: change.currency,
       amount_usd_equivalent: +diff.toFixed(2),
       wallet_id: change.walletId,
@@ -146,9 +145,7 @@ export default function MixedPaymentDialog({
     } : null;
     onConfirm({
       payments,
-      exchange_rate: locked.usdVes,
-      exchange_rate_eur_ves: locked.eurVes,
-      exchange_rate_usd_eur: locked.eurPerUsd,
+      exchange_rate: lockedRate,
       change: changePayload,
     });
   };
@@ -165,10 +162,8 @@ export default function MixedPaymentDialog({
           <p className="text-xs text-muted-foreground uppercase tracking-wide">Total a Pagar</p>
           <p className="text-3xl font-bold text-primary">{formatEUR(totalEUR)}</p>
           <p className="text-sm text-muted-foreground font-mono">{formatVES(totalVES)}</p>
-          <p className="text-[11px] text-muted-foreground">Base contable: {formatUSD(totalUSD)}</p>
           <p className="text-[10px] text-muted-foreground">
-            Tasas fijas de esta venta: <span className="font-mono font-semibold">1 € = Bs. {locked.eurVes.toFixed(2)}</span>
-            {' · '}<span className="font-mono">1 $ = € {locked.eurPerUsd.toFixed(4)}</span>
+            Tasa fija de esta venta: <span className="font-mono font-semibold">1 € = Bs. {lockedRate.toFixed(2)}</span>
           </p>
         </div>
 
@@ -208,13 +203,12 @@ export default function MixedPaymentDialog({
                     <SelectContent>
                       <SelectItem value="EUR">EUR</SelectItem>
                       <SelectItem value="VES">VES</SelectItem>
-                      <SelectItem value="USD">USD</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 {cmp.amt > 0 && r.currency !== 'EUR' && (
                   <p className="text-[10px] text-muted-foreground font-mono pl-1">
-                    ≈ {formatEUR(cmp.amount_usd_equivalent * locked.eurPerUsd)}
+                    ≈ {formatEUR(cmp.amount_usd_equivalent * EUR_PER_USD)}
                   </p>
                 )}
               </div>
@@ -229,17 +223,17 @@ export default function MixedPaymentDialog({
         <div className="border-t border-border pt-3 space-y-1.5 text-sm">
           <div className="flex justify-between">
             <span className="text-muted-foreground">Total recibido</span>
-            <span className="font-mono font-semibold">{formatEUR(receivedUSD * locked.eurPerUsd)}</span>
+            <span className="font-mono font-semibold">{formatEUR(receivedUSD * EUR_PER_USD)}</span>
           </div>
           {diff < -0.005 ? (
             <div className="flex justify-between text-destructive font-semibold">
               <span>Falta por cobrar</span>
-              <span className="font-mono">{formatEUR(-diff * locked.eurPerUsd)}</span>
+              <span className="font-mono">{formatEUR(-diff * EUR_PER_USD)}</span>
             </div>
           ) : diff > 0.005 ? (
             <div className="flex justify-between text-emerald-600 font-semibold">
               <span>Vuelto</span>
-              <span className="font-mono">{formatEUR(diff * locked.eurPerUsd)}</span>
+              <span className="font-mono">{formatEUR(diff * EUR_PER_USD)}</span>
             </div>
           ) : hasAnyAmount ? (
             <div className="flex justify-between text-emerald-600 font-semibold">
@@ -253,8 +247,7 @@ export default function MixedPaymentDialog({
         {hasChange && (
           <ChangePanel
             excessUSD={diff}
-            exchangeRate={locked.usdVes}
-            eurPerUsd={locked.eurPerUsd}
+            eurVes={lockedRate}
             wallets={wallets}
             currency={change.currency}
             walletId={change.walletId}

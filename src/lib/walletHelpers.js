@@ -1,4 +1,5 @@
 import { base44 } from '@/api/base44Client';
+import { EUR_PER_USD } from '@/lib/useExchangeRate';
 
 /**
  * Busca la billetera mapeada a un método de pago.
@@ -13,7 +14,7 @@ export function findWalletForMethod(wallets, method) {
 /**
  * Deposita los pagos de una venta en sus billeteras correspondientes.
  * - payments: array de { method, amount_usd, amount_ves, amount_usd_equivalent }
- * - exchange_rate: tasa histórica de la venta
+ * - exchange_rate: tasa EUR↔VES histórica de la venta
  * - sale_id: ID de la venta recién creada
  * - wallets: lista de billeteras (para mapear método→billetera)
  *
@@ -21,7 +22,7 @@ export function findWalletForMethod(wallets, method) {
  * Si no encuentra billetera mapeada para un método, lo ignora silenciosamente
  * (la venta NO debe fallar por billeteras no configuradas).
  */
-export async function depositSalePaymentsToWallets({ payments, exchange_rate, eur_per_usd = 1, sale_id, wallets, notes = '' }) {
+export async function depositSalePaymentsToWallets({ payments, exchange_rate, sale_id, wallets, notes = '' }) {
   if (!Array.isArray(payments) || payments.length === 0) return;
 
   for (const payment of payments) {
@@ -33,10 +34,10 @@ export async function depositSalePaymentsToWallets({ payments, exchange_rate, eu
     if (wallet.currency === 'USD') {
       amountNative = payment.amount_usd || payment.amount_usd_equivalent || 0;
     } else if (wallet.currency === 'EUR') {
-      amountNative = payment.amount_eur || ((payment.amount_usd_equivalent || 0) * eur_per_usd);
+      amountNative = payment.amount_eur || ((payment.amount_usd_equivalent || 0) * EUR_PER_USD);
     } else {
-      // VES
-      amountNative = payment.amount_ves || ((payment.amount_usd_equivalent || 0) * exchange_rate);
+      // VES: el equivalente en USD pasa a EUR (paridad fija) y de ahí a bolívares.
+      amountNative = payment.amount_ves || ((payment.amount_usd_equivalent || 0) * EUR_PER_USD * exchange_rate);
     }
     if (!(amountNative > 0)) continue;
 
@@ -67,7 +68,7 @@ export async function depositSalePaymentsToWallets({ payments, exchange_rate, eu
  * y crea una WalletTransaction negativa vinculada a la venta.
  * - change: { amount, currency, wallet_id, amount_usd_equivalent }
  */
-export async function withdrawChangeFromWallet({ change, exchange_rate, eur_per_usd = 1, sale_id, wallets }) {
+export async function withdrawChangeFromWallet({ change, exchange_rate, sale_id, wallets }) {
   if (!change?.wallet_id || !(change.amount > 0)) return;
 
   const wallet = wallets.find(w => w.id === change.wallet_id);
@@ -79,8 +80,8 @@ export async function withdrawChangeFromWallet({ change, exchange_rate, eur_per_
   const amountNative = wallet.currency === 'USD'
     ? usdEq
     : wallet.currency === 'EUR'
-      ? usdEq * eur_per_usd
-      : usdEq * exchange_rate;
+      ? usdEq * EUR_PER_USD
+      : usdEq * EUR_PER_USD * exchange_rate;
   if (!(amountNative > 0)) return;
 
   await base44.entities.WalletTransaction.create({

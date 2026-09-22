@@ -2,7 +2,7 @@ import React from 'react';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertTriangle, Banknote, Smartphone, Landmark } from 'lucide-react';
-import { formatUSD, formatVES, formatEUR } from '@/lib/useExchangeRate';
+import { formatVES, formatEUR, EUR_PER_USD } from '@/lib/useExchangeRate';
 import RefundCustomerFields from '@/components/pos/RefundCustomerFields';
 
 const METHODS = [
@@ -18,19 +18,15 @@ const METHODS = [
  * capturan los datos bancarios del cliente para procesar la devolución.
  */
 export default function ChangePanel({
-  excessUSD, exchangeRate, eurPerUsd = 1, wallets,
+  excessUSD, eurVes, wallets,
   currency, walletId, method, customerData, reference,
   onChange,
 }) {
   const activeWallets = wallets.filter(w => w.is_active !== false);
   const selectedWallet = activeWallets.find(w => w.id === walletId);
-  const amountNative = currency === 'USD'
-    ? excessUSD
-    : currency === 'EUR'
-      ? excessUSD * eurPerUsd
-      : excessUSD * exchangeRate;
-  const formatNative = (n) =>
-    currency === 'USD' ? formatUSD(n) : currency === 'EUR' ? formatEUR(n) : formatVES(n);
+  const excessEUR = excessUSD * EUR_PER_USD;
+  const amountNative = currency === 'EUR' ? excessEUR : excessEUR * eurVes;
+  const formatNative = (n) => (currency === 'EUR' ? formatEUR(n) : formatVES(n));
   const mismatch = selectedWallet && selectedWallet.currency !== currency;
   const isDigital = method === 'pago_movil' || method === 'transferencia';
 
@@ -61,7 +57,6 @@ export default function ChangePanel({
           <SelectContent>
             <SelectItem value="EUR">EUR</SelectItem>
             <SelectItem value="VES">VES</SelectItem>
-            <SelectItem value="USD">USD</SelectItem>
           </SelectContent>
         </Select>
         <Select value={walletId || ''} onValueChange={v => onChange({ walletId: v })}>
@@ -80,7 +75,7 @@ export default function ChangePanel({
 
       {currency === 'VES' && (
         <p className="text-[10px] text-amber-800 font-mono">
-          {formatEUR(excessUSD * eurPerUsd)} × Bs. {(eurPerUsd > 0 ? exchangeRate / eurPerUsd : 0).toFixed(2)} = {formatVES(amountNative)}
+          {formatEUR(excessEUR)} × Bs. {eurVes.toFixed(2)} = {formatVES(amountNative)}
         </p>
       )}
 

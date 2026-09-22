@@ -3,10 +3,10 @@ import { RefreshCw, Lock } from 'lucide-react';
 import moment from 'moment';
 
 /**
- * Chip de tasas del POS (sólo lectura). Las tasas son centrales: las
- * sincroniza el BCV dos veces al día o las fija un admin en Configuración.
+ * Chip de tasa del POS (sólo lectura). La tasa EUR↔VES es central: la
+ * sincroniza el BCV dos veces al día o la fija un admin en Configuración.
  */
-export default function RateBadge({ eurVes, usdVes, isManual, lastFetch }) {
+export default function RateBadge({ eurVes, isManual, lastFetch }) {
   return (
     <div className="flex items-center gap-3 bg-card border border-border rounded-lg px-3 py-1.5 shadow-sm">
       {isManual
@@ -15,7 +15,7 @@ export default function RateBadge({ eurVes, usdVes, isManual, lastFetch }) {
       <div className="leading-tight">
         <p className="text-sm font-mono font-semibold">1 € = Bs. {eurVes.toFixed(2)}</p>
         <p className="text-[10px] text-muted-foreground font-mono">
-          1 $ = Bs. {usdVes.toFixed(2)}
+          1 $ = 1 €
           {' · '}
           {isManual ? 'tasa manual' : lastFetch ? `BCV ${moment(lastFetch).format('DD/MM HH:mm')}` : 'BCV'}
         </p>

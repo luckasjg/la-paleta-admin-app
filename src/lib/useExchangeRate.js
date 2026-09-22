@@ -2,7 +2,11 @@ import { useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 
-const DEFAULT_USD_VES = 38;
+const DEFAULT_EUR_VES = 38;
+
+// Paridad fija del negocio: 1 USD de precio base = 1 EUR cobrado.
+// Es una constante del sistema, no se configura.
+export const EUR_PER_USD = 1;
 
 export const RATES_QUERY_KEY = ['exchange_rates'];
 
@@ -12,9 +16,10 @@ const num = (v, fallback) => {
 };
 
 /**
- * Lee las tasas centralizadas desde ShopSetting (escritas automáticamente por
- * el workflow que consulta el BCV dos veces al día). Si el admin activó el
- * override manual, esas tasas manuales tienen prioridad.
+ * Lee la tasa EUR↔VES centralizada desde ShopSetting (la escribe el workflow
+ * que consulta el BCV dos veces al día). Es la única tasa del sistema: los
+ * bolívares siempre se calculan con ella. Si el admin activó el override
+ * manual, esa tasa tiene prioridad.
  */
 export async function loadRates() {
   const rows = await base44.entities.ShopSetting.list();
@@ -22,34 +27,24 @@ export async function loadRates() {
   for (const r of rows || []) map[r.key] = r.value;
 
   const isManual = map.use_manual_rate === 'true';
-  const autoUsdVes = num(map.exchange_rate_usd_ves, DEFAULT_USD_VES);
-  const autoEurVes = num(map.exchange_rate_eur_ves, autoUsdVes);
-
-  const usdVes = isManual ? num(map.manual_rate_usd_ves, autoUsdVes) : autoUsdVes;
+  const autoEurVes = num(map.exchange_rate_eur_ves, DEFAULT_EUR_VES);
   const eurVes = isManual ? num(map.manual_rate_eur_ves, autoEurVes) : autoEurVes;
 
   return {
-    usdVes,
     eurVes,
-    // Cuántos EUR equivale 1 USD de precio base.
-    eurPerUsd: eurVes > 0 ? usdVes / eurVes : 1,
     isManual,
     lastFetch: map.last_bcv_fetch_at || '',
     lastError: map.last_bcv_fetch_error || '',
-    autoUsdVes,
     autoEurVes,
   };
 }
 
 const FALLBACK = {
-  usdVes: DEFAULT_USD_VES,
-  eurVes: DEFAULT_USD_VES,
-  eurPerUsd: 1,
+  eurVes: DEFAULT_EUR_VES,
   isManual: false,
   lastFetch: '',
   lastError: '',
-  autoUsdVes: DEFAULT_USD_VES,
-  autoEurVes: DEFAULT_USD_VES,
+  autoEurVes: DEFAULT_EUR_VES,
 };
 
 export function useExchangeRate() {
@@ -62,9 +57,8 @@ export function useExchangeRate() {
 
   const rates = data || FALLBACK;
 
-  // Override manual (sólo admin por RLS de ShopSetting): guarda las tasas
-  // manuales y activa el flag para que todo el sistema las use.
-  const setRate = useCallback(async ({ usdVes, eurVes, enabled = true }) => {
+  // Override manual (sólo admin por RLS de ShopSetting).
+  const setRate = useCallback(async ({ eurVes, enabled = true }) => {
     const rows = await base44.entities.ShopSetting.list();
     const byKey = {};
     for (const r of rows || []) byKey[r.key] = r;
@@ -73,22 +67,18 @@ export function useExchangeRate() {
       if (byKey[key]) await base44.entities.ShopSetting.update(byKey[key].id, { value: clean });
       else await base44.entities.ShopSetting.create({ key, value: clean });
     };
-    if (usdVes != null) await write('manual_rate_usd_ves', usdVes);
     if (eurVes != null) await write('manual_rate_eur_ves', eurVes);
     await write('use_manual_rate', enabled ? 'true' : 'false');
     await qc.invalidateQueries({ queryKey: RATES_QUERY_KEY });
   }, [qc]);
 
   return {
-    // `rate` sigue siendo la tasa USD↔VES (base contable, no romper consumidores).
-    rate: rates.usdVes,
-    usdVes: rates.usdVes,
+    // `rate` es la tasa con la que se convierte a bolívares (EUR↔VES).
+    rate: rates.eurVes,
     eurVes: rates.eurVes,
-    eurPerUsd: rates.eurPerUsd,
     isManual: rates.isManual,
     lastFetch: rates.lastFetch,
     lastError: rates.lastError,
-    autoUsdVes: rates.autoUsdVes,
     autoEurVes: rates.autoEurVes,
     isLoading,
     setRate,
