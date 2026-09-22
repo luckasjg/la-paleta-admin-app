@@ -27,6 +27,8 @@ import RegisterOpenGate from '@/components/pos/RegisterOpenGate';
 import PosTabs from '@/components/pos/PosTabs';
 import RefundQueue from '@/components/pos/RefundQueue';
 import OrderTicket from '@/components/pos/OrderTicket';
+import PrintRelayBadge from '@/components/pos/PrintRelayBadge';
+import { printComanda, usePrintRelay } from '@/lib/printRelay';
 import { getActiveSession, setActiveSession, clearActiveSession } from '@/lib/cashSession';
 import { getPendingOrder, clearPendingOrder, buildCartFromOrder } from '@/lib/posHandoff';
 import { usePosDraft, clearPosDraft } from '@/lib/usePosDraft';
@@ -59,6 +61,8 @@ export default function POS() {
   // Paridad fija del negocio: 1 USD de precio base = 1 EUR cobrado.
   const toEur = (usdAmount) => (usdAmount || 0) * EUR_PER_USD;
   const { symbol: currency } = useCurrencySymbol();
+  // Relay de impresión local (si corre en este equipo, la comanda sale sin diálogo)
+  const { available: relayAvailable, checking: relayChecking } = usePrintRelay();
   const qc = useQueryClient();
 
   // ── Sesión de caja activa (obligatoria para vender) ──────────────────────
@@ -864,10 +868,18 @@ export default function POS() {
             variant="outline"
             className="w-full h-10"
             disabled={cart.length === 0}
-            onClick={() => window.print()}
+            onClick={() => printComanda({
+              cart,
+              staffName: activeSession.staff_name,
+              shift: activeSession.shift,
+              turn: nextTurn,
+            })}
           >
             <Printer className="h-4 w-4 mr-1" /> Imprimir Comanda
           </Button>
+          <div className="flex justify-center">
+            <PrintRelayBadge available={relayAvailable} checking={relayChecking} />
+          </div>
         </div>
       </Card>
 

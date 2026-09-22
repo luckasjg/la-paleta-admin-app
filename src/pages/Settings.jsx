@@ -8,6 +8,7 @@ import ExchangeRatesCard from '@/components/settings/ExchangeRatesCard';
 import WhatsAppConfigCard from '@/components/settings/WhatsAppConfigCard';
 import UsersManagerCard from '@/components/settings/users/UsersManagerCard';
 import StaffPOSManagerCard from '@/components/settings/StaffPOSManagerCard';
+import PrintRelayCard from '@/components/settings/PrintRelayCard';
 
 export default function Settings() {
   return (
@@ -21,6 +22,7 @@ export default function Settings() {
       <ExchangeRatesCard />
       <CurrencySelectorCard />
       <WhatsAppConfigCard />
+      <PrintRelayCard />
       <SlackConnectionCard />
       <BackupRestoreCard />
       <SelectiveCleanupCard />
