@@ -137,6 +137,7 @@ export function buildDashboardAnalytics({ sales = [], selectedYear, selectedMont
   const month = { ...baseMetrics(monthSales), ...breakdown(monthSales), sales: monthSales };
   const prev = {
     ...baseMetrics(prevSales),
+    sales: prevSales,
     label: `${MONTHS_LONG[prevRef.month()]} ${prevRef.year()}`,
   };
   const byDay = dailySeries(monthSales, selectedYear, selectedMonth);

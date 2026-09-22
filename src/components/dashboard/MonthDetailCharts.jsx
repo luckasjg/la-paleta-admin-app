@@ -3,6 +3,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ShoppingCart, DollarSign, Clock, TrendingUp } from 'lucide-react';
 import moment from 'moment';
+import ExpandableCard from '@/components/dashboard/ExpandableCard';
 
 const COLORS = ['hsl(152,35%,38%)', 'hsl(28,60%,65%)', 'hsl(200,40%,50%)', 'hsl(340,55%,55%)', 'hsl(45,80%,55%)', 'hsl(270,50%,60%)'];
 
@@ -16,7 +17,7 @@ const PAYMENT_LABELS = {
   mixto: 'Mixto',
 };
 
-export default function MonthDetailCharts({ monthSales }) {
+export default function MonthDetailCharts({ monthSales, onExpand }) {
   const { topProducts, paymentData, hourlyData, dailyData } = useMemo(() => {
     const productSales = {};
     const paymentMethods = {};
@@ -56,6 +57,7 @@ export default function MonthDetailCharts({ monthSales }) {
 
   return (
     <div className="grid grid-cols-1 xl:grid-cols-2 2xl:grid-cols-4 gap-4">
+      <ExpandableCard label="productos más vendidos" onExpand={onExpand && (() => onExpand('productos'))}>
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-semibold flex items-center gap-2">
@@ -75,7 +77,9 @@ export default function MonthDetailCharts({ monthSales }) {
           </ResponsiveContainer>
         </CardContent>
       </Card>
+      </ExpandableCard>
 
+      <ExpandableCard label="métodos de pago" onExpand={onExpand && (() => onExpand('pagos'))}>
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-semibold flex items-center gap-2">
@@ -95,7 +99,9 @@ export default function MonthDetailCharts({ monthSales }) {
           </ResponsiveContainer>
         </CardContent>
       </Card>
+      </ExpandableCard>
 
+      <ExpandableCard label="ventas por hora" onExpand={onExpand && (() => onExpand('horas'))}>
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-semibold flex items-center gap-2">
@@ -115,7 +121,9 @@ export default function MonthDetailCharts({ monthSales }) {
           </ResponsiveContainer>
         </CardContent>
       </Card>
+      </ExpandableCard>
 
+      <ExpandableCard label="ventas por día" onExpand={onExpand && (() => onExpand('dias'))}>
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-semibold flex items-center gap-2">
@@ -135,6 +143,7 @@ export default function MonthDetailCharts({ monthSales }) {
           </ResponsiveContainer>
         </CardContent>
       </Card>
+      </ExpandableCard>
     </div>
   );
 }
