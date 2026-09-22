@@ -807,7 +807,7 @@ export default function POS() {
                   <SearchableCombobox
                     value={fl.tray_id}
                     onChange={v => updateFlavorSlot(idx, 'tray_id', v)}
-                    options={trays.map(t => {
+                    options={trays.filter(t => t.in_vitrine === true).map(t => {
                       const stock = t.remaining_grams || 0;
                       return {
                         value: t.id,
