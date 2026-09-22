@@ -19,9 +19,8 @@ import { useCurrencySymbol } from '@/lib/useCurrencySymbol';
 import RateBadge from '@/components/pos/RateBadge';
 import MixedPaymentDialog from '@/components/pos/MixedPaymentDialog';
 import { depositSalePaymentsToWallets, withdrawChangeFromWallet } from '@/lib/walletHelpers';
-import StockLocationSelector from '@/components/shared/StockLocationSelector';
 import SearchableCombobox from '@/components/shared/SearchableCombobox';
-import { buildStockDelta, getStockAt, LOCATION_LABEL } from '@/lib/stockHelpers';
+import { buildStockDelta, getStockAt } from '@/lib/stockHelpers';
 import { applyCategoryOrder } from '@/lib/categoryOrder';
 import RegisterOpenGate from '@/components/pos/RegisterOpenGate';
 import PosTabs from '@/components/pos/PosTabs';
@@ -53,7 +52,9 @@ export default function POS() {
   // Diálogo para elegir Taza (cerámica) vs Vaso (desechable) — sólo en productos con vessel_optional
   const [vesselDialog, setVesselDialog] = useState(null);
   // Origen de Materia Prima para esta venta (aplica a toda la orden).
-  const [sourceLocation, setSourceLocation] = useState('production');
+  // Fijo en Laboratorio de Producción (el selector se quitó del panel).
+  const sourceLocation = 'production';
+  const setSourceLocation = () => {};
   // Tasas centrales del BCV: el precio base sigue en USD y el cobro se hace en EUR.
   const {
     eurVes, isManual, lastFetch,
@@ -803,11 +804,6 @@ export default function POS() {
         </div>
 
         <div className="p-4 border-t border-border space-y-3">
-          <StockLocationSelector
-            value={sourceLocation}
-            onChange={setSourceLocation}
-            label={`Origen Insumos (${LOCATION_LABEL[sourceLocation]})`}
-          />
           {cart.some(i => i.is_courtesy) && (
             <div className="flex items-center justify-between text-xs text-amber-600">
               <span className="flex items-center gap-1"><Gift className="h-3 w-3" /> Cortesías incluidas</span>
