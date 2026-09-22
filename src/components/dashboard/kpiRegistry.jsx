@@ -66,7 +66,7 @@ export const KPI_VIEWS = {
     render: (ctx) => <AnnualDetail analytics={ctx.analytics} selectedYear={ctx.selectedYear} />,
   },
   productos: {
-    title: 'Productos Más Vendidos',
+    title: 'Productos y Sabores Más Vendidos',
     period: (ctx) => ctx.monthLabel,
     render: (ctx) => <ProductsDetail analytics={ctx.analytics} monthLabel={ctx.monthLabel} />,
   },

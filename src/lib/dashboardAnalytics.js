@@ -42,23 +42,107 @@ function baseMetrics(list) {
   return { revenue, count, avgTicket: count > 0 ? revenue / count : 0, units };
 }
 
+const FLAVOR_SEP = ' + ';
+
+/**
+ * Sabores individuales de un ítem de venta.
+ * Fuente principal: item.flavors[] (desglose real con gramos por bandeja).
+ * Respaldo para ventas antiguas sin ese arreglo: se separa la etiqueta
+ * combinada (“Chocolate + Vainilla”) y se reparten los gramos en partes iguales,
+ * para que el histórico también cuente por sabor y no por combinación.
+ */
+function itemFlavorParts(item) {
+  const fromArray = (Array.isArray(item.flavors) ? item.flavors : [])
+    .filter(f => f && f.recipe_name)
+    .map(f => ({ name: f.recipe_name, grams: f.grams || 0 }));
+  if (fromArray.length > 0) return fromArray;
+
+  if (item.flavor) {
+    const names = String(item.flavor).split(FLAVOR_SEP).map(n => n.trim()).filter(Boolean);
+    if (names.length > 0) {
+      const each = (item.grams || 0) / names.length;
+      return names.map(name => ({ name, grams: each }));
+    }
+  }
+  return [];
+}
+
+/** Etiqueta canónica de una combinación (orden alfabético para unificar variantes). */
+function combinationLabel(parts) {
+  return [...parts].map(p => p.name).sort((a, b) => a.localeCompare(b)).join(FLAVOR_SEP);
+}
+
+/**
+ * Conteo de ítems vendidos: ranking de productos (sabores ya contabilizados de
+ * forma individual), ranking exclusivo de sabores (por veces pedido y por gramos
+ * servidos) y combinaciones más pedidas.
+ */
+export function itemBreakdown(list = []) {
+  const productMap = {};
+  const flavorMap = {};
+  const comboMap = {};
+
+  const bump = (map, name, { units, grams, revenue }) => {
+    if (!map[name]) map[name] = { name, units: 0, grams: 0, revenue: 0 };
+    map[name].units += units;
+    map[name].grams += grams;
+    map[name].revenue += revenue;
+  };
+
+  list.forEach(sale => {
+    (sale.items || []).forEach(item => {
+      const qty = item.quantity || 1;
+      const subtotal = item.subtotal || 0;
+      const parts = itemFlavorParts(item);
+
+      if (parts.length === 0) {
+        const name = item.product_name;
+        if (name) bump(productMap, name, { units: qty, grams: (item.grams || 0) * qty, revenue: subtotal });
+        return;
+      }
+
+      // Cada sabor suma una aparición (aunque venga en combinación) y sus
+      // gramos reales; el ingreso se reparte proporcional a los gramos.
+      const totalGrams = parts.reduce((s, p) => s + p.grams, 0);
+      parts.forEach(p => {
+        const share = totalGrams > 0 ? p.grams / totalGrams : 1 / parts.length;
+        const data = { units: qty, grams: p.grams * qty, revenue: subtotal * share };
+        bump(flavorMap, p.name, data);
+        bump(productMap, p.name, data);
+      });
+
+      if (parts.length > 1) {
+        const label = combinationLabel(parts);
+        if (!comboMap[label]) comboMap[label] = { name: label, size: parts.length, units: 0, grams: 0, revenue: 0 };
+        comboMap[label].units += qty;
+        comboMap[label].grams += totalGrams * qty;
+        comboMap[label].revenue += subtotal;
+      }
+    });
+  });
+
+  const flavors = Object.values(flavorMap);
+
+  return {
+    products: Object.values(productMap).sort((a, b) => b.units - a.units),
+    flavors: {
+      byCount: [...flavors].sort((a, b) => b.units - a.units),
+      byGrams: [...flavors].sort((a, b) => b.grams - a.grams),
+      totalUnits: flavors.reduce((s, f) => s + f.units, 0),
+      totalGrams: flavors.reduce((s, f) => s + f.grams, 0),
+    },
+    combinations: Object.values(comboMap).sort((a, b) => b.units - a.units),
+  };
+}
+
 /** Desglose de un conjunto de ventas: productos, métodos de pago, horas, días. */
 function breakdown(list) {
-  const productMap = {};
   const paymentMap = {};
   const hourly = Array.from({ length: 24 }, (_, h) => ({ hora: `${String(h).padStart(2, '0')}:00`, hour: h, ventas: 0, count: 0 }));
   const weekday = DAY_NAMES.map(name => ({ name, ventas: 0, count: 0, dates: new Set() }));
   const shiftMap = { 'Mañana': { ventas: 0, count: 0 }, 'Tarde': { ventas: 0, count: 0 }, 'Noche': { ventas: 0, count: 0 } };
 
   list.forEach(sale => {
-    (sale.items || []).forEach(item => {
-      const name = item.flavor || item.product_name;
-      if (!name) return;
-      if (!productMap[name]) productMap[name] = { name, units: 0, revenue: 0 };
-      productMap[name].units += item.quantity || 1;
-      productMap[name].revenue += item.subtotal || 0;
-    });
-
     const method = sale.payment_method || 'otro';
     if (!paymentMap[method]) paymentMap[method] = { key: method, name: PAYMENT_LABELS[method] || method, value: 0, count: 0 };
     paymentMap[method].value += sale.total || 0;
@@ -82,7 +166,7 @@ function breakdown(list) {
   const revenue = sumTotal(list);
 
   return {
-    products: Object.values(productMap).sort((a, b) => b.units - a.units),
+    ...itemBreakdown(list),
     payments: Object.values(paymentMap)
       .sort((a, b) => b.value - a.value)
       .map(p => ({ ...p, pct: revenue > 0 ? (p.value / revenue) * 100 : 0, avg: p.count > 0 ? p.value / p.count : 0 })),
@@ -137,6 +221,7 @@ export function buildDashboardAnalytics({ sales = [], selectedYear, selectedMont
   const month = { ...baseMetrics(monthSales), ...breakdown(monthSales), sales: monthSales };
   const prev = {
     ...baseMetrics(prevSales),
+    ...itemBreakdown(prevSales),
     sales: prevSales,
     label: `${MONTHS_LONG[prevRef.month()]} ${prevRef.year()}`,
   };

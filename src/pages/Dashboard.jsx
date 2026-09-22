@@ -135,15 +135,12 @@ export default function Dashboard() {
 
   // ── Month KPIs ────────────────────────────────────────────────────────
   const avgTicket = monthSales.length > 0 ? grossRevenue / monthSales.length : 0;
+  // Sabor individual más pedido del mes (los combos suman a cada sabor por
+  // separado); si el mes no tuvo helados, cae al producto más vendido.
   const topProductName = useMemo(() => {
-    const counts = {};
-    monthSales.forEach(s => (s.items || []).forEach(it => {
-      const n = it.flavor || it.product_name;
-      if (n) counts[n] = (counts[n] || 0) + (it.quantity || 1);
-    }));
-    const top = Object.entries(counts).sort(([, a], [, b]) => b - a)[0];
-    return top ? `${top[0]} (${top[1]})` : null;
-  }, [monthSales]);
+    const top = analytics.month.flavors.byCount[0] || analytics.month.products[0];
+    return top ? `${top.name} (${top.units})` : null;
+  }, [analytics]);
 
   const monthLabel = `${MONTH_NAMES[selectedMonth]} ${selectedYear}`;
 

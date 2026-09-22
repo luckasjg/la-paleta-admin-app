@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ShoppingCart, DollarSign, Clock, TrendingUp } from 'lucide-react';
 import moment from 'moment';
 import ExpandableCard from '@/components/dashboard/ExpandableCard';
+import { itemBreakdown } from '@/lib/dashboardAnalytics';
 
 const COLORS = ['hsl(152,35%,38%)', 'hsl(28,60%,65%)', 'hsl(200,40%,50%)', 'hsl(340,55%,55%)', 'hsl(45,80%,55%)', 'hsl(270,50%,60%)'];
 
@@ -19,17 +20,14 @@ const PAYMENT_LABELS = {
 
 export default function MonthDetailCharts({ monthSales, onExpand }) {
   const { topProducts, paymentData, hourlyData, dailyData } = useMemo(() => {
-    const productSales = {};
+    // Los sabores se cuentan individualmente (un combo suma a cada sabor).
+    const ranking = itemBreakdown(monthSales).products;
     const paymentMethods = {};
     const hourly = Array.from({ length: 14 }, (_, i) => ({ hora: `${i + 8}:00`, ventas: 0 }));
     const dayNames = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
     const daily = dayNames.map(name => ({ name, ventas: 0 }));
 
     monthSales.forEach(sale => {
-      (sale.items || []).forEach(item => {
-        const name = item.flavor || item.product_name;
-        if (name) productSales[name] = (productSales[name] || 0) + (item.quantity || 1);
-      });
       const method = sale.payment_method || 'otro';
       paymentMethods[method] = (paymentMethods[method] || 0) + (sale.total || 0);
 
@@ -42,10 +40,10 @@ export default function MonthDetailCharts({ monthSales, onExpand }) {
     });
 
     return {
-      topProducts: Object.entries(productSales)
-        .sort(([, a], [, b]) => b - a)
-        .slice(0, 8)
-        .map(([name, count]) => ({ name: name.length > 14 ? name.slice(0, 14) + '…' : name, ventas: count })),
+      topProducts: ranking.slice(0, 8).map(p => ({
+        name: p.name.length > 14 ? p.name.slice(0, 14) + '…' : p.name,
+        ventas: p.units,
+      })),
       paymentData: Object.entries(paymentMethods).map(([name, value]) => ({
         name: PAYMENT_LABELS[name] || name,
         value,
@@ -62,7 +60,7 @@ export default function MonthDetailCharts({ monthSales, onExpand }) {
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-semibold flex items-center gap-2">
             <ShoppingCart className="h-4 w-4 text-primary" />
-            Productos más vendidos
+            Productos y sabores más vendidos
           </CardTitle>
         </CardHeader>
         <CardContent>

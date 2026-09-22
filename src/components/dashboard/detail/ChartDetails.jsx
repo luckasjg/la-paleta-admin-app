@@ -1,8 +1,13 @@
 import React from 'react';
 import DetailTable, { money, num, pct } from './DetailTable';
 import { BigBar, BigLine, BigPie, ChartBlock } from './DetailCharts';
+import { FlavorRankings, CombinationsSection } from './FlavorDetails';
 
-/** Ranking COMPLETO de productos del mes (no sólo el top 8 de la tarjeta). */
+/**
+ * Ranking COMPLETO del mes (no sólo el top 8 de la tarjeta). Los sabores ya
+ * vienen contabilizados individualmente: un helado de dos sabores suma a cada
+ * uno por separado, nunca como una entrada “Sabor A + Sabor B”.
+ */
 export function ProductsDetail({ analytics, monthLabel }) {
   const products = analytics.month.products;
   const totalUnits = products.reduce((s, p) => s + p.units, 0);
@@ -35,6 +40,10 @@ export function ProductsDetail({ analytics, monthLabel }) {
           </div>
         ))}
       </div>
+      <p className="text-[11px] text-muted-foreground -mt-3">
+        Cada sabor se cuenta de forma individual: un helado de varios sabores suma
+        una unidad a cada sabor que lo compone.
+      </p>
       <ChartBlock title="Top 15 por unidades" note={monthLabel}>
         <BigBar
           data={chartData}
@@ -59,6 +68,16 @@ export function ProductsDetail({ analytics, monthLabel }) {
         rows={rows}
         footer={{ pos: '', name: 'Total', units: totalUnits, revenue: totalRevenue, share: 100 }}
       />
+
+      <div className="pt-4 border-t-2 border-border space-y-1">
+        <p className="text-sm font-bold">Ranking por sabor</p>
+        <p className="text-xs text-muted-foreground">
+          Sólo helados, con las dos métricas: veces pedido y gramos servidos.
+        </p>
+      </div>
+      <FlavorRankings analytics={analytics} monthLabel={monthLabel} />
+
+      <CombinationsSection analytics={analytics} monthLabel={monthLabel} />
     </div>
   );
 }
