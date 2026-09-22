@@ -1,10 +1,13 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Gift, Ban } from 'lucide-react';
+import { Gift, Ban, Pencil } from 'lucide-react';
 import moment from 'moment';
+import { Button } from '@/components/ui/button';
 import VoidSaleButton from '@/components/cashregister/VoidSaleButton';
+import EditPaymentMethodDialog from '@/components/cashregister/EditPaymentMethodDialog';
+import { useRole } from '@/lib/useRole';
 
 const PAYMENT_LABELS = {
   efectivo: 'Efectivo',
@@ -13,10 +16,13 @@ const PAYMENT_LABELS = {
   mixto: 'Mixto',
 };
 
-export default function SaleDetailDialog({ sale, supplies = [], open, onOpenChange }) {
+export default function SaleDetailDialog({ sale, supplies = [], open, onOpenChange, editablePayment = false }) {
+  const { isAdmin } = useRole();
+  const [editPaymentOpen, setEditPaymentOpen] = useState(false);
   if (!sale) return null;
   const items = sale.items || [];
   const isVoided = sale.status === 'voided';
+  const canEditPayment = isAdmin && editablePayment && !isVoided;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -43,7 +49,12 @@ export default function SaleDetailDialog({ sale, supplies = [], open, onOpenChan
           )}
 
           {!isVoided && (
-            <div className="flex justify-end">
+            <div className="flex justify-end gap-2">
+              {canEditPayment && (
+                <Button variant="outline" size="sm" onClick={() => setEditPaymentOpen(true)}>
+                  <Pencil className="h-3.5 w-3.5 mr-1.5" /> Editar método
+                </Button>
+              )}
               <VoidSaleButton sale={sale} />
             </div>
           )}
@@ -112,6 +123,14 @@ export default function SaleDetailDialog({ sale, supplies = [], open, onOpenChan
             </TableBody>
           </Table>
         </div>
+
+        {canEditPayment && (
+          <EditPaymentMethodDialog
+            sale={sale}
+            open={editPaymentOpen}
+            onOpenChange={setEditPaymentOpen}
+          />
+        )}
       </DialogContent>
     </Dialog>
   );

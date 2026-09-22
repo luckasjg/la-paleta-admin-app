@@ -540,6 +540,7 @@ export default function CashRegister() {
         supplies={supplies}
         open={!!selectedSale}
         onOpenChange={() => setSelectedSale(null)}
+        editablePayment={!!openRegister?.id && selectedSale?.cash_register_id === openRegister.id}
       />
 
       <ClosingDetailDialog

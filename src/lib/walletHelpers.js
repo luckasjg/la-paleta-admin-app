@@ -21,7 +21,7 @@ export function findWalletForMethod(wallets, method) {
  * Si no encuentra billetera mapeada para un método, lo ignora silenciosamente
  * (la venta NO debe fallar por billeteras no configuradas).
  */
-export async function depositSalePaymentsToWallets({ payments, exchange_rate, sale_id, wallets }) {
+export async function depositSalePaymentsToWallets({ payments, exchange_rate, sale_id, wallets, notes = '' }) {
   if (!Array.isArray(payments) || payments.length === 0) return;
 
   for (const payment of payments) {
@@ -49,6 +49,7 @@ export async function depositSalePaymentsToWallets({ payments, exchange_rate, sa
       amount_usd_equivalent: amountUsdEq,
       exchange_rate,
       sale_id,
+      ...(notes ? { notes } : {}),
       transaction_date: new Date().toISOString(),
     });
 
