@@ -6,8 +6,9 @@ import { Link } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { getFixedExpensesForMonth } from '@/lib/expenseProjections';
 import { useAverageMargin } from '@/lib/useAverageMargin';
+import { ExpandButton } from '@/components/dashboard/ExpandableCard';
 
-export default function BreakEvenPanel({ year, month, monthlySales, recipes, products, supplies }) {
+export default function BreakEvenPanel({ year, month, monthlySales, recipes, products, supplies, onExpand }) {
   const { data: expenses = [] } = useQuery({
     queryKey: ['expenses'],
     queryFn: () => base44.entities.Expense.list('-date', 1000),
@@ -32,13 +33,16 @@ export default function BreakEvenPanel({ year, month, monthlySales, recipes, pro
             <Target className="h-4 w-4 text-primary" />
             Punto de Equilibrio
           </span>
-          <Link
-            to="/gastos"
-            className="text-[10px] font-normal text-muted-foreground hover:text-primary flex items-center gap-1"
-            title="Gestionar gastos y categorías"
-          >
-            Gestionar <ExternalLink className="h-3 w-3" />
-          </Link>
+          <span className="flex items-center gap-1.5">
+            <Link
+              to="/gastos"
+              className="text-[10px] font-normal text-muted-foreground hover:text-primary flex items-center gap-1"
+              title="Gestionar gastos y categorías"
+            >
+              Gestionar <ExternalLink className="h-3 w-3" />
+            </Link>
+            <ExpandButton label="punto de equilibrio" onExpand={onExpand} />
+          </span>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">

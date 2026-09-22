@@ -72,8 +72,8 @@ export function WeekDetail({ analytics }) {
         rows={[
           { label: 'Ingresos', current: w.total, previous: w.prevTotal, format: money },
           { label: 'Promedio diario', current: w.total / 7, previous: w.prevTotal / 7, format: money },
-          { label: 'Transacciones', current: w.count, previous: 0, format: num },
-          { label: 'Mejor día', current: Math.max(...w.days.map(d => d.ventas), 0), previous: 0, format: money },
+          { label: 'Transacciones', current: w.count, previous: w.prevCount, format: num },
+          { label: 'Mejor día', current: w.bestDay, previous: w.prevBestDay, format: money },
         ]}
       />
       <ChartBlock title="Ingresos por día (últimos 7 días)">

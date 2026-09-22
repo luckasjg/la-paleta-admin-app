@@ -3,11 +3,12 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { CalendarRange, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ExpandButton } from '@/components/dashboard/ExpandableCard';
 import moment from 'moment';
 
 const MONTHS = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 
-export default function AnnualSalesChart({ sales, selectedYear, selectedMonth, onSelectMonth, onChangeYear }) {
+export default function AnnualSalesChart({ sales, selectedYear, selectedMonth, onSelectMonth, onChangeYear, onExpand }) {
   const data = useMemo(() => {
     const totals = Array(12).fill(0);
     const counts = Array(12).fill(0);
@@ -44,6 +45,7 @@ export default function AnnualSalesChart({ sales, selectedYear, selectedMonth, o
             <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onChangeYear(selectedYear + 1)}>
               <ChevronRight className="h-4 w-4" />
             </Button>
+            <ExpandButton label="ventas anuales" onExpand={onExpand} />
           </div>
         </div>
         <p className="text-[11px] text-muted-foreground">

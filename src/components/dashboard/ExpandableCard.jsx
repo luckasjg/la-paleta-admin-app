@@ -6,8 +6,9 @@ import { Maximize2 } from 'lucide-react';
  * vista ampliada. Sin `onExpand` (por ejemplo al renderizar el PDF) el botón
  * no se dibuja y la tarjeta queda exactamente como antes.
  */
-export default function ExpandableCard({ label, onExpand, className, children }) {
+export default function ExpandableCard({ label, onExpand, className, corner = 'top', children }) {
   if (!onExpand) return <>{children}</>;
+  const cornerClass = corner === 'bottom' ? 'bottom-2 right-2' : 'top-2 right-2';
   return (
     <div className={`relative group ${className || ''}`}>
       {children}
@@ -16,11 +17,30 @@ export default function ExpandableCard({ label, onExpand, className, children })
         onClick={onExpand}
         title={`Ver ${label} en detalle`}
         aria-label={`Ver ${label} en detalle`}
-        className="absolute top-2 right-2 z-10 rounded-md p-1.5 bg-card/80 backdrop-blur-sm text-muted-foreground/70 opacity-60 hover:opacity-100 hover:bg-secondary hover:text-primary focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring transition-all"
+        className={`absolute ${cornerClass} z-10 rounded-md p-1.5 bg-card/80 backdrop-blur-sm text-muted-foreground/70 opacity-60 hover:opacity-100 hover:bg-secondary hover:text-primary focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring transition-all`}
       >
         <Maximize2 className="h-3.5 w-3.5" />
       </button>
     </div>
+  );
+}
+
+/**
+ * Botón de expandir para insertar dentro de la cabecera de una tarjeta que ya
+ * tiene controles en su esquina superior derecha.
+ */
+export function ExpandButton({ label, onExpand }) {
+  if (!onExpand) return null;
+  return (
+    <button
+      type="button"
+      onClick={onExpand}
+      title={`Ver ${label} en detalle`}
+      aria-label={`Ver ${label} en detalle`}
+      className="rounded-md p-1 text-muted-foreground/70 hover:bg-secondary hover:text-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring transition-colors"
+    >
+      <Maximize2 className="h-3.5 w-3.5" />
+    </button>
   );
 }
 

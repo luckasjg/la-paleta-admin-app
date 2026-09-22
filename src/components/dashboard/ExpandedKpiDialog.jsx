@@ -35,7 +35,7 @@ export default function ExpandedKpiDialog({ viewKey, ctx, onClose }) {
 
   return (
     <Dialog open={!!view} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-[95vw] xl:max-w-6xl w-full max-h-[92vh] flex flex-col p-0 gap-0">
+      <DialogContent className="max-w-[95vw] xl:max-w-6xl w-full max-h-[92vh] !flex flex-col p-0 gap-0">
         <DialogHeader className="px-6 py-4 border-b border-border flex-shrink-0">
           <div className="flex items-start justify-between gap-4 pr-8">
             <div>

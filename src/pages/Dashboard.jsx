@@ -12,6 +12,11 @@ import AnnualSalesChart from '@/components/dashboard/AnnualSalesChart';
 import MonthDetailCharts from '@/components/dashboard/MonthDetailCharts';
 import MonthKPIs from '@/components/dashboard/MonthKPIs';
 import CurrencyExposurePanel from '@/components/dashboard/CurrencyExposurePanel';
+import ExpandableCard, { ExpandableSection } from '@/components/dashboard/ExpandableCard';
+import ExpandedKpiDialog from '@/components/dashboard/ExpandedKpiDialog';
+import DashboardExporter from '@/components/dashboard/DashboardExporter';
+import { buildDashboardAnalytics } from '@/lib/dashboardAnalytics';
+import { computeCogs } from '@/lib/cogsCalculator';
 import moment from 'moment';
 
 const MONTH_NAMES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
@@ -112,49 +117,21 @@ export default function Dashboard() {
     [monthSales]
   );
 
-  // ── COGS for selected month ───────────────────────────────────────────
-  const cogs = useMemo(() => {
-    let total = 0;
-    const supplyCost = {};
-    supplies.forEach(s => { supplyCost[s.id] = s.cost_per_unit || 0; });
+  // ── Análisis derivado para las vistas ampliadas y el PDF ──────────────
+  const analytics = useMemo(
+    () => buildDashboardAnalytics({ sales, selectedYear, selectedMonth }),
+    [sales, selectedYear, selectedMonth]
+  );
 
-    const recipeCostPerGram = {};
-    recipes.forEach(recipe => {
-      if (!recipe.ingredients?.length) return;
-      const ingredientCost = recipe.ingredients.reduce((sum, ing) => {
-        return sum + (supplyCost[ing.supply_id] || 0) * (ing.quantity || 0);
-      }, 0);
-      const yieldAmt = recipe.yield_amount || 1000;
-      recipeCostPerGram[recipe.id] = ingredientCost / yieldAmt;
-    });
-
-    monthSales.forEach(sale => {
-      (sale.items || []).forEach(item => {
-        if (item.tray_id) {
-          const tray = trays.find(t => t.id === item.tray_id);
-          const recipeId = tray?.recipe_id;
-          const costPerGram = recipeId ? (recipeCostPerGram[recipeId] || 0) : 0;
-          total += costPerGram * (item.grams || 0);
-        }
-        if (item.product_id) {
-          const product = products.find(p => p.id === item.product_id);
-          if (product) {
-            const linked = Array.isArray(product.linked_supplies) ? product.linked_supplies : [];
-            if (linked.length > 0) {
-              // Sumar costo de TODOS los insumos vinculados (materia prima + utensilios)
-              for (const ls of linked) {
-                total += (supplyCost[ls.supply_id] || 0) * (ls.quantity || 0) * (item.quantity || 1);
-              }
-            } else if (product.utensil_supply_id) {
-              // Fallback legacy
-              total += (supplyCost[product.utensil_supply_id] || 0) * (item.quantity || 1);
-            }
-          }
-        }
-      });
-    });
-    return total;
-  }, [monthSales, supplies, recipes, trays, products]);
+  // ── COGS del mes seleccionado y del mes anterior (para comparar) ───────
+  const cogs = useMemo(
+    () => computeCogs({ sales: monthSales, supplies, recipes, trays, products }),
+    [monthSales, supplies, recipes, trays, products]
+  );
+  const prevCogs = useMemo(
+    () => computeCogs({ sales: analytics.prev.sales, supplies, recipes, trays, products }),
+    [analytics, supplies, recipes, trays, products]
+  );
 
   // ── Month KPIs ────────────────────────────────────────────────────────
   const avgTicket = monthSales.length > 0 ? grossRevenue / monthSales.length : 0;
@@ -170,20 +147,53 @@ export default function Dashboard() {
 
   const monthLabel = `${MONTH_NAMES[selectedMonth]} ${selectedYear}`;
 
+  // ── Vista ampliada de KPIs ────────────────────────────────────────────
+  const [expandedKpi, setExpandedKpi] = useState(null);
+
+  // Contexto compartido por las vistas ampliadas y el PDF: reutiliza lo ya
+  // calculado en esta página, sin volver a consultar la base de datos.
+  const kpiContext = useMemo(() => ({
+    analytics,
+    selectedYear,
+    selectedMonth,
+    monthLabel,
+    grossRevenue,
+    cogs,
+    prevCogs,
+    monthSales,
+    trays,
+    supplies,
+    recipes,
+    products,
+    lowStockSupplies,
+  }), [analytics, selectedYear, selectedMonth, monthLabel, grossRevenue, cogs, prevCogs, monthSales, trays, supplies, recipes, products, lowStockSupplies]);
+
   return (
     <div className="w-full max-w-none space-y-6">
-      <PageHeader title="Dashboard Financiero" description="Panel interactivo de análisis y rentabilidad" />
+      <PageHeader
+        title="Dashboard Financiero"
+        description="Panel interactivo de análisis y rentabilidad — expande cualquier tarjeta para ver el detalle"
+        actions={<DashboardExporter ctx={kpiContext} />}
+      />
 
       {/* Real-time top KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard title="Ventas Hoy" value={`$${todayTotal.toFixed(2)}`} icon={DollarSign} subtitle={`${todaySales.length} transacciones`} />
-        <StatCard title="Ventas 7 días" value={`$${weekTotal.toFixed(2)}`} icon={TrendingUp} />
-        <StatCard title="Bandejas Activas" value={trays.length} icon={IceCream} />
-        <StatCard title="Alertas Stock" value={lowStockSupplies.length} icon={AlertTriangle} subtitle={lowStockSupplies.length > 0 ? 'Insumos bajos' : 'Todo OK'} />
+        <ExpandableCard label="ventas de hoy" corner="bottom" onExpand={() => setExpandedKpi('hoy')}>
+          <StatCard title="Ventas Hoy" value={`$${todayTotal.toFixed(2)}`} icon={DollarSign} subtitle={`${todaySales.length} transacciones`} />
+        </ExpandableCard>
+        <ExpandableCard label="ventas de 7 días" corner="bottom" onExpand={() => setExpandedKpi('semana')}>
+          <StatCard title="Ventas 7 días" value={`$${weekTotal.toFixed(2)}`} icon={TrendingUp} />
+        </ExpandableCard>
+        <ExpandableCard label="bandejas activas" corner="bottom" onExpand={() => setExpandedKpi('bandejas')}>
+          <StatCard title="Bandejas Activas" value={trays.length} icon={IceCream} />
+        </ExpandableCard>
+        <ExpandableCard label="alertas de stock" corner="bottom" onExpand={() => setExpandedKpi('stock')}>
+          <StatCard title="Alertas Stock" value={lowStockSupplies.length} icon={AlertTriangle} subtitle={lowStockSupplies.length > 0 ? 'Insumos bajos' : 'Todo OK'} />
+        </ExpandableCard>
       </div>
 
       {/* Currency Exposure Panel */}
-      <CurrencyExposurePanel />
+      <CurrencyExposurePanel onExpand={() => setExpandedKpi('divisa')} />
 
       {/* Annual interactive chart */}
       <AnnualSalesChart
@@ -192,6 +202,7 @@ export default function Dashboard() {
         selectedMonth={selectedMonth}
         onSelectMonth={setSelectedMonth}
         onChangeYear={setSelectedYear}
+        onExpand={() => setExpandedKpi('anual')}
       />
 
       {/* Selected month section */}
@@ -205,21 +216,33 @@ export default function Dashboard() {
           </Badge>
         </div>
 
-        <MonthKPIs
-          totalSales={grossRevenue}
-          salesCount={monthSales.length}
-          avgTicket={avgTicket}
-          topProductName={topProductName}
-        />
+        <ExpandableSection
+          title="Indicadores del mes"
+          label="indicadores del mes"
+          onExpand={() => setExpandedKpi('mes')}
+        >
+          <MonthKPIs
+            totalSales={grossRevenue}
+            salesCount={monthSales.length}
+            avgTicket={avgTicket}
+            topProductName={topProductName}
+          />
+        </ExpandableSection>
 
         {/* Financial + Break-even side by side on desktop */}
         <div className="grid grid-cols-1 xl:grid-cols-5 gap-4">
           <div className="xl:col-span-3">
-            <FinancialKPIs
-              grossRevenue={grossRevenue}
-              cogs={cogs}
-              monthSalesCount={monthSales.length}
-            />
+            <ExpandableSection
+              title="Resultado financiero"
+              label="resultado financiero"
+              onExpand={() => setExpandedKpi('financiero')}
+            >
+              <FinancialKPIs
+                grossRevenue={grossRevenue}
+                cogs={cogs}
+                monthSalesCount={monthSales.length}
+              />
+            </ExpandableSection>
           </div>
           <div className="xl:col-span-2">
             <BreakEvenPanel
@@ -229,16 +252,18 @@ export default function Dashboard() {
               recipes={recipes}
               products={products}
               supplies={supplies}
+              onExpand={() => setExpandedKpi('equilibrio')}
             />
           </div>
         </div>
 
         {/* Detail charts grid */}
-        <MonthDetailCharts monthSales={monthSales} />
+        <MonthDetailCharts monthSales={monthSales} onExpand={setExpandedKpi} />
       </div>
 
       {/* Low stock alerts */}
       {lowStockSupplies.length > 0 && (
+        <ExpandableCard label="alertas de stock" onExpand={() => setExpandedKpi('stock')}>
         <Card className="border-destructive/30 bg-destructive/5">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-semibold flex items-center gap-2 text-destructive">
@@ -256,8 +281,14 @@ export default function Dashboard() {
             </div>
           </CardContent>
         </Card>
+        </ExpandableCard>
       )}
 
+      <ExpandedKpiDialog
+        viewKey={expandedKpi}
+        ctx={kpiContext}
+        onClose={() => setExpandedKpi(null)}
+      />
     </div>
   );
 }

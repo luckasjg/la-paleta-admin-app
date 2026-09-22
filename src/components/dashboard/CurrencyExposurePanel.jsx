@@ -4,6 +4,7 @@ import { base44 } from '@/api/base44Client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { TrendingDown, TrendingUp, Coins, AlertCircle } from 'lucide-react';
+import { ExpandButton } from '@/components/dashboard/ExpandableCard';
 import { useExchangeRate, formatUSD, formatVES } from '@/lib/useExchangeRate';
 
 /**
@@ -17,7 +18,7 @@ import { useExchangeRate, formatUSD, formatVES } from '@/lib/useExchangeRate';
  * - "Valor Actual USD"     = saldo VES total / tasa de HOY (la del sistema).
  * - Diferencial             = Actual − Histórico  (negativo = pérdida por devaluación)
  */
-export default function CurrencyExposurePanel() {
+export default function CurrencyExposurePanel({ onExpand }) {
   const { rate: todayRate } = useExchangeRate();
 
   const { data: wallets = [] } = useQuery({
@@ -89,6 +90,7 @@ export default function CurrencyExposurePanel() {
           <Badge variant="secondary" className="ml-auto text-[10px] font-mono">
             Tasa hoy: Bs. {todayRate.toFixed(2)}
           </Badge>
+          <ExpandButton label="exposición cambiaria" onExpand={onExpand} />
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">

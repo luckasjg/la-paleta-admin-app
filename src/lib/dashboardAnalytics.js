@@ -193,6 +193,7 @@ export function buildDashboardAnalytics({ sales = [], selectedYear, selectedMont
   const prev7 = windowDays(7, 7);
   const weekTotal = last7.reduce((s, d) => s + d.ventas, 0);
   const prevWeekTotal = prev7.reduce((s, d) => s + d.ventas, 0);
+  const maxOf = (list) => list.reduce((m, d) => Math.max(m, d.ventas), 0);
 
   return {
     month,
@@ -217,6 +218,9 @@ export function buildDashboardAnalytics({ sales = [], selectedYear, selectedMont
       total: weekTotal,
       prevTotal: prevWeekTotal,
       count: last7.reduce((s, d) => s + d.count, 0),
+      prevCount: prev7.reduce((s, d) => s + d.count, 0),
+      bestDay: maxOf(last7),
+      prevBestDay: maxOf(prev7),
       avgPerDay: weekTotal / 7,
     },
   };
