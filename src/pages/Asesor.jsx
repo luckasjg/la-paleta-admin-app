@@ -8,6 +8,7 @@ import ConversationList from '@/components/asesor/ConversationList';
 import TelegramConnectCard from '@/components/asesor/TelegramConnectCard';
 
 const AGENT = 'asesor';
+const EXPENSES_AGENT = 'gastos';
 
 const SUGGESTIONS = [
 '¿Cómo van las ventas de hoy?',
@@ -24,10 +25,16 @@ export default function Asesor() {
   const [sending, setSending] = useState(false);
   const scrollRef = useRef(null);
 
+  // Incluye también las conversaciones del bot de gastos (Telegram) para poder
+  // aprobar sus propuestas desde este mismo departamento.
   const loadConversations = async () => {
-    const list = await base44.agents.listConversations({ agent_name: AGENT });
-    setConversations(list || []);
-    return list || [];
+    const [asesor, gastos] = await Promise.all([
+    base44.agents.listConversations({ agent_name: AGENT }),
+    base44.agents.listConversations({ agent_name: EXPENSES_AGENT })]);
+
+    const list = [...(asesor || []), ...(gastos || [])];
+    setConversations(list);
+    return list;
   };
 
   useEffect(() => {loadConversations();}, []);

@@ -20,6 +20,11 @@ export default function ConversationRow({ conversation, isActive, archived, onSe
         )}>
         <MessageSquare className="h-3.5 w-3.5 flex-shrink-0" />
         <span className="truncate">{conversation.metadata?.name || 'Conversación'}</span>
+        {conversation.agent_name === 'gastos' &&
+        <span className="flex-shrink-0 rounded bg-accent px-1.5 py-0.5 text-[9px] font-semibold uppercase text-accent-foreground">
+            Gasto
+          </span>
+        }
       </button>
       <button
         onClick={() => onAction(conversation)}
