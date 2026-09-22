@@ -1,6 +1,7 @@
 import { base44 } from '@/api/base44Client';
 import { cancelPendingRefundsForSale } from '@/lib/cancelRefund';
 import { reverseSaleWalletMovements } from '@/lib/reverseSaleWallets';
+import { getTrayPortions } from '@/lib/trayDeduction';
 
 /**
  * Anula una venta y revierte todo el inventario asociado.
@@ -27,9 +28,7 @@ export async function voidSale({ sale, reason = '', operatorEmail = '', reverseP
     const qty = item.quantity || 1;
 
     // 1) Reponer gramos a bandejas
-    const flavorList = (item.flavors && item.flavors.length > 0)
-      ? item.flavors
-      : (item.tray_id ? [{ tray_id: item.tray_id, grams: item.grams || 0 }] : []);
+    const flavorList = getTrayPortions(item);
 
     for (const fl of flavorList) {
       if (!fl.tray_id) continue;

@@ -16,8 +16,49 @@
           "category": {
             "type": "string"
           },
+          "recipe_id": {
+            "type": "string"
+          },
+          "utensil_supply_id": {
+            "type": "string"
+          },
+          "linked_supplies": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "supply_id": {
+                  "type": "string"
+                },
+                "quantity": {
+                  "type": "number"
+                },
+                "type": {
+                  "type": "string"
+                }
+              }
+            }
+          },
           "flavor": {
             "type": "string"
+          },
+          "flavors": {
+            "type": "array",
+            "description": "Desglose por bandeja: cada sabor elegido con sus gramos. Es la fuente de verdad para descontar y reponer inventario.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "tray_id": {
+                  "type": "string"
+                },
+                "recipe_name": {
+                  "type": "string"
+                },
+                "grams": {
+                  "type": "number"
+                }
+              }
+            }
           },
           "tray_id": {
             "type": "string"
@@ -25,7 +66,19 @@
           "grams": {
             "type": "number"
           },
+          "vessel": {
+            "type": "string"
+          },
+          "is_courtesy": {
+            "type": "boolean"
+          },
           "quantity": {
+            "type": "number"
+          },
+          "base_price": {
+            "type": "number"
+          },
+          "flavor_surcharge": {
             "type": "number"
           },
           "unit_price": {

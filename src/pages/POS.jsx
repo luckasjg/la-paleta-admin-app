@@ -26,6 +26,7 @@ import OrderTicket from '@/components/pos/OrderTicket';
 import { getActiveSession, setActiveSession, clearActiveSession } from '@/lib/cashSession';
 import { getPendingOrder, clearPendingOrder, buildCartFromOrder } from '@/lib/posHandoff';
 import { usePosDraft, clearPosDraft } from '@/lib/usePosDraft';
+import { aggregateTrayDemand } from '@/lib/trayDeduction';
 import {
   splitGramsEqually,
   traySurchargePerGram as traySurchargePerGramShared,
@@ -317,16 +318,7 @@ export default function POS() {
   // ── Stock warnings: aggregate grams demanded per tray across the cart ──
   // and compare against current tray stock. Returns one entry per overdrawn tray.
   const stockWarnings = React.useMemo(() => {
-    const demand = {}; // tray_id -> total grams demanded by the cart
-    for (const item of cart) {
-      const flavorList = (item.flavors && item.flavors.length > 0)
-        ? item.flavors
-        : (item.tray_id ? [{ tray_id: item.tray_id, grams: item.grams || 0 }] : []);
-      for (const fl of flavorList) {
-        if (!fl.tray_id) continue;
-        demand[fl.tray_id] = (demand[fl.tray_id] || 0) + (fl.grams || 0) * item.quantity;
-      }
-    }
+    const demand = aggregateTrayDemand(cart); // tray_id -> total grams demanded by the cart
     const warnings = [];
     for (const [trayId, demanded] of Object.entries(demand)) {
       const tray = trays.find(t => t.id === trayId);
@@ -355,19 +347,10 @@ export default function POS() {
   const completeSale = useMutation({
     mutationFn: async ({ payments, exchange_rate, change }) => {
       // ── Aggregate ALL grams demanded per tray across the ENTIRE cart ────────
-      // Previously we updated each tray multiple times inside the loop, which
-      // overwrote earlier deductions when the same tray appeared in several items.
-      // Now we sum demand per tray_id first, then issue ONE update per tray.
-      const trayDemand = {}; // tray_id -> total grams
-      for (const item of cart) {
-        const flavorList = (item.flavors && item.flavors.length > 0)
-          ? item.flavors
-          : (item.tray_id ? [{ tray_id: item.tray_id, grams: item.grams || 0 }] : []);
-        for (const fl of flavorList) {
-          if (!fl.tray_id) continue;
-          trayDemand[fl.tray_id] = (trayDemand[fl.tray_id] || 0) + (fl.grams || 0) * item.quantity;
-        }
-      }
+      // Una sola actualización por bandeja (evita sobrescribir deducciones cuando
+      // la misma bandeja aparece en varios ítems) y el desglose por sabor manda,
+      // así un helado de 2 o 3 sabores descuenta de CADA bandeja su porción.
+      const trayDemand = aggregateTrayDemand(cart); // tray_id -> total grams
 
       // Apply tray deductions ONCE per tray. Allow negative remaining_grams so the
       // full real deduction is recorded (physical audit will reconcile any merma).
