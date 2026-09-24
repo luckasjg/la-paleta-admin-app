@@ -1,12 +1,12 @@
 {
-  "description": "Consulta la tasa oficial del euro BCV (EUR\u2194VES) dos veces al d\u00eda y la guarda centralizada en ShopSetting.",
+  "description": "Consulta la tasa oficial del euro BCV (EUR\u2194VES) a las 9:00 y luego a las 16:00, 17:00 y 18:00 para capturar la publicaci\u00f3n vespertina, y la guarda centralizada en ShopSetting.",
   "trigger": {
     "condition": null,
     "config": {
       "trigger_type": "scheduled",
       "events": [],
       "schedule_mode": "recurring",
-      "cron_expression": "0 9,17 * * *",
+      "cron_expression": "0 9,16,17,18 * * *",
       "one_time_date": null,
       "timezone": "America/Caracas",
       "interval_value": null,
