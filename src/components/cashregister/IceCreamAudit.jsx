@@ -178,6 +178,7 @@ export default function IceCreamAudit({ activeTrays = [], todaySales = [], shift
             <TableHeader>
               <TableRow>
                 <TableHead>Sabor / Bandeja</TableHead>
+                <TableHead className="text-right">Peso Inicial del Día</TableHead>
                 <TableHead className="text-right">Consumo del turno</TableHead>
                 <TableHead className="text-right font-semibold text-foreground">Stock Teórico</TableHead>
                 <TableHead className="text-right">Peso Físico Real (g)</TableHead>
@@ -195,6 +196,7 @@ export default function IceCreamAudit({ activeTrays = [], todaySales = [], shift
                       <div className="font-medium text-sm">{tray.recipe_name}</div>
                       <div className="text-xs text-muted-foreground">Prod: {tray.production_date ? moment(tray.production_date).format('DD/MM/YY') : '—'}</div>
                     </TableCell>
+                    <TableCell className="text-right font-mono text-sm">{(theoreticalStock + gramsConsumed).toFixed(0)}g</TableCell>
                     <TableCell className="text-right font-mono text-sm text-muted-foreground">−{gramsConsumed.toFixed(0)}g</TableCell>
                     <TableCell className="text-right font-mono font-semibold text-sm">{theoreticalStock.toFixed(0)}g</TableCell>
                     <TableCell className="text-right">
