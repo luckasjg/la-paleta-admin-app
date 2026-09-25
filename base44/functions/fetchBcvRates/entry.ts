@@ -1,18 +1,30 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.44';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.49';
 
-// Tasa oficial del euro BCV publicada por ve.dolarapi.com, que replica la
-// publicación diaria del Banco Central de Venezuela. Es la única tasa que usa
-// el sistema: el precio base en USD se cobra en EUR a paridad 1:1 y los
-// bolívares se calculan con esta tasa EUR↔VES.
-const EUR_SOURCE = 'https://ve.dolarapi.com/v1/euros/oficial';
+// Fuente principal: la página oficial del BCV (se actualiza apenas publica,
+// incluso si la "Fecha Valor" es del siguiente día hábil).
+// Respaldo: ve.dolarapi.com, que replica la publicación con retraso.
+const BCV_URL = 'https://www.bcv.org.ve/';
+const FALLBACK_URL = 'https://ve.dolarapi.com/v1/euros/oficial';
 
-async function readRate(url: string) {
-  const res = await fetch(url, { headers: { Accept: 'application/json' } });
-  if (!res.ok) throw new Error(`Fuente BCV respondió ${res.status}`);
+async function readFromBcv() {
+  const res = await fetch(BCV_URL, { headers: { 'User-Agent': 'Mozilla/5.0', Accept: 'text/html' } });
+  if (!res.ok) throw new Error(`BCV respondió ${res.status}`);
+  const html = await res.text();
+  const block = html.match(/id="euro"[\s\S]*?<strong[^>]*>\s*([\d.,]+)\s*<\/strong>/i);
+  if (!block) throw new Error('No se encontró la tasa EUR en la página del BCV');
+  const value = Number(block[1].replace(/\./g, '').replace(',', '.'));
+  if (!(value > 0)) throw new Error('La página del BCV no devolvió una tasa válida');
+  const date = html.match(/date-display-single[^>]*content="([^"]+)"/i);
+  return { value, updatedAt: date ? date[1] : null, source: 'bcv.org.ve' };
+}
+
+async function readFromFallback() {
+  const res = await fetch(FALLBACK_URL, { headers: { Accept: 'application/json' } });
+  if (!res.ok) throw new Error(`Fuente de respaldo respondió ${res.status}`);
   const json = await res.json();
   const value = Number(json?.promedio ?? json?.venta ?? json?.compra);
-  if (!(value > 0)) throw new Error('La fuente BCV no devolvió una tasa válida');
-  return { value, updatedAt: json?.fechaActualizacion || null };
+  if (!(value > 0)) throw new Error('La fuente de respaldo no devolvió una tasa válida');
+  return { value, updatedAt: json?.fechaActualizacion || null, source: 'dolarapi' };
 }
 
 export default async function (req: Request): Promise<Response> {
@@ -32,17 +44,24 @@ export default async function (req: Request): Promise<Response> {
     };
 
     let eur;
+    let bcvError = null;
     try {
-      eur = await readRate(EUR_SOURCE);
-    } catch (fetchError) {
-      // El BCV aún no publicó o la fuente falló: se conserva la tasa anterior.
-      await upsert('last_bcv_fetch_error', `${new Date().toISOString()} — ${fetchError.message}`);
-      return Response.json({
-        ok: false,
-        kept_previous: true,
-        error: fetchError.message,
-        eur_ves: byKey.exchange_rate_eur_ves?.value || null,
-      });
+      eur = await readFromBcv();
+    } catch (e) {
+      bcvError = e.message;
+      console.error('BCV directo falló:', e.message);
+      try {
+        eur = await readFromFallback();
+      } catch (fetchError) {
+        // Ambas fuentes fallaron: se conserva la tasa anterior.
+        await upsert('last_bcv_fetch_error', `${new Date().toISOString()} — ${bcvError} / ${fetchError.message}`);
+        return Response.json({
+          ok: false,
+          kept_previous: true,
+          error: `${bcvError} / ${fetchError.message}`,
+          eur_ves: byKey.exchange_rate_eur_ves?.value || null,
+        });
+      }
     }
 
     await upsert('exchange_rate_eur_ves', eur.value);
@@ -54,6 +73,8 @@ export default async function (req: Request): Promise<Response> {
       ok: true,
       eur_ves: eur.value,
       published_at: eur.updatedAt,
+      source: eur.source,
+      bcv_error: bcvError,
     });
   } catch (error) {
     return Response.json({ error: error.message }, { status: 500 });
