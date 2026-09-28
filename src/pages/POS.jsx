@@ -900,14 +900,6 @@ export default function POS() {
           >
             {isCourtesyOrder ? <><Gift className="h-4 w-4 mr-1" /> Confirmar Cortesía</> : 'Cobrar'}
           </Button>
-          <Button
-            variant="secondary"
-            className="w-full h-10"
-            disabled={cart.length === 0 || completeSale.isPending}
-            onClick={() => setHoldDialog(true)}
-          >
-            <Pause className="h-4 w-4 mr-1" /> Dejar en espera
-          </Button>
           {!isCourtesyOrder && (
             <Button
               variant="outline"
@@ -1066,6 +1058,7 @@ export default function POS() {
         wallets={wallets}
         isProcessing={completeSale.isPending}
         onConfirm={(data) => completeSale.mutate(data)}
+        onHold={() => { setPayDialog(false); setHoldDialog(true); }}
         onPrintComanda={() => printComanda({
           cart,
           staffName: activeSession.staff_name,
