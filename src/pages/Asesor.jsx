@@ -9,6 +9,7 @@ import TelegramConnectCard from '@/components/asesor/TelegramConnectCard';
 
 const AGENT = 'asesor';
 const EXPENSES_AGENT = 'gastos';
+const ARCHIVE_KEY = 'asesor_archived_conversations';
 
 const SUGGESTIONS = [
 '¿Cómo van las ventas de hoy?',
@@ -32,7 +33,11 @@ export default function Asesor() {
     base44.agents.listConversations({ agent_name: AGENT }),
     base44.agents.listConversations({ agent_name: EXPENSES_AGENT })]);
 
-    const list = [...(asesor || []), ...(gastos || [])];
+    const archivedIds = JSON.parse(localStorage.getItem(ARCHIVE_KEY) || '[]');
+    const list = [...(asesor || []), ...(gastos || [])].map((c) => ({
+      ...c,
+      metadata: { ...c.metadata, archived: archivedIds.includes(c.id) }
+    }));
     setConversations(list);
     return list;
   };
@@ -64,9 +69,9 @@ export default function Asesor() {
 
   /** Archiva u restaura una conversación marcándola en sus metadatos. */
   const setArchived = async (conv, archived) => {
-    await base44.agents.updateConversation(conv.id, {
-      metadata: { ...conv.metadata, archived }
-    });
+    const ids = JSON.parse(localStorage.getItem(ARCHIVE_KEY) || '[]').filter((id) => id !== conv.id);
+    if (archived) ids.push(conv.id);
+    localStorage.setItem(ARCHIVE_KEY, JSON.stringify(ids));
     if (archived && conv.id === conversation?.id) startNew();
     loadConversations();
   };
