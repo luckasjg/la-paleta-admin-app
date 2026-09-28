@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { UserPlus } from 'lucide-react';
+import { toast } from 'sonner';
+import NewCustomerForm from '@/components/receivables/NewCustomerForm';
 import { base44 } from '@/api/base44Client';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -8,8 +11,10 @@ import { formatEUR, EUR_PER_USD } from '@/lib/useExchangeRate';
 import { getCustomerDebt } from '@/lib/receivables';
 
 export default function CreditSaleDialog({ open, onOpenChange, totalUSD, onConfirm, isProcessing }) {
+  const qc = useQueryClient();
   const [customerId, setCustomerId] = useState('');
-  useEffect(() => { if (open) setCustomerId(''); }, [open]);
+  const [creating, setCreating] = useState(false);
+  useEffect(() => { if (open) { setCustomerId(''); setCreating(false); } }, [open]);
 
   const { data: customers = [] } = useQuery({
     queryKey: ['credit_customers'],
@@ -39,14 +44,32 @@ export default function CreditSaleDialog({ open, onOpenChange, totalUSD, onConfi
             <p className="text-xs uppercase tracking-wide text-muted-foreground">Monto a fiar</p>
             <p className="text-2xl font-bold text-primary">{formatEUR(totalUSD * EUR_PER_USD)}</p>
           </div>
-          <SearchableCombobox
-            value={customerId}
-            onChange={setCustomerId}
-            options={customers.map(c => ({ value: c.id, label: c.full_name, sublabel: c.phone }))}
-            placeholder="Seleccionar cliente registrado"
-            searchPlaceholder="Buscar cliente..."
-            emptyText="Sin clientes registrados"
-          />
+          {creating ? (
+            <NewCustomerForm
+              existing={customers}
+              onCancel={() => setCreating(false)}
+              onCreated={async (c, isNew) => {
+                if (isNew) await qc.invalidateQueries({ queryKey: ['credit_customers'] });
+                else toast.info('Ya existía un cliente con ese teléfono; quedó seleccionado');
+                setCustomerId(c.id);
+                setCreating(false);
+              }}
+            />
+          ) : (
+            <div className="flex gap-2">
+              <div className="flex-1 min-w-0">
+                <SearchableCombobox
+                  value={customerId}
+                  onChange={setCustomerId}
+                  options={customers.map(c => ({ value: c.id, label: c.full_name, sublabel: c.phone }))}
+                  placeholder="Seleccionar cliente registrado"
+                  searchPlaceholder="Buscar cliente..."
+                  emptyText="Sin clientes registrados"
+                />
+              </div>
+              <Button variant="outline" onClick={() => setCreating(true)}><UserPlus className="h-4 w-4" /> Nuevo</Button>
+            </div>
+          )}
           {customer && (
             <div className="text-sm space-y-1 rounded-lg border border-border p-3">
               <div className="flex justify-between"><span className="text-muted-foreground">Deuda actual</span><span className="font-mono">{isFetching ? '…' : formatEUR(debt * EUR_PER_USD)}</span></div>
