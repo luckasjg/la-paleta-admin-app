@@ -31,6 +31,7 @@ import Wallets from '@/pages/Wallets.jsx';
 import Asesor from '@/pages/Asesor.jsx';
 import Receivables from '@/pages/Receivables.jsx';
 import Settings from '@/pages/Settings.jsx';
+import Customers from '@/pages/Customers.jsx';
 import DigitalMenuTV from '@/pages/DigitalMenuTV.jsx';
 import TVSabores from '@/pages/TVSabores.jsx';
 import TVEspeciales from '@/pages/TVEspeciales.jsx';
@@ -84,6 +85,7 @@ const AuthenticatedApp = () => {
           <Route path="/gastos" element={<RequirePermission module="gastos"><ExpensesManager /></RequirePermission>} />
           <Route path="/billeteras" element={<RequirePermission module="billeteras"><Wallets /></RequirePermission>} />
           <Route path="/cobranza" element={<RequirePermission module="cobranza"><Receivables /></RequirePermission>} />
+          <Route path="/clientes" element={<RequirePermission module="clientes"><Customers /></RequirePermission>} />
           <Route path="/asesor" element={<RequirePermission module="asesor"><Asesor /></RequirePermission>} />
           <Route path="/configuracion" element={<RequireAdmin><Settings /></RequireAdmin>} />
         </Route>
