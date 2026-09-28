@@ -36,13 +36,17 @@
     "week_key"
   ],
   "rls": {
-    "create": {},
-    "read": {},
+    "create": null,
+    "read": null,
     "update": {
       "user_condition": {
         "role": "admin"
       }
     },
-    "delete": {}
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
   }
 }
