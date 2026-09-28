@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import moment from 'moment';
 import { toast } from 'sonner';
-import { RELAY_PORT } from '@/lib/printRelaySource';
+import { RELAY_PORT, getRelayToken } from '@/lib/printRelaySource';
 
 const RELAY_URL = `http://localhost:${RELAY_PORT}`;
 
@@ -64,7 +64,7 @@ export async function printComanda(data) {
   try {
     const res = await fetchWithTimeout(`${RELAY_URL}/print`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-Relay-Token': getRelayToken() },
       body: JSON.stringify(buildPayload(data)),
     }, 3000);
     const json = await res.json();

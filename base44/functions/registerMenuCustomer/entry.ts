@@ -20,27 +20,19 @@ export default async function (req: Request): Promise<Response> {
     const existing = await base44.asServiceRole.entities.Customer.filter({ phone });
     const current = (existing || [])[0];
 
-    let customer;
-    if (current) {
-      customer = await base44.asServiceRole.entities.Customer.update(current.id, {
-        full_name: fullName,
-        address: address || current.address || '',
-        is_registered: true,
-      });
-    } else {
-      customer = await base44.asServiceRole.entities.Customer.create({
-        full_name: fullName,
-        phone,
-        address,
-        is_registered: true,
-      });
-    }
-
-    return Response.json({
-      customer_id: customer?.id || current?.id,
+    // Cliente existente: no se modifica ni se devuelven sus datos guardados.
+    const customer = current || await base44.asServiceRole.entities.Customer.create({
       full_name: fullName,
       phone,
-      address: address || customer?.address || '',
+      address,
+      is_registered: true,
+    });
+
+    return Response.json({
+      customer_id: customer.id,
+      full_name: fullName,
+      phone,
+      address,
     });
   } catch (error) {
     return Response.json({ error: error.message }, { status: 500 });

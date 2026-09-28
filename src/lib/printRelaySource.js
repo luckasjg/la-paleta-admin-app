@@ -70,14 +70,20 @@ function sendToPrinter(buffer, cb) {
   });
 }
 
-function cors(res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+const ALLOWED = CONFIG.allowedOrigins || [];
+
+function cors(req, res) {
+  const origin = req.headers.origin || '';
+  if (ALLOWED.indexOf(origin) === -1) return false;
+  res.setHeader('Access-Control-Allow-Origin', origin);
+  res.setHeader('Vary', 'Origin');
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Relay-Token');
+  return true;
 }
 
 http.createServer(function (req, res) {
-  cors(res);
+  if (!cors(req, res)) { res.writeHead(403); return res.end(); }
   if (req.method === 'OPTIONS') { res.writeHead(204); return res.end(); }
 
   if (req.method === 'GET' && req.url.startsWith('/health')) {
@@ -86,6 +92,10 @@ http.createServer(function (req, res) {
   }
 
   if (req.method === 'POST' && req.url.startsWith('/print')) {
+    if (!CONFIG.token || req.headers['x-relay-token'] !== CONFIG.token) {
+      res.writeHead(401, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ ok: false, error: 'Token inválido' }));
+    }
     let body = '';
     req.on('data', function (c) { body += c; });
     req.on('end', function () {
@@ -117,10 +127,23 @@ http.createServer(function (req, res) {
 });
 `;
 
-const CONFIG_JSON = `{
-  "printerShare": "POS80"
+const TOKEN_KEY = 'print_relay_token';
+
+/** Token propio de esta computadora; se genera una sola vez. */
+export function getRelayToken() {
+  let token = localStorage.getItem(TOKEN_KEY);
+  if (!token) {
+    token = crypto.randomUUID().replace(/-/g, '');
+    localStorage.setItem(TOKEN_KEY, token);
+  }
+  return token;
 }
-`;
+
+const buildConfigJson = (token) => JSON.stringify({
+  printerShare: 'POS80',
+  token,
+  allowedOrigins: [...new Set([window.location.origin, 'https://lapaletaadminapp.base44.app'])],
+}, null, 2) + '\n';
 
 const START_BAT = `@echo off
 title Relay de impresion - La Paleta POS
@@ -169,9 +192,9 @@ A partir de ahí, cada comanda sale al instante sin diálogo.
 - El POS seguirá imprimiendo con el diálogo normal del navegador, no se pierde nada
 `;
 
-export const RELAY_FILES = [
+export const buildRelayFiles = () => [
   { name: 'server.js', content: SERVER_JS },
-  { name: 'config.json', content: CONFIG_JSON },
+  { name: 'config.json', content: buildConfigJson(getRelayToken()) },
   { name: 'start-relay.bat', content: START_BAT },
   { name: 'LEEME.md', content: README },
 ];

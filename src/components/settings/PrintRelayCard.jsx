@@ -1,7 +1,7 @@
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Download, Printer } from 'lucide-react';
-import { RELAY_FILES, RELAY_PORT } from '@/lib/printRelaySource';
+import { buildRelayFiles, RELAY_PORT } from '@/lib/printRelaySource';
 
 function downloadFile(name, content) {
   const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
@@ -36,7 +36,7 @@ export default function PrintRelayCard() {
       </ol>
 
       <div className="flex flex-wrap gap-2">
-        {RELAY_FILES.map(f => (
+        {buildRelayFiles().map(f => (
           <Button key={f.name} variant="outline" size="sm" onClick={() => downloadFile(f.name, f.content)}>
             <Download className="h-3.5 w-3.5 mr-1" /> {f.name}
           </Button>
@@ -46,6 +46,7 @@ export default function PrintRelayCard() {
       <p className="text-[11px] text-muted-foreground border-t pt-3">
         El relay corre sólo en esa computadora (puerto {RELAY_PORT}) y no necesita internet.
         Cualquier otro equipo seguirá imprimiendo con el diálogo normal del navegador.
+        Descarga los archivos desde el mismo navegador del POS: config.json lleva un token único de este equipo.
       </p>
     </Card>
   );
