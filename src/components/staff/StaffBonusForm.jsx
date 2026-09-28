@@ -20,7 +20,7 @@ export default function StaffBonusForm({ staff, onOpenChange, onSaved }) {
     queryKey: ['bonus_products'], enabled: !!staff,
     queryFn: async () => (await base44.entities.Product.filter({ is_active: { $ne: false } }, { sort: 'name', limit: 500, fields: ['name'] })).items,
   });
-  if (!f) return null;
+  if (!f || !staff) return null;
   const setBonus = (i, patch) => setF(p => ({ ...p, weekly_bonus: p.weekly_bonus.map((b, j) => j === i ? { ...b, ...patch } : b) }));
 
   const save = async () => {
