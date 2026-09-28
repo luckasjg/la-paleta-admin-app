@@ -26,7 +26,13 @@ export default function StaffBenefitSelector({ staff, onChange, balance }) {
         <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => onChange(null)}><X className="h-3.5 w-3.5" /></Button>
       </div>
       {staff.bonus_unlimited && <p className="text-primary font-medium">Cortesía ilimitada · todo el pedido es gratis</p>}
-      {!staff.bonus_unlimited && (staff.weekly_bonus || []).map(b => (
+      {!staff.bonus_unlimited && staff.bonus_mode === 'monto' && (
+        <div className="flex justify-between text-muted-foreground">
+          <span>Cupo semanal en monto</span>
+          <span className="font-mono">{balance ? `$${(balance.__monto__ ?? 0).toFixed(2)}` : '…'} / ${(staff.weekly_bonus_amount_usd || 0).toFixed(2)}</span>
+        </div>
+      )}
+      {!staff.bonus_unlimited && staff.bonus_mode !== 'monto' && (staff.weekly_bonus || []).map(b => (
         <div key={b.product_id} className="flex justify-between text-muted-foreground">
           <span className="truncate">{b.product_name}</span>
           <span className="font-mono">{balance ? balance[b.product_id] ?? 0 : '…'} / {b.quantity_per_week} disp.</span>

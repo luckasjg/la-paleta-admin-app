@@ -4,11 +4,11 @@
   "properties": {
     "full_name": {
       "type": "string",
-      "description": "Nombre del empleado que opera el POS"
+      "description": "Nombre del colaborador"
     },
     "pin": {
       "type": "string",
-      "description": "PIN num\u00e9rico de 4-6 d\u00edgitos para abrir caja"
+      "description": "PIN num\u00e9rico de 4-6 d\u00edgitos para abrir caja (opcional: sin PIN no opera caja)"
     },
     "is_active": {
       "type": "boolean",
@@ -29,6 +29,20 @@
       "type": "boolean",
       "default": false,
       "description": "Cortes\u00eda ilimitada: todo lo que pida sale gratis sin cupo"
+    },
+    "bonus_mode": {
+      "type": "string",
+      "enum": [
+        "producto",
+        "monto"
+      ],
+      "default": "producto",
+      "description": "Tipo de cupo semanal"
+    },
+    "weekly_bonus_amount_usd": {
+      "type": "number",
+      "default": 0,
+      "description": "Cupo semanal en USD base (modo monto)"
     },
     "weekly_bonus": {
       "type": "array",
@@ -60,8 +74,7 @@
     }
   },
   "required": [
-    "full_name",
-    "pin"
+    "full_name"
   ],
   "rls": {
     "create": {
