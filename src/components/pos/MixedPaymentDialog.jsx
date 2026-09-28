@@ -152,7 +152,7 @@ export default function MixedPaymentDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto overflow-x-hidden">
         <DialogHeader>
           <DialogTitle>Cobro</DialogTitle>
         </DialogHeader>
@@ -258,18 +258,22 @@ export default function MixedPaymentDialog({
           />
         )}
 
-        <DialogFooter className="gap-2">
+        {(onHold || onPrintComanda) && (
+          <div className="grid grid-cols-2 gap-2">
+            {onHold && (
+              <Button variant="secondary" onClick={onHold} disabled={isProcessing}>
+                <Pause className="h-4 w-4" /> En espera
+              </Button>
+            )}
+            {onPrintComanda && (
+              <Button variant="outline" onClick={onPrintComanda} title="Imprimir comanda">
+                <Printer className="h-4 w-4" /> Comanda
+              </Button>
+            )}
+          </div>
+        )}
+        <div className="flex gap-2">
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-          {onHold && (
-            <Button variant="secondary" onClick={onHold} disabled={isProcessing}>
-              <Pause className="h-4 w-4" /> En espera
-            </Button>
-          )}
-          {onPrintComanda && (
-            <Button variant="outline" onClick={onPrintComanda} title="Imprimir comanda">
-              <Printer className="h-4 w-4" /> Comanda
-            </Button>
-          )}
           <Button
             onClick={handleConfirm}
             disabled={!isComplete || !changeReady || isProcessing}
@@ -277,7 +281,7 @@ export default function MixedPaymentDialog({
           >
             {isProcessing ? 'Procesando...' : 'Confirmar Venta'}
           </Button>
-        </DialogFooter>
+        </div>
       </DialogContent>
     </Dialog>
   );
