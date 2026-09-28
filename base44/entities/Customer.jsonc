@@ -22,6 +22,11 @@
       "default": true,
       "description": "true = cre\u00f3 cuenta; false = pedido express puntual"
     },
+    "credit_limit": {
+      "type": "number",
+      "default": 0,
+      "description": "L\u00edmite de cr\u00e9dito en USD base. 0 = sin l\u00edmite"
+    },
     "notes": {
       "type": "string"
     }
@@ -32,11 +37,7 @@
   ],
   "rls": {
     "create": {},
-    "read": {
-      "user_condition": {
-        "role": "admin"
-      }
-    },
+    "read": {},
     "update": {
       "user_condition": {
         "role": "admin"

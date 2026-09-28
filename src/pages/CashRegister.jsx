@@ -30,6 +30,8 @@ import { getActiveSession, clearActiveSession } from '@/lib/cashSession';
 import { getPendingAuditRegisters } from '@/lib/pendingAudits';
 import PendingAuditsBanner from '@/components/cashregister/PendingAuditsBanner';
 import RefundsSessionCard from '@/components/cashregister/RefundsSessionCard';
+import AbonosSessionCard from '@/components/cashregister/AbonosSessionCard';
+import { CASH_METHODS } from '@/lib/receivables';
 
 export default function CashRegister() {
   const [closeDialog, setCloseDialog] = useState(false);
@@ -78,6 +80,12 @@ export default function CashRegister() {
   const { data: refunds = [] } = useQuery({
     queryKey: ['refund_requests'],
     queryFn: () => base44.entities.RefundRequest.list('-created_date', 500),
+  });
+
+  // Abonos de cuentas por cobrar — ingresan a la caja del turno.
+  const { data: abonos = [] } = useQuery({
+    queryKey: ['receivable_payments'],
+    queryFn: async () => (await base44.entities.ReceivablePayment.filter({}, { sort: '-payment_date', limit: 500 })).items,
   });
 
   const { data: me } = useQuery({
@@ -168,8 +176,11 @@ export default function CashRegister() {
     [registers, audits]
   );
 
-  const systemCash = openSales.reduce((sum, s) => sum + (s.cash_amount || 0), 0);
-  const systemDigital = openSales.reduce((sum, s) => sum + (s.digital_amount || 0), 0);
+  const sessionAbonos = openRegister?.id ? abonos.filter(a => a.cash_register_id === openRegister.id) : [];
+  const abonoCash = sessionAbonos.filter(a => CASH_METHODS.includes(a.method)).reduce((s, a) => s + (a.amount_usd_equivalent || 0), 0);
+  const abonoDigital = sessionAbonos.filter(a => !CASH_METHODS.includes(a.method)).reduce((s, a) => s + (a.amount_usd_equivalent || 0), 0);
+  const systemCash = openSales.reduce((sum, s) => sum + (s.cash_amount || 0), 0) + abonoCash;
+  const systemDigital = openSales.reduce((sum, s) => sum + (s.digital_amount || 0), 0) + abonoDigital;
   const todayTotal = openSales.reduce((sum, s) => sum + (s.total || 0), 0);
 
   // Ventas asociadas a un cierre. Si el cierre tiene ventas con cash_register_id,
@@ -263,6 +274,7 @@ export default function CashRegister() {
           if (p?.method) usedMethods.add(p.method);
         }
       }
+      for (const a of sessionAbonos) if (a.method) usedMethods.add(a.method);
 
       let consolidated = 0;
       try {
@@ -447,6 +459,7 @@ export default function CashRegister() {
           </Card>
 
           <RefundsSessionCard refunds={getRefundsForRegister(openRegister)} />
+          <AbonosSessionCard abonos={sessionAbonos} />
 
           <PendingAuditsBanner
             pending={pendingAudits}

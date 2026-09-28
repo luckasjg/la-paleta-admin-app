@@ -1,0 +1,73 @@
+{
+  "name": "AccountReceivable",
+  "type": "object",
+  "properties": {
+    "customer_id": {
+      "type": "string"
+    },
+    "customer_name": {
+      "type": "string"
+    },
+    "customer_phone": {
+      "type": "string"
+    },
+    "sale_id": {
+      "type": "string",
+      "description": "Venta a cr\u00e9dito que origin\u00f3 la deuda"
+    },
+    "amount_usd": {
+      "type": "number",
+      "description": "Monto original fiado (USD base)"
+    },
+    "paid_usd": {
+      "type": "number",
+      "default": 0
+    },
+    "balance_usd": {
+      "type": "number",
+      "description": "Saldo pendiente (USD base)"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pendiente",
+        "saldada"
+      ],
+      "default": "pendiente"
+    },
+    "cash_register_id": {
+      "type": "string"
+    },
+    "staff_name": {
+      "type": "string"
+    },
+    "sale_date": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "settled_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "settle_note": {
+      "type": "string",
+      "description": "Nota cuando se marca liquidada manualmente"
+    }
+  },
+  "required": [
+    "customer_id",
+    "amount_usd",
+    "balance_usd",
+    "status"
+  ],
+  "rls": {
+    "create": {},
+    "read": {},
+    "update": {},
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

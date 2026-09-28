@@ -1,0 +1,82 @@
+{
+  "name": "ReceivablePayment",
+  "type": "object",
+  "properties": {
+    "customer_id": {
+      "type": "string"
+    },
+    "customer_name": {
+      "type": "string"
+    },
+    "method": {
+      "type": "string",
+      "description": "M\u00e9todo de pago (value de PaymentMethod)"
+    },
+    "currency": {
+      "type": "string",
+      "enum": [
+        "EUR",
+        "VES",
+        "USD"
+      ]
+    },
+    "amount_native": {
+      "type": "number"
+    },
+    "amount_usd_equivalent": {
+      "type": "number"
+    },
+    "exchange_rate": {
+      "type": "number",
+      "description": "Tasa EUR\u2194VES vigente"
+    },
+    "allocations": {
+      "type": "array",
+      "description": "Cuentas por cobrar a las que se aplic\u00f3 el abono",
+      "items": {
+        "type": "object",
+        "properties": {
+          "receivable_id": {
+            "type": "string"
+          },
+          "amount_usd": {
+            "type": "number"
+          }
+        }
+      }
+    },
+    "cash_register_id": {
+      "type": "string",
+      "description": "Sesi\u00f3n de caja donde ingres\u00f3 el abono"
+    },
+    "staff_name": {
+      "type": "string"
+    },
+    "payment_date": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "customer_id",
+    "amount_usd_equivalent",
+    "method"
+  ],
+  "rls": {
+    "create": {},
+    "read": {},
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

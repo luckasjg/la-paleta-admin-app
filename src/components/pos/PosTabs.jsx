@@ -1,9 +1,10 @@
 import React from 'react';
-import { ShoppingCart, Undo2 } from 'lucide-react';
+import { ShoppingCart, Undo2, HandCoins } from 'lucide-react';
 
 const TABS = [
   { value: 'vender', label: 'Vender', icon: ShoppingCart },
   { value: 'devoluciones', label: 'Devoluciones', icon: Undo2 },
+  { value: 'cobranza', label: 'Cobranza', icon: HandCoins },
 ];
 
 export default function PosTabs({ value, onChange, pendingRefunds = 0 }) {

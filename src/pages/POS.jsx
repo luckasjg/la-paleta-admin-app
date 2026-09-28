@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ShoppingCart, Plus, Minus, Trash2, Gift, AlertTriangle, Coffee, GlassWater, Printer, Pause, BaggageClaim } from 'lucide-react';
+import { ShoppingCart, Plus, Minus, Trash2, Gift, AlertTriangle, Coffee, GlassWater, Printer, Pause, BaggageClaim, HandCoins } from 'lucide-react';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -34,6 +34,8 @@ import { usePosDraft, clearPosDraft } from '@/lib/usePosDraft';
 import { useHeldOrders } from '@/lib/useHeldOrders';
 import HoldOrderDialog from '@/components/pos/HoldOrderDialog';
 import HeldOrdersDialog from '@/components/pos/HeldOrdersDialog';
+import CreditSaleDialog from '@/components/receivables/CreditSaleDialog';
+import ReceivablesPanel from '@/components/receivables/ReceivablesPanel';
 import { aggregateTrayDemand } from '@/lib/trayDeduction';
 import {
   splitGramsEqually,
@@ -49,6 +51,7 @@ export default function POS() {
   const [payDialog, setPayDialog] = useState(false);
   // Pestañas del POS: cobro de ventas y cola de devoluciones por pago móvil.
   const [posTab, setPosTab] = useState('vender');
+  const [creditDialog, setCreditDialog] = useState(false);
   // Diálogo para elegir Taza (cerámica) vs Vaso (desechable) — sólo en productos con vessel_optional
   const [vesselDialog, setVesselDialog] = useState(null);
   // Origen de Materia Prima para esta venta (aplica a toda la orden).
@@ -409,7 +412,7 @@ export default function POS() {
   };
 
   const completeSale = useMutation({
-    mutationFn: async ({ payments, exchange_rate, change }) => {
+    mutationFn: async ({ payments, exchange_rate, change, credit }) => {
       // ── Aggregate ALL grams demanded per tray across the ENTIRE cart ────────
       // Una sola actualización por bandeja (evita sobrescribir deducciones cuando
       // la misma bandeja aparece en varios ítems) y el desglose por sabor manda,
@@ -488,7 +491,7 @@ export default function POS() {
       const digitalUSD = payments
         .filter(p => p.method !== 'efectivo_usd' && p.method !== 'efectivo_ves')
         .reduce((s, p) => s + (p.amount_usd_equivalent || 0), 0);
-      const legacyMethod = payments.length === 0
+      const legacyMethod = credit ? 'credito' : payments.length === 0
         ? 'cortesia'
         : (payments.length > 1 ? 'mixto' : payments[0].method);
 
@@ -550,6 +553,23 @@ export default function POS() {
         } : {}),
       });
 
+      // Venta a crédito: genera la cuenta por cobrar del cliente
+      if (credit) {
+        await base44.entities.AccountReceivable.create({
+          customer_id: credit.id,
+          customer_name: credit.full_name,
+          customer_phone: credit.phone,
+          sale_id: sale?.id,
+          amount_usd: total,
+          paid_usd: 0,
+          balance_usd: total,
+          status: 'pendiente',
+          cash_register_id: activeSession.id,
+          staff_name: activeSession.staff_name,
+          sale_date: sale?.sale_date || new Date().toISOString(),
+        });
+      }
+
       // Enlazar la devolución con la venta y notificar a Slack #caja para que
       // el encargado ejecute el envío; la cola se gestiona en POS → Devoluciones.
       if (refund) {
@@ -598,6 +618,9 @@ export default function POS() {
       clearPosDraft();
       setResumedFromOtherSession(null);
       setPayDialog(false);
+      setCreditDialog(false);
+      qc.invalidateQueries({ queryKey: ['receivables'] });
+      qc.invalidateQueries({ queryKey: ['customer_debt'] });
       toast.success('¡Venta registrada!');
     },
     onError: (err) => toast.error(err.message),
@@ -626,6 +649,15 @@ export default function POS() {
       <div className="space-y-4">
         <PosTabs value={posTab} onChange={setPosTab} pendingRefunds={pendingRefundsCount} />
         <RefundQueue />
+      </div>
+    );
+  }
+
+  if (posTab === 'cobranza') {
+    return (
+      <div className="space-y-4">
+        <PosTabs value={posTab} onChange={setPosTab} pendingRefunds={pendingRefundsCount} />
+        <ReceivablesPanel />
       </div>
     );
   }
@@ -860,6 +892,16 @@ export default function POS() {
           >
             <Pause className="h-4 w-4 mr-1" /> Dejar en espera
           </Button>
+          {!isCourtesyOrder && (
+            <Button
+              variant="outline"
+              className="w-full h-10"
+              disabled={cart.length === 0 || completeSale.isPending}
+              onClick={() => setCreditDialog(true)}
+            >
+              <HandCoins className="h-4 w-4 mr-1" /> Vender a crédito
+            </Button>
+          )}
           <div className="flex justify-center">
             <PrintRelayBadge available={relayAvailable} checking={relayChecking} />
           </div>
@@ -1014,6 +1056,14 @@ export default function POS() {
           shift: activeSession.shift,
           turn: nextTurn,
         })}
+      />
+
+      <CreditSaleDialog
+        open={creditDialog}
+        onOpenChange={setCreditDialog}
+        totalUSD={total}
+        isProcessing={completeSale.isPending}
+        onConfirm={(customer) => completeSale.mutate({ payments: [], exchange_rate: eurVes, credit: customer })}
       />
 
       {/* Pedidos en espera */}
