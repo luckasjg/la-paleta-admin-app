@@ -813,7 +813,7 @@ export default function POS() {
                     Base {formatEUR(toEur(item.base_price))} + recargo {formatEUR(toEur(item.flavor_surcharge))}
                   </p>
                 )}
-                {item.is_courtesy && <p className="text-xs text-amber-600 font-medium">{item.bonus_free_qty ? 'Cortesía · bono colaborador' : 'Cortesía'}</p>}
+                {item.is_courtesy && <p className="text-xs text-amber-600 font-medium">{item.staff_unlimited ? 'Cortesía · colaborador ilimitado' : item.bonus_free_qty ? 'Cortesía · bono colaborador' : 'Cortesía'}</p>}
                 {item.staff_discount && <p className="text-xs text-primary font-medium">{item.bonus_free_qty ? `${item.bonus_free_qty} de bono · ` : ''}resto con {bonusStaff?.discount_percentage}% dto.</p>}
               </div>
               <div className="flex items-center gap-1">

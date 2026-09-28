@@ -26,7 +26,7 @@ export default function StaffBonusForm({ staff, onOpenChange, onSaved }) {
   const save = async () => {
     setSaving(true);
     await base44.entities.StaffPOS.update(staff.id, {
-      position: f.position, bonus_enabled: f.bonus_enabled, bonus_reset_day: Number(f.bonus_reset_day),
+      position: f.position, bonus_enabled: f.bonus_enabled, bonus_unlimited: !!f.bonus_unlimited, bonus_reset_day: Number(f.bonus_reset_day),
       discount_percentage: Number(f.discount_percentage) || 0,
       weekly_bonus: f.weekly_bonus.filter(b => b.product_id).map(b => ({ ...b, quantity_per_week: Number(b.quantity_per_week) || 0 })),
     });
@@ -42,6 +42,11 @@ export default function StaffBonusForm({ staff, onOpenChange, onSaved }) {
         <div className="space-y-4">
           <div className="space-y-1"><Label>Cargo</Label><Input value={f.position || ''} onChange={e => setF({ ...f, position: e.target.value })} placeholder="Ej. Heladero, Gerente" /></div>
           <div className="flex items-center justify-between"><Label>Bono semanal activo</Label><Switch checked={f.bonus_enabled} onCheckedChange={v => setF({ ...f, bonus_enabled: v })} /></div>
+          <div className="flex items-center justify-between rounded-lg border p-3">
+            <div><Label>Cortesía ilimitada</Label><p className="text-xs text-muted-foreground">Todo lo que pida sale gratis, sin cupo semanal</p></div>
+            <Switch checked={!!f.bonus_unlimited} onCheckedChange={v => setF({ ...f, bonus_unlimited: v, ...(v ? { bonus_enabled: true } : {}) })} />
+          </div>
+          {!f.bonus_unlimited && <>
           <div className="space-y-2">
             <Label>Productos de cortesía por semana</Label>
             {f.weekly_bonus.map((b, i) => (
@@ -62,6 +67,7 @@ export default function StaffBonusForm({ staff, onOpenChange, onSaved }) {
                 <SelectContent>{DAYS.map((d, i) => <SelectItem key={i} value={String(i)}>{d}</SelectItem>)}</SelectContent>
               </Select></div>
           </div>
+          </>}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>

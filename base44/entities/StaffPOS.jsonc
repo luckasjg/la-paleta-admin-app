@@ -25,6 +25,11 @@
       "type": "boolean",
       "default": false
     },
+    "bonus_unlimited": {
+      "type": "boolean",
+      "default": false,
+      "description": "Cortes\u00eda ilimitada: todo lo que pida sale gratis sin cupo"
+    },
     "weekly_bonus": {
       "type": "array",
       "description": "Productos de cortes\u00eda disponibles por semana",

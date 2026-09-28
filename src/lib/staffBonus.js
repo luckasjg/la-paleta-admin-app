@@ -22,6 +22,9 @@ export async function getStaffBonusBalance(staff) {
 
 // Aplica cortesía hasta el cupo y descuento % al excedente sobre productos bonificados.
 export function applyStaffBonus(cart, staff, balance) {
+  if (staff?.bonus_enabled && staff.bonus_unlimited) {
+    return cart.map(item => ({ ...item, is_courtesy: true, staff_unlimited: true, subtotal: 0 }));
+  }
   if (!staff?.bonus_enabled || !balance) return cart;
   const left = { ...balance };
   const disc = (staff.discount_percentage || 0) / 100;
