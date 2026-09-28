@@ -70,6 +70,9 @@ export async function voidSale({ sale, reason = '', operatorEmail = '', reverseP
     }
   }
 
+  // Revertir consumo de bono de colaborador asociado a la venta
+  if (sale.benefit_staff_id) await base44.entities.StaffBonusConsumption.deleteMany({ sale_id: sale.id });
+
   // 4) Marcar la venta como anulada
   await base44.entities.Sale.update(sale.id, {
     status: 'voided',

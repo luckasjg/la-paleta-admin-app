@@ -20,6 +20,7 @@ export const PERMISSION_MODULES = [
   { key: "billeteras",     label: "Billeteras",        path: "/billeteras" },
   { key: "cobranza",       label: "Cuentas por Cobrar", path: "/cobranza" },
   { key: "clientes",       label: "Clientes",          path: "/clientes" },
+  { key: "colaboradores",  label: "Colaboradores",     path: "/colaboradores" },
   { key: "asesor",         label: "Asesor IA",         path: "/asesor" },
   { key: "configuracion",  label: "Configuración",     path: "/configuracion" },
 ];

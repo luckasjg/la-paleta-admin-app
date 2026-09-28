@@ -16,6 +16,42 @@
     },
     "notes": {
       "type": "string"
+    },
+    "position": {
+      "type": "string",
+      "description": "Cargo del colaborador"
+    },
+    "bonus_enabled": {
+      "type": "boolean",
+      "default": false
+    },
+    "weekly_bonus": {
+      "type": "array",
+      "description": "Productos de cortes\u00eda disponibles por semana",
+      "items": {
+        "type": "object",
+        "properties": {
+          "product_id": {
+            "type": "string"
+          },
+          "product_name": {
+            "type": "string"
+          },
+          "quantity_per_week": {
+            "type": "number"
+          }
+        }
+      }
+    },
+    "discount_percentage": {
+      "type": "number",
+      "default": 0,
+      "description": "% de descuento al exceder el cupo"
+    },
+    "bonus_reset_day": {
+      "type": "number",
+      "default": 1,
+      "description": "D\u00eda de reinicio del cupo (0=domingo \u2026 6=s\u00e1bado)"
     }
   },
   "required": [
@@ -24,15 +60,33 @@
   ],
   "rls": {
     "create": {
-      "user_condition": {
-        "role": "admin"
-      }
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "gerente"
+          }
+        }
+      ]
     },
     "read": {},
     "update": {
-      "user_condition": {
-        "role": "admin"
-      }
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "gerente"
+          }
+        }
+      ]
     },
     "delete": {
       "user_condition": {

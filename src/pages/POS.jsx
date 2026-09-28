@@ -37,6 +37,8 @@ import HeldOrdersDialog from '@/components/pos/HeldOrdersDialog';
 import CreditSaleDialog from '@/components/receivables/CreditSaleDialog';
 import ReceivablesPanel from '@/components/receivables/ReceivablesPanel';
 import { aggregateTrayDemand } from '@/lib/trayDeduction';
+import StaffBenefitSelector from '@/components/pos/StaffBenefitSelector';
+import { getStaffBonusBalance, applyStaffBonus, recordStaffBonusConsumption } from '@/lib/staffBonus';
 import {
   splitGramsEqually,
   traySurchargePerGram as traySurchargePerGramShared,
@@ -45,6 +47,12 @@ import {
 
 export default function POS() {
   const [cart, setCart] = useState([]);
+  const [bonusStaff, setBonusStaff] = useState(null);
+  const { data: bonusBalance } = useQuery({
+    queryKey: ['staff_bonus_balance', bonusStaff?.id],
+    enabled: !!bonusStaff,
+    queryFn: () => getStaffBonusBalance(bonusStaff),
+  });
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [flavorDialog, setFlavorDialog] = useState(null);
   const [selectedFlavors, setSelectedFlavors] = useState([]);
@@ -378,9 +386,10 @@ export default function POS() {
     }));
   };
 
-  const total = cart.reduce((sum, i) => sum + i.subtotal, 0);
+  const pricedCart = applyStaffBonus(cart, bonusStaff, bonusBalance);
+  const total = pricedCart.reduce((sum, i) => sum + i.subtotal, 0);
   // Orden totalmente gratuita (todos los ítems marcados como cortesía)
-  const isCourtesyOrder = cart.length > 0 && total === 0 && cart.every(i => i.is_courtesy);
+  const isCourtesyOrder = cart.length > 0 && total === 0 && pricedCart.every(i => i.is_courtesy);
 
   // ── Stock warnings: aggregate grams demanded per tray across the cart ──
   // and compare against current tray stock. Returns one entry per overdrawn tray.
@@ -522,7 +531,8 @@ export default function POS() {
       }
 
       const sale = await base44.entities.Sale.create({
-        items: cart.map(i => ({
+        ...(bonusStaff ? { benefit_staff_id: bonusStaff.id, benefit_staff_name: bonusStaff.full_name } : {}),
+        items: pricedCart.map(i => ({
           ...i,
           unit_price_eur: +((i.unit_price || 0) * EUR_PER_USD).toFixed(2),
           subtotal_eur: +((i.subtotal || 0) * EUR_PER_USD).toFixed(2),
@@ -552,6 +562,8 @@ export default function POS() {
           ...(refund ? { change_refund_request_id: refund.id } : {}),
         } : {}),
       });
+
+      if (bonusStaff) await recordStaffBonusConsumption(bonusStaff, pricedCart, sale);
 
       // Venta a crédito: genera la cuenta por cobrar del cliente
       if (credit) {
@@ -615,6 +627,8 @@ export default function POS() {
       qc.invalidateQueries({ queryKey: ['refund_requests'] });
       setLinkedOrder(null);
       setCart([]);
+      setBonusStaff(null);
+      qc.invalidateQueries({ queryKey: ['staff_bonus_balance'] });
       clearPosDraft();
       setResumedFromOtherSession(null);
       setPayDialog(false);
@@ -777,7 +791,8 @@ export default function POS() {
         )}
 
         <div className="flex-1 overflow-y-auto p-3 space-y-2 min-h-0">
-          {cart.map((item, idx) => (
+          <StaffBenefitSelector staff={bonusStaff} onChange={setBonusStaff} balance={bonusBalance} />
+          {pricedCart.map((item, idx) => (
             <div key={idx} className={`flex items-center gap-2 p-2 rounded-lg transition-colors ${item.is_courtesy ? 'bg-amber-50 border border-amber-200' : 'bg-secondary/50'}`}>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5">
@@ -798,7 +813,8 @@ export default function POS() {
                     Base {formatEUR(toEur(item.base_price))} + recargo {formatEUR(toEur(item.flavor_surcharge))}
                   </p>
                 )}
-                {item.is_courtesy && <p className="text-xs text-amber-600 font-medium">Cortesía</p>}
+                {item.is_courtesy && <p className="text-xs text-amber-600 font-medium">{item.bonus_free_qty ? 'Cortesía · bono colaborador' : 'Cortesía'}</p>}
+                {item.staff_discount && <p className="text-xs text-primary font-medium">{item.bonus_free_qty ? `${item.bonus_free_qty} de bono · ` : ''}resto con {bonusStaff?.discount_percentage}% dto.</p>}
               </div>
               <div className="flex items-center gap-1">
                 <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => updateQty(idx, -1)}>

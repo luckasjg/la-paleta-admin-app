@@ -1,0 +1,48 @@
+{
+  "name": "StaffBonusConsumption",
+  "type": "object",
+  "properties": {
+    "staff_id": {
+      "type": "string"
+    },
+    "staff_name": {
+      "type": "string"
+    },
+    "product_id": {
+      "type": "string"
+    },
+    "product_name": {
+      "type": "string"
+    },
+    "quantity": {
+      "type": "number"
+    },
+    "sale_id": {
+      "type": "string"
+    },
+    "sale_date": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "week_key": {
+      "type": "string",
+      "description": "Fecha (YYYY-MM-DD) de inicio de la semana del cupo"
+    }
+  },
+  "required": [
+    "staff_id",
+    "product_id",
+    "quantity",
+    "week_key"
+  ],
+  "rls": {
+    "create": {},
+    "read": {},
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {}
+  }
+}

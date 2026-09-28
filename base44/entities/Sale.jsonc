@@ -72,6 +72,14 @@
           "is_courtesy": {
             "type": "boolean"
           },
+          "staff_discount": {
+            "type": "boolean",
+            "description": "Excedente del bono cobrado con descuento de colaborador"
+          },
+          "bonus_free_qty": {
+            "type": "number",
+            "description": "Unidades cubiertas por el bono semanal del colaborador"
+          },
           "quantity": {
             "type": "number"
           },
@@ -256,6 +264,13 @@
     "staff_name": {
       "type": "string",
       "description": "Nombre del empleado que realiz\u00f3 la venta"
+    },
+    "benefit_staff_id": {
+      "type": "string",
+      "description": "Colaborador (StaffPOS) beneficiario del bono en esta venta"
+    },
+    "benefit_staff_name": {
+      "type": "string"
     }
   },
   "required": [
