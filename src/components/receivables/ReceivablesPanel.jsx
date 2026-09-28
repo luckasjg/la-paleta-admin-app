@@ -52,8 +52,14 @@ export default function ReceivablesPanel({ canSettle = false }) {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar cliente…" className="pl-9" />
         </div>
-        <Input type="date" value={from} onChange={e => setFrom(e.target.value)} className="w-40" />
-        <Input type="date" value={to} onChange={e => setTo(e.target.value)} className="w-40" />
+        <label className="space-y-1">
+          <span className="block text-xs text-muted-foreground">Desde</span>
+          <Input type="date" value={from} onChange={e => setFrom(e.target.value)} className="w-40" />
+        </label>
+        <label className="space-y-1">
+          <span className="block text-xs text-muted-foreground">Hasta</span>
+          <Input type="date" value={to} onChange={e => setTo(e.target.value)} className="w-40" />
+        </label>
         <div className="rounded-xl bg-primary/5 border border-primary/20 px-4 py-1.5 text-right">
           <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Total por cobrar</p>
           <p className="font-mono font-bold text-primary">{eur(totalDebt)}</p>
