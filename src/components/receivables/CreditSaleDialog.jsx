@@ -37,7 +37,7 @@ export default function CreditSaleDialog({ open, onOpenChange, totalUSD, onConfi
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-sm">
+      <DialogContent className="max-w-md">
         <DialogHeader><DialogTitle>Venta a crédito</DialogTitle></DialogHeader>
         <div className="space-y-4 py-1">
           <div className="rounded-xl bg-primary/5 border border-primary/20 p-3 text-center">
@@ -67,7 +67,7 @@ export default function CreditSaleDialog({ open, onOpenChange, totalUSD, onConfi
                   emptyText="Sin clientes registrados"
                 />
               </div>
-              <Button variant="outline" onClick={() => setCreating(true)}><UserPlus className="h-4 w-4" /> Nuevo</Button>
+              <Button variant="outline" className="shrink-0" onClick={() => setCreating(true)}><UserPlus className="h-4 w-4" /> Nuevo</Button>
             </div>
           )}
           {customer && (
