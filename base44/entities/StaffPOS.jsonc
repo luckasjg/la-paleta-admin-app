@@ -21,6 +21,15 @@
       "type": "string",
       "description": "Cargo del colaborador"
     },
+    "can_manage_receivables": {
+      "type": "boolean",
+      "default": false,
+      "description": "Designado para gestionar cuentas por cobrar"
+    },
+    "pin_receivables": {
+      "type": "string",
+      "description": "PIN dedicado para el m\u00f3dulo de cuentas por cobrar"
+    },
     "bonus_enabled": {
       "type": "boolean",
       "default": false

@@ -15,6 +15,15 @@
       "type": "string",
       "description": "Venta a cr\u00e9dito que origin\u00f3 la deuda"
     },
+    "origin": {
+      "type": "string",
+      "enum": [
+        "sistema",
+        "historica"
+      ],
+      "default": "sistema",
+      "description": "historica = cargada manualmente, sin venta ni inventario"
+    },
     "amount_usd": {
       "type": "number",
       "description": "Monto original fiado (USD base)"
@@ -52,6 +61,9 @@
     "settle_note": {
       "type": "string",
       "description": "Nota cuando se marca liquidada manualmente"
+    },
+    "notes": {
+      "type": "string"
     }
   },
   "required": [

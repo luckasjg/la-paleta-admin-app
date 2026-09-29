@@ -26,7 +26,7 @@ export default function StaffBonusForm({ staff, onOpenChange, onSaved }) {
   const save = async () => {
     setSaving(true);
     await base44.entities.StaffPOS.update(staff.id, {
-      position: f.position, bonus_enabled: f.bonus_enabled, bonus_unlimited: !!f.bonus_unlimited, bonus_mode: f.bonus_mode || 'producto',
+      position: f.position, can_manage_receivables: !!f.can_manage_receivables, pin_receivables: f.pin_receivables || '', bonus_enabled: f.bonus_enabled, bonus_unlimited: !!f.bonus_unlimited, bonus_mode: f.bonus_mode || 'producto',
       weekly_bonus_amount_usd: Number(f.weekly_bonus_amount_usd) || 0, bonus_reset_day: Number(f.bonus_reset_day),
       discount_percentage: Number(f.discount_percentage) || 0,
       weekly_bonus: f.weekly_bonus.filter(b => b.product_id).map(b => ({ ...b, quantity_per_week: Number(b.quantity_per_week) || 0 })),
@@ -42,6 +42,15 @@ export default function StaffBonusForm({ staff, onOpenChange, onSaved }) {
         <DialogHeader><DialogTitle>{staff.full_name}</DialogTitle></DialogHeader>
         <div className="space-y-4">
           <div className="space-y-1"><Label>Cargo</Label><Input value={f.position || ''} onChange={e => setF({ ...f, position: e.target.value })} placeholder="Ej. Heladero, Gerente" /></div>
+          <div className="rounded-lg border p-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <div><Label>Acceso a cuentas por cobrar</Label><p className="text-xs text-muted-foreground">Puede cargar y editar cuentas con su PIN de cobranza</p></div>
+              <Switch checked={!!f.can_manage_receivables} onCheckedChange={v => setF({ ...f, can_manage_receivables: v })} />
+            </div>
+            {f.can_manage_receivables && (
+              <Input inputMode="numeric" maxLength={6} value={f.pin_receivables || ''} onChange={e => setF({ ...f, pin_receivables: e.target.value.replace(/\D/g, '') })} placeholder="PIN de cobranza (4-6 dígitos)" />
+            )}
+          </div>
           <div className="flex items-center justify-between"><Label>Bono semanal activo</Label><Switch checked={f.bonus_enabled} onCheckedChange={v => setF({ ...f, bonus_enabled: v })} /></div>
           <div className="flex items-center justify-between rounded-lg border p-3">
             <div><Label>Cortesía ilimitada</Label><p className="text-xs text-muted-foreground">Todo lo que pida sale gratis, sin cupo semanal</p></div>
