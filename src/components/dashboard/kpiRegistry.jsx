@@ -5,6 +5,7 @@ import BreakEvenDetailContainer from './detail/BreakEvenDetailContainer';
 import { ProductsDetail, PaymentsDetail, HourlyDetail, WeekdayDetail } from './detail/ChartDetails';
 import AnnualDetail from './detail/AnnualDetail';
 import CurrencyDetail from './detail/CurrencyDetail';
+import CourtesyDetail from './detail/CourtesyDetail';
 
 /**
  * Catálogo de vistas ampliadas del dashboard.
@@ -79,6 +80,11 @@ export const KPI_VIEWS = {
     title: 'Ventas por Hora',
     period: (ctx) => ctx.monthLabel,
     render: (ctx) => <HourlyDetail analytics={ctx.analytics} monthLabel={ctx.monthLabel} />,
+  },
+  cortesias: {
+    title: 'Cortesías y Bonos',
+    period: (ctx) => ctx.monthLabel,
+    render: (ctx) => <CourtesyDetail courtesy={ctx.courtesy} />,
   },
   dias: {
     title: 'Ventas por Día de la Semana',

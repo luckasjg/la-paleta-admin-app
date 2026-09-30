@@ -5,6 +5,7 @@ import { ShoppingCart, DollarSign, Clock, TrendingUp } from 'lucide-react';
 import moment from 'moment';
 import ExpandableCard from '@/components/dashboard/ExpandableCard';
 import { itemBreakdown } from '@/lib/dashboardAnalytics';
+import CourtesyCard from '@/components/dashboard/CourtesyCard';
 
 const COLORS = ['hsl(152,35%,38%)', 'hsl(28,60%,65%)', 'hsl(200,40%,50%)', 'hsl(340,55%,55%)', 'hsl(45,80%,55%)', 'hsl(270,50%,60%)'];
 
@@ -18,7 +19,7 @@ const PAYMENT_LABELS = {
   mixto: 'Mixto',
 };
 
-export default function MonthDetailCharts({ monthSales, onExpand }) {
+export default function MonthDetailCharts({ monthSales, courtesy, onExpand }) {
   const { topProducts, paymentData, hourlyData, dailyData } = useMemo(() => {
     // Los sabores se cuentan individualmente (un combo suma a cada sabor).
     const ranking = itemBreakdown(monthSales).products;
@@ -57,6 +58,11 @@ export default function MonthDetailCharts({ monthSales, onExpand }) {
 
   return (
     <div className="grid grid-cols-1 xl:grid-cols-2 2xl:grid-cols-4 gap-4">
+      {courtesy && (
+        <ExpandableCard label="cortesías y bonos" onExpand={onExpand && (() => onExpand('cortesias'))}>
+          <CourtesyCard courtesy={courtesy} />
+        </ExpandableCard>
+      )}
       <ExpandableCard label="productos más vendidos" onExpand={onExpand && (() => onExpand('productos'))}>
       <Card>
         <CardHeader className="pb-2">

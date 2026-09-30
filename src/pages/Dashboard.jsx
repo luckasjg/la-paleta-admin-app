@@ -17,6 +17,7 @@ import ExpandedKpiDialog from '@/components/dashboard/ExpandedKpiDialog';
 import DashboardExporter from '@/components/dashboard/DashboardExporter';
 import { buildDashboardAnalytics } from '@/lib/dashboardAnalytics';
 import { computeCogs } from '@/lib/cogsCalculator';
+import { computeCourtesyStats } from '@/lib/courtesyAnalytics';
 import moment from 'moment';
 
 const MONTH_NAMES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
@@ -133,6 +134,13 @@ export default function Dashboard() {
     [analytics, supplies, recipes, trays, products]
   );
 
+  // ── Cortesías y bonos del mes (su costo ya está dentro del COGS) ──────
+  const courtesy = useMemo(() => {
+    const stats = computeCourtesyStats({ sales: monthSales, supplies, recipes, trays, products });
+    const profitBeforeCourtesy = grossRevenue - (cogs - stats.cost);
+    return { ...stats, marginPct: profitBeforeCourtesy > 0 ? (stats.cost / profitBeforeCourtesy) * 100 : 0 };
+  }, [monthSales, supplies, recipes, trays, products, grossRevenue, cogs]);
+
   // ── Month KPIs ────────────────────────────────────────────────────────
   const avgTicket = monthSales.length > 0 ? grossRevenue / monthSales.length : 0;
   // Sabor individual más pedido del mes (los combos suman a cada sabor por
@@ -157,13 +165,14 @@ export default function Dashboard() {
     grossRevenue,
     cogs,
     prevCogs,
+    courtesy,
     monthSales,
     trays,
     supplies,
     recipes,
     products,
     lowStockSupplies,
-  }), [analytics, selectedYear, selectedMonth, monthLabel, grossRevenue, cogs, prevCogs, monthSales, trays, supplies, recipes, products, lowStockSupplies]);
+  }), [analytics, selectedYear, selectedMonth, monthLabel, grossRevenue, cogs, prevCogs, monthSales, trays, supplies, recipes, products, lowStockSupplies, courtesy]);
 
   return (
     <div className="w-full max-w-none space-y-6">
@@ -237,6 +246,7 @@ export default function Dashboard() {
               <FinancialKPIs
                 grossRevenue={grossRevenue}
                 cogs={cogs}
+                courtesyCost={courtesy.cost}
                 monthSalesCount={monthSales.length}
               />
             </ExpandableSection>
@@ -255,7 +265,7 @@ export default function Dashboard() {
         </div>
 
         {/* Detail charts grid */}
-        <MonthDetailCharts monthSales={monthSales} onExpand={setExpandedKpi} />
+        <MonthDetailCharts monthSales={monthSales} courtesy={courtesy} onExpand={setExpandedKpi} />
       </div>
 
       {/* Low stock alerts */}
