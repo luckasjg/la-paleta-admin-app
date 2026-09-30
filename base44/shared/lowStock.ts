@@ -2,11 +2,17 @@
 
 export const LOW_STOCK_CHANNEL = 'general';
 
+// Total = almacén + producción (con respaldo en stock_current para insumos no migrados).
+export const stockTotal = (s) => {
+  const hasNew = Number.isFinite(s.stock_warehouse) || Number.isFinite(s.stock_production);
+  return hasNew ? (Number(s.stock_warehouse) || 0) + (Number(s.stock_production) || 0) : (Number(s.stock_current) || 0);
+};
+
 export const isBelowMinimum = (supply) => {
   if (!supply || supply.is_infinite) return false;
   const min = Number(supply.stock_minimum) || 0;
   if (min <= 0) return false;
-  return (Number(supply.stock_current) || 0) < min;
+  return stockTotal(supply) <= min;
 };
 
 const fmt = (n) => {
@@ -16,7 +22,7 @@ const fmt = (n) => {
 
 export const supplyLine = (s) => {
   const min = Number(s.stock_minimum) || 0;
-  const cur = Number(s.stock_current) || 0;
+  const cur = stockTotal(s);
   const unit = s.unit || '';
   return `• *${s.name}* — quedan ${fmt(cur)} ${unit} (mínimo ${fmt(min)} ${unit}) · faltan *${fmt(min - cur)} ${unit}*`;
 };

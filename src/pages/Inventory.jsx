@@ -385,8 +385,7 @@ export default function Inventory() {
                           const total = getStockTotal(s);
                           const minimum = s.stock_minimum || 0;
                           const whLow = minimum > 0 && wh <= minimum;
-                          const prLow = minimum > 0 && pr <= minimum;
-                          const anyLow = whLow || prLow;
+                          const anyLow = minimum > 0 && total <= minimum;
                           return (
                             <TableRow key={s.id}>
                               <TableCell className="font-medium">
@@ -399,7 +398,7 @@ export default function Inventory() {
                               <TableCell className={`text-right font-mono ${whLow ? 'text-destructive font-bold' : ''}`}>
                                 {wh} {s.unit}
                               </TableCell>
-                              <TableCell className={`text-right font-mono ${prLow ? 'text-destructive font-bold' : ''}`}>
+                              <TableCell className={`text-right font-mono `}>
                                 {pr} {s.unit}
                               </TableCell>
                               <TableCell className="text-right font-mono text-muted-foreground">
@@ -575,7 +574,7 @@ export default function Inventory() {
                     />
                     {showHint && stockInput.stock_minimum_input !== '' && (
                       <p className="text-[10px] text-muted-foreground mt-1 font-mono">
-                        = {toBase(stockInput.stock_minimum_input)} {baseLabel} (se compara con ambas columnas independientemente)
+                        = {toBase(stockInput.stock_minimum_input)} {baseLabel} (se compara con el total almacén + producción)
                       </p>
                     )}
                   </div>
