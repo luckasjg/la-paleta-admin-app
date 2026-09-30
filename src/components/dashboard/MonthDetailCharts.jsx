@@ -44,10 +44,12 @@ export default function MonthDetailCharts({ monthSales, onExpand }) {
         name: p.name.length > 14 ? p.name.slice(0, 14) + '…' : p.name,
         ventas: p.units,
       })),
-      paymentData: Object.entries(paymentMethods).map(([name, value]) => ({
-        name: PAYMENT_LABELS[name] || name,
-        value,
-      })),
+      paymentData: (() => {
+        const sum = Object.values(paymentMethods).reduce((s, v) => s + v, 0);
+        return Object.entries(paymentMethods)
+          .map(([name, value]) => ({ name: PAYMENT_LABELS[name] || name, value, pct: sum > 0 ? (value / sum) * 100 : 0 }))
+          .sort((a, b) => b.value - a.value);
+      })(),
       hourlyData: hourly,
       dailyData: daily,
     };
@@ -86,15 +88,20 @@ export default function MonthDetailCharts({ monthSales, onExpand }) {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <ResponsiveContainer width="100%" height={220}>
-            <PieChart>
-              <Pie data={paymentData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={75}
-                label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
-                {paymentData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-              </Pie>
-              <Tooltip formatter={(v) => `$${v.toFixed(2)}`} />
-            </PieChart>
-          </ResponsiveContainer>
+          <div className="h-[220px] overflow-y-auto space-y-3 pr-1">
+            {paymentData.length === 0 && <p className="text-sm text-muted-foreground text-center pt-16">Sin ventas este mes</p>}
+            {paymentData.map(p => (
+              <div key={p.name} title={`${p.name}: $${p.value.toFixed(2)} (${p.pct.toFixed(1)}%)`}>
+                <div className="flex items-baseline justify-between gap-2 text-xs mb-1">
+                  <span className="font-medium truncate">{p.name}</span>
+                  <span className="font-mono shrink-0"><strong>${p.value.toFixed(2)}</strong> <span className="text-muted-foreground">· {p.pct.toFixed(0)}%</span></span>
+                </div>
+                <div className="h-2.5 rounded-full bg-secondary overflow-hidden">
+                  <div className="h-full rounded-full bg-primary transition-all duration-500" style={{ width: `${Math.max(p.pct, 1)}%` }} />
+                </div>
+              </div>
+            ))}
+          </div>
         </CardContent>
       </Card>
       </ExpandableCard>
