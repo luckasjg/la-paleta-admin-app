@@ -4,22 +4,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ShoppingCart, DollarSign, Clock, TrendingUp } from 'lucide-react';
 import moment from 'moment';
 import ExpandableCard from '@/components/dashboard/ExpandableCard';
-import { itemBreakdown } from '@/lib/dashboardAnalytics';
+import { itemBreakdown, PAYMENT_LABELS } from '@/lib/dashboardAnalytics';
 import CourtesyCard from '@/components/dashboard/CourtesyCard';
 
 const COLORS = ['hsl(152,35%,38%)', 'hsl(28,60%,65%)', 'hsl(200,40%,50%)', 'hsl(340,55%,55%)', 'hsl(45,80%,55%)', 'hsl(270,50%,60%)'];
 
-const PAYMENT_LABELS = {
-  efectivo: 'Efectivo',
-  efectivo_usd: 'Efectivo USD',
-  efectivo_ves: 'Efectivo VES',
-  pago_movil: 'Pago Móvil',
-  punto_venta: 'Tarjeta',
-  zelle: 'Zelle',
-  mixto: 'Mixto',
-};
-
-export default function MonthDetailCharts({ monthSales, courtesy, onExpand }) {
+export default function MonthDetailCharts({ monthSales, courtesy, onExpand, paymentLabels = PAYMENT_LABELS }) {
   const { topProducts, paymentData, hourlyData, dailyData } = useMemo(() => {
     // Los sabores se cuentan individualmente (un combo suma a cada sabor).
     const ranking = itemBreakdown(monthSales).products;
@@ -48,13 +38,13 @@ export default function MonthDetailCharts({ monthSales, courtesy, onExpand }) {
       paymentData: (() => {
         const sum = Object.values(paymentMethods).reduce((s, v) => s + v, 0);
         return Object.entries(paymentMethods)
-          .map(([name, value]) => ({ name: PAYMENT_LABELS[name] || name, value, pct: sum > 0 ? (value / sum) * 100 : 0 }))
+          .map(([name, value]) => ({ name: paymentLabels[name] || name, value, pct: sum > 0 ? (value / sum) * 100 : 0 }))
           .sort((a, b) => b.value - a.value);
       })(),
       hourlyData: hourly,
       dailyData: daily,
     };
-  }, [monthSales]);
+  }, [monthSales, paymentLabels]);
 
   return (
     <div className="grid grid-cols-1 xl:grid-cols-2 2xl:grid-cols-4 gap-4">

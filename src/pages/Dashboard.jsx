@@ -15,7 +15,7 @@ import CurrencyExposurePanel from '@/components/dashboard/CurrencyExposurePanel'
 import ExpandableCard, { ExpandableSection } from '@/components/dashboard/ExpandableCard';
 import ExpandedKpiDialog from '@/components/dashboard/ExpandedKpiDialog';
 import DashboardExporter from '@/components/dashboard/DashboardExporter';
-import { buildDashboardAnalytics } from '@/lib/dashboardAnalytics';
+import { buildDashboardAnalytics, buildPaymentLabelMap } from '@/lib/dashboardAnalytics';
 import { computeCogs } from '@/lib/cogsCalculator';
 import { computeCourtesyStats } from '@/lib/courtesyAnalytics';
 import moment from 'moment';
@@ -67,6 +67,12 @@ export default function Dashboard() {
     queryKey: ['products'],
     queryFn: () => base44.entities.Product.list(),
   });
+
+  const { data: paymentMethods = [] } = useQuery({
+    queryKey: ['payment_methods_labels'],
+    queryFn: () => base44.entities.PaymentMethod.list(),
+  });
+  const paymentLabels = useMemo(() => buildPaymentLabelMap(paymentMethods), [paymentMethods]);
 
   // ── Selected period state (year + month) ──────────────────────────────
   const [selectedYear, setSelectedYear] = useState(moment().year());
@@ -120,8 +126,8 @@ export default function Dashboard() {
 
   // ── Análisis derivado para las vistas ampliadas y el PDF ──────────────
   const analytics = useMemo(
-    () => buildDashboardAnalytics({ sales, selectedYear, selectedMonth }),
-    [sales, selectedYear, selectedMonth]
+    () => buildDashboardAnalytics({ sales, selectedYear, selectedMonth, paymentLabels }),
+    [sales, selectedYear, selectedMonth, paymentLabels]
   );
 
   // ── COGS del mes seleccionado y del mes anterior (para comparar) ───────
@@ -265,7 +271,7 @@ export default function Dashboard() {
         </div>
 
         {/* Detail charts grid */}
-        <MonthDetailCharts monthSales={monthSales} courtesy={courtesy} onExpand={setExpandedKpi} />
+        <MonthDetailCharts monthSales={monthSales} courtesy={courtesy} onExpand={setExpandedKpi} paymentLabels={paymentLabels} />
       </div>
 
       {/* Low stock alerts */}

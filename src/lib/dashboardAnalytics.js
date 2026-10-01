@@ -15,6 +15,13 @@ export const PAYMENT_LABELS = {
   cortesia: 'Cortesía',
 };
 
+/** Etiquetas de los métodos configurados (PaymentMethod) sobre el mapa legado. */
+export function buildPaymentLabelMap(paymentMethods = []) {
+  const map = { ...PAYMENT_LABELS };
+  paymentMethods.forEach(pm => { if (pm.value && pm.label) map[pm.value] = pm.label; });
+  return map;
+}
+
 const DAY_NAMES = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 
 /** Variación porcentual entre el valor actual y el anterior. */
@@ -136,7 +143,7 @@ export function itemBreakdown(list = []) {
 }
 
 /** Desglose de un conjunto de ventas: productos, métodos de pago, horas, días. */
-function breakdown(list) {
+function breakdown(list, labels = PAYMENT_LABELS) {
   const paymentMap = {};
   const hourly = Array.from({ length: 24 }, (_, h) => ({ hora: `${String(h).padStart(2, '0')}:00`, hour: h, ventas: 0, count: 0 }));
   const weekday = DAY_NAMES.map(name => ({ name, ventas: 0, count: 0, dates: new Set() }));
@@ -144,7 +151,7 @@ function breakdown(list) {
 
   list.forEach(sale => {
     const method = sale.payment_method || 'otro';
-    if (!paymentMap[method]) paymentMap[method] = { key: method, name: PAYMENT_LABELS[method] || method, value: 0, count: 0 };
+    if (!paymentMap[method]) paymentMap[method] = { key: method, name: labels[method] || method, value: 0, count: 0 };
     paymentMap[method].value += sale.total || 0;
     paymentMap[method].count += 1;
 
@@ -213,12 +220,12 @@ function dailySeries(list, year, month) {
  * dashboard: métricas del mes, comparación con el mes anterior, series anuales,
  * desgloses completos y ventana de los últimos 7 / 14 días.
  */
-export function buildDashboardAnalytics({ sales = [], selectedYear, selectedMonth }) {
+export function buildDashboardAnalytics({ sales = [], selectedYear, selectedMonth, paymentLabels = PAYMENT_LABELS }) {
   const monthSales = salesInMonth(sales, selectedYear, selectedMonth);
   const prevRef = moment({ year: selectedYear, month: selectedMonth }).subtract(1, 'month');
   const prevSales = salesInMonth(sales, prevRef.year(), prevRef.month());
 
-  const month = { ...baseMetrics(monthSales), ...breakdown(monthSales), sales: monthSales };
+  const month = { ...baseMetrics(monthSales), ...breakdown(monthSales, paymentLabels), sales: monthSales };
   const prev = {
     ...baseMetrics(prevSales),
     ...itemBreakdown(prevSales),
@@ -295,7 +302,7 @@ export function buildDashboardAnalytics({ sales = [], selectedYear, selectedMont
       ...baseMetrics(todaySales),
       sales: todaySales,
       hourly: breakdown(todaySales).hourly,
-      payments: breakdown(todaySales).payments,
+      payments: breakdown(todaySales, paymentLabels).payments,
       yesterday: baseMetrics(yesterdaySales),
     },
     week: {
