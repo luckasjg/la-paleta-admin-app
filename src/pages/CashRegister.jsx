@@ -399,7 +399,7 @@ export default function CashRegister() {
           <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
             <StatCard title="Ventas Hoy" value={`$${todayTotal.toFixed(2)}`} icon={DollarSign} />
             <StatCard title="Transacciones" value={openSales.length} />
-            <StatCard title="Efectivo" value={`$${systemCash.toFixed(2)}`} />
+            <StatCard title="Efectivo" value={`$${openSales.reduce((sum, s) => sum + Math.max(0, (s.total || 0) - (s.digital_amount || 0)), 0).toFixed(2)}`} />
             <StatCard title="Digital" value={`$${systemDigital.toFixed(2)}`} />
             <CashDrawerCard
               movements={buildCashDrawerMovements({ register: openRegister, openingUsd, sales: openSales, abonos: sessionAbonos })}
