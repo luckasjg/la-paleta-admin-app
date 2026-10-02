@@ -1,108 +1,69 @@
 import React from 'react';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { AlertTriangle, Banknote, Smartphone, Landmark } from 'lucide-react';
-import { formatVES, formatEUR, EUR_PER_USD } from '@/lib/useExchangeRate';
-import RefundCustomerFields from '@/components/pos/RefundCustomerFields';
-
-const METHODS = [
-  { value: 'efectivo', label: 'Efectivo', icon: Banknote },
-  { value: 'pago_movil', label: 'Pago Móvil', icon: Smartphone },
-  { value: 'transferencia', label: 'Transferencia', icon: Landmark },
-];
+import { Button } from '@/components/ui/button';
+import { Plus } from 'lucide-react';
+import { formatEUR, EUR_PER_USD } from '@/lib/useExchangeRate';
+import ChangeTramoRow from '@/components/pos/ChangeTramoRow';
+import { makeTramo, tramosTotalUsd } from '@/lib/changeTramos';
 
 /**
- * Panel de vuelto: aparece sólo cuando el cliente pagó de más.
- * El monto se calcula solo; el cajero elige el método de entrega, la moneda
- * y la billetera de salida. Si el método es pago móvil o transferencia se
- * capturan los datos bancarios del cliente para procesar la devolución.
+ * Panel de vuelto por tramos: aparece sólo cuando el cliente pagó de más.
+ * El cajero reparte el exceso en uno o varios tramos (efectivo, pago móvil,
+ * transferencia), cada uno con su moneda y billetera de salida.
  */
-export default function ChangePanel({
-  excessUSD, eurVes, wallets,
-  currency, walletId, method, customerData, reference,
-  onChange,
-}) {
+export default function ChangePanel({ excessUSD, eurVes, wallets, tramos, onChange }) {
   const activeWallets = wallets.filter(w => w.is_active !== false);
-  const selectedWallet = activeWallets.find(w => w.id === walletId);
-  const excessEUR = excessUSD * EUR_PER_USD;
-  const amountNative = currency === 'EUR' ? excessEUR : excessEUR * eurVes;
-  const formatNative = (n) => (currency === 'EUR' ? formatEUR(n) : formatVES(n));
-  const mismatch = selectedWallet && selectedWallet.currency !== currency;
-  const isDigital = method === 'pago_movil' || method === 'transferencia';
+  const assignedUSD = tramosTotalUsd(tramos, eurVes);
+  const remainingUSD = excessUSD - assignedUSD;
+  const balanced = Math.abs(remainingUSD) <= 0.01;
+
+  const update = (id, patch) => onChange(tramos.map(t => {
+    if (t.id !== id) return t;
+    const next = { ...t, ...patch };
+    // Al cambiar de moneda se reconvierte el monto para conservar el valor.
+    if (patch.currency && patch.currency !== t.currency && t.amount !== '') {
+      const usd = tramosTotalUsd([t], eurVes);
+      next.amount = (patch.currency === 'EUR' ? usd * EUR_PER_USD : usd * EUR_PER_USD * eurVes).toFixed(2);
+    }
+    return next;
+  }));
+
+  const addTramo = () => onChange([...tramos, makeTramo(Math.max(0, remainingUSD), eurVes, 'VES')]);
 
   return (
     <div className="rounded-xl border-2 border-amber-300 bg-amber-50 p-3 space-y-2.5">
       <div className="flex items-baseline justify-between">
         <Label className="text-xs uppercase tracking-wide text-amber-800">Vuelto a entregar</Label>
-        <span className="font-mono text-lg font-bold text-amber-900">
-          {formatNative(amountNative)}
-        </span>
+        <span className="font-mono text-lg font-bold text-amber-900">{formatEUR(excessUSD * EUR_PER_USD)}</span>
       </div>
 
-      {/* Método de entrega del vuelto */}
-      <Select value={method} onValueChange={v => onChange({ method: v })}>
-        <SelectTrigger className="h-9 bg-white text-sm"><SelectValue /></SelectTrigger>
-        <SelectContent>
-          {METHODS.map(m => (
-            <SelectItem key={m.value} value={m.value}>
-              <span className="flex items-center gap-2"><m.icon className="h-3.5 w-3.5" /> {m.label}</span>
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      {tramos.map((t, i) => (
+        <ChangeTramoRow
+          key={t.id}
+          tramo={t}
+          index={i}
+          wallets={activeWallets}
+          canRemove={tramos.length > 1}
+          onChange={patch => update(t.id, patch)}
+          onRemove={() => onChange(tramos.filter(x => x.id !== t.id))}
+        />
+      ))}
 
-      <div className="flex gap-2">
-        <Select value={currency} onValueChange={v => onChange({ currency: v })}>
-          <SelectTrigger className="w-24 h-9 bg-white"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="EUR">EUR</SelectItem>
-            <SelectItem value="VES">VES</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={walletId || ''} onValueChange={v => onChange({ walletId: v })}>
-          <SelectTrigger className="flex-1 h-9 bg-white text-sm">
-            <SelectValue placeholder="¿De qué billetera sale?" />
-          </SelectTrigger>
-          <SelectContent>
-            {activeWallets.map(w => (
-              <SelectItem key={w.id} value={w.id}>
-                {w.name} <span className="text-muted-foreground">({w.currency})</span>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+      <Button variant="outline" size="sm" className="w-full bg-white" onClick={addTramo}>
+        <Plus className="h-3.5 w-3.5 mr-1" /> Agregar tramo de vuelto
+      </Button>
 
-      {currency === 'VES' && (
-        <p className="text-[10px] text-amber-800 font-mono">
-          {formatEUR(excessEUR)} × Bs. {eurVes.toFixed(2)} = {formatVES(amountNative)}
+      <p className={`text-[11px] font-mono ${balanced ? 'text-emerald-700' : 'text-destructive'}`}>
+        {balanced
+          ? '✓ Los tramos cubren el vuelto completo'
+          : remainingUSD > 0
+            ? `Falta repartir ${formatEUR(remainingUSD * EUR_PER_USD)}`
+            : `Te pasaste por ${formatEUR(-remainingUSD * EUR_PER_USD)}`}
+      </p>
+      {tramos.some(t => t.method !== 'efectivo') && (
+        <p className="text-[10px] text-amber-800">
+          Cada tramo digital se notifica a Slack (#caja) y queda en la cola de devoluciones.
         </p>
-      )}
-
-      {mismatch && (
-        <p className="text-[11px] text-destructive flex items-start gap-1 leading-tight">
-          <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-px" />
-          La billetera está en {selectedWallet.currency} y el vuelto en {currency}. Se descontará el equivalente.
-        </p>
-      )}
-
-      {isDigital && (
-        <div className="border-t border-amber-200 pt-2">
-          <p className="text-[11px] text-amber-800 mb-1">
-            Se enviará una notificación a Slack (#caja) con estos datos y quedará en la cola de devoluciones.
-          </p>
-          <RefundCustomerFields
-            data={customerData || {}}
-            method={method}
-            reference={reference}
-            onChange={d => onChange({ customerData: d })}
-            onReferenceChange={r => onChange({ reference: r })}
-          />
-        </div>
-      )}
-
-      {!walletId && (
-        <p className="text-[11px] text-amber-800">Selecciona la billetera para poder confirmar la venta.</p>
       )}
     </div>
   );

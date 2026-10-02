@@ -160,7 +160,7 @@
     },
     "change_amount": {
       "type": "number",
-      "description": "Monto del vuelto entregado, en la moneda de change_currency"
+      "description": "Monto del vuelto entregado, en la moneda de change_currency (agregado de change_breakdown)"
     },
     "change_currency": {
       "type": "string",
@@ -173,7 +173,7 @@
     },
     "change_amount_usd_equivalent": {
       "type": "number",
-      "description": "Equivalente en USD del vuelto entregado"
+      "description": "Equivalente en USD del vuelto entregado (suma de todos los tramos)"
     },
     "change_wallet_id": {
       "type": "string",
@@ -222,6 +222,42 @@
     },
     "change_refund_request_id": {
       "type": "string"
+    },
+    "change_breakdown": {
+      "type": "array",
+      "description": "Tramos del vuelto: cada uno con su m\u00e9todo, moneda y billetera de salida",
+      "items": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "amount_native": {
+            "type": "number"
+          },
+          "amount_usd_equivalent": {
+            "type": "number"
+          },
+          "wallet_id": {
+            "type": "string"
+          },
+          "wallet_name": {
+            "type": "string"
+          },
+          "customer_data": {
+            "type": "object"
+          },
+          "reference": {
+            "type": "string"
+          },
+          "refund_request_id": {
+            "type": "string"
+          }
+        }
+      }
     },
     "sale_date": {
       "type": "string",

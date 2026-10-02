@@ -9,6 +9,7 @@ import moment from 'moment';
 import { Link } from 'react-router-dom';
 import { setActiveSession, getCurrentShift } from '@/lib/cashSession';
 import { getPendingAuditRegisters } from '@/lib/pendingAudits';
+import OpeningFundForm from '@/components/pos/OpeningFundForm';
 
 /**
  * Pantalla de bloqueo del POS. Se muestra cuando no hay una CashRegister
@@ -20,6 +21,7 @@ import { getPendingAuditRegisters } from '@/lib/pendingAudits';
 export default function RegisterOpenGate({ onOpened }) {
   const [pin, setPin] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [matchedStaff, setMatchedStaff] = useState(null);
   const qc = useQueryClient();
 
   const { data: staff = [] } = useQuery({
@@ -40,9 +42,10 @@ export default function RegisterOpenGate({ onOpened }) {
   const pendingAudits = getPendingAuditRegisters(registers, audits);
 
   const openSessionMut = useMutation({
-    mutationFn: async (staffMember) => {
+    mutationFn: async ({ staffMember, fund }) => {
       const now = new Date();
       const session = await base44.entities.CashRegister.create({
+        ...fund,
         date: moment(now).format('YYYY-MM-DD'),
         shift: getCurrentShift(),
         status: 'abierta',
@@ -86,8 +89,7 @@ export default function RegisterOpenGate({ onOpened }) {
       setPin('');
       return;
     }
-    setSubmitting(true);
-    openSessionMut.mutate(match);
+    setMatchedStaff(match);
   };
 
   // Auto-submit cuando el PIN alcanza una longitud razonable y coincide
@@ -133,6 +135,13 @@ export default function RegisterOpenGate({ onOpened }) {
               </Link>
             </Button>
           </div>
+        ) : matchedStaff ? (
+          <OpeningFundForm
+            staffName={matchedStaff.full_name}
+            submitting={submitting}
+            onBack={() => { setMatchedStaff(null); setPin(''); }}
+            onConfirm={(fund) => { setSubmitting(true); openSessionMut.mutate({ staffMember: matchedStaff, fund }); }}
+          />
         ) : noStaff ? (
           <div className="rounded-lg border border-amber-300 bg-amber-50 text-amber-800 text-sm p-3 text-center">
             No hay empleados registrados. Pídele a un administrador que cree

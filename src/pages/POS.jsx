@@ -18,7 +18,8 @@ import { useExchangeRate, formatUSD, formatVES, formatEUR, EUR_PER_USD } from '@
 import { useCurrencySymbol } from '@/lib/useCurrencySymbol';
 import RateBadge from '@/components/pos/RateBadge';
 import MixedPaymentDialog from '@/components/pos/MixedPaymentDialog';
-import { depositSalePaymentsToWallets, withdrawChangeFromWallet } from '@/lib/walletHelpers';
+import { depositSalePaymentsToWallets, withdrawChangeTramos } from '@/lib/walletHelpers';
+import { isDigitalMethod, aggregateChangeFields } from '@/lib/changeTramos';
 import SearchableCombobox from '@/components/shared/SearchableCombobox';
 import { buildStockDelta, getStockAt } from '@/lib/stockHelpers';
 import { applyCategoryOrder } from '@/lib/categoryOrder';
@@ -421,7 +422,7 @@ export default function POS() {
   };
 
   const completeSale = useMutation({
-    mutationFn: async ({ payments, exchange_rate, change, credit }) => {
+    mutationFn: async ({ payments, exchange_rate, changeBreakdown, credit }) => {
       // ── Aggregate ALL grams demanded per tray across the ENTIRE cart ────────
       // Una sola actualización por bandeja (evita sobrescribir deducciones cuando
       // la misma bandeja aparece en varios ítems) y el desglose por sabor manda,
@@ -512,22 +513,27 @@ export default function POS() {
       // ── Devolución por pago móvil / transferencia ────────────────────
       // Se crea la solicitud ANTES de la venta para poder enlazarla en el mismo
       // create (los cajeros no tienen permiso de editar ventas ya creadas).
-      let refund = null;
-      if (change && (change.method === 'pago_movil' || change.method === 'transferencia')) {
-        refund = await base44.entities.RefundRequest.create({
-          method: change.method,
-          amount_native: change.amount,
-          currency: change.currency,
-          amount_usd_equivalent: change.amount_usd_equivalent,
+      // Una solicitud por cada tramo digital del vuelto.
+      const breakdown = [];
+      const refunds = [];
+      for (const t of changeBreakdown || []) {
+        if (!isDigitalMethod(t.method)) { breakdown.push(t); continue; }
+        const refund = await base44.entities.RefundRequest.create({
+          method: t.method,
+          amount_native: t.amount_native,
+          currency: t.currency,
+          amount_usd_equivalent: t.amount_usd_equivalent,
           exchange_rate,
-          customer_data: change.customer_data || {},
-          reference: change.reference || '',
-          wallet_id: change.wallet_id,
-          wallet_name: change.wallet_name,
+          customer_data: t.customer_data || {},
+          reference: t.reference || '',
+          wallet_id: t.wallet_id,
+          wallet_name: t.wallet_name,
           status: 'pendiente',
           cash_register_id: activeSession.id,
           staff_name: activeSession.staff_name,
         });
+        refunds.push(refund);
+        breakdown.push({ ...t, refund_request_id: refund.id });
       }
 
       const sale = await base44.entities.Sale.create({
@@ -550,17 +556,7 @@ export default function POS() {
         cash_register_id: activeSession.id,
         staff_id: activeSession.staff_id,
         staff_name: activeSession.staff_name,
-        ...(change ? {
-          change_amount: change.amount,
-          change_currency: change.currency,
-          change_amount_usd_equivalent: change.amount_usd_equivalent,
-          change_wallet_id: change.wallet_id,
-          change_wallet_name: change.wallet_name,
-          change_method: change.method || 'efectivo',
-          ...(change.customer_data ? { change_customer_data: change.customer_data } : {}),
-          ...(change.reference ? { change_reference: change.reference } : {}),
-          ...(refund ? { change_refund_request_id: refund.id } : {}),
-        } : {}),
+        ...aggregateChangeFields(breakdown),
       });
 
       if (bonusStaff) await recordStaffBonusConsumption(bonusStaff, pricedCart, sale);
@@ -584,10 +580,10 @@ export default function POS() {
 
       // Enlazar la devolución con la venta y notificar a Slack #caja para que
       // el encargado ejecute el envío; la cola se gestiona en POS → Devoluciones.
-      if (refund) {
+      for (const refund of refunds) {
         await base44.entities.RefundRequest.update(refund.id, { sale_id: sale?.id });
         try {
-          await base44.functions.invoke('notifySlackPagoMovilRefund', { refund_request_id: refund?.id });
+          await base44.functions.invoke('notifySlackPagoMovilRefund', { refund_request_id: refund.id });
         } catch (e) {
           console.error('Error notificando devolución a Slack:', e);
         }
@@ -610,8 +606,8 @@ export default function POS() {
           wallets,
         });
         // Salida del vuelto desde la billetera elegida por el cajero
-        if (change) {
-          await withdrawChangeFromWallet({ change, exchange_rate, sale_id: sale?.id, wallets });
+        if (breakdown.length) {
+          await withdrawChangeTramos({ breakdown, exchange_rate, sale_id: sale?.id, wallets });
         }
       } catch (e) {
         console.error('Error actualizando billeteras:', e);

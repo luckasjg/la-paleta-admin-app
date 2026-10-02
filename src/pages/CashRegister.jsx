@@ -25,7 +25,9 @@ import StaffChangeDialog from '@/components/cashregister/StaffChangeDialog';
 import PaymentMethodBadge from '@/components/cashregister/PaymentMethodBadge';
 import { Ban } from 'lucide-react';
 import { consolidateWallet as consolidateWalletFn } from '@/lib/consolidationHelpers';
-import { useExchangeRate } from '@/lib/useExchangeRate';
+import { useExchangeRate, EUR_PER_USD } from '@/lib/useExchangeRate';
+import { saleCashChangeUsd } from '@/lib/changeTramos';
+import WalletResetPreview from '@/components/cashregister/WalletResetPreview';
 import { getActiveSession, clearActiveSession } from '@/lib/cashSession';
 import { getPendingAuditRegisters } from '@/lib/pendingAudits';
 import PendingAuditsBanner from '@/components/cashregister/PendingAuditsBanner';
@@ -182,6 +184,11 @@ export default function CashRegister() {
   const systemCash = openSales.reduce((sum, s) => sum + (s.cash_amount || 0), 0) + abonoCash;
   const systemDigital = openSales.reduce((sum, s) => sum + (s.digital_amount || 0), 0) + abonoDigital;
   const todayTotal = openSales.reduce((sum, s) => sum + (s.total || 0), 0);
+  // Efectivo esperado en gaveta = fondo inicial + cobros en efectivo − vueltos en efectivo
+  const openingUsd = (openRegister?.opening_cash_usd || 0)
+    + (rate > 0 ? (openRegister?.opening_cash_ves || 0) / rate / EUR_PER_USD : 0);
+  const cashChangeUsd = openSales.reduce((sum, s) => sum + saleCashChangeUsd(s), 0);
+  const expectedCash = systemCash + openingUsd - cashChangeUsd;
 
   // Ventas asociadas a un cierre. Si el cierre tiene ventas con cash_register_id,
   // esa es la fuente de verdad (sesiones nuevas). Si no, caemos al método legado
@@ -233,10 +240,11 @@ export default function CashRegister() {
       const closePayload = {
         date: targetSession?.date || today,
         shift,
-        system_cash: systemCash,
+        system_cash: +expectedCash.toFixed(2),
+        cash_change_usd: +cashChangeUsd.toFixed(2),
         system_digital: systemDigital,
         declared_cash: declaredCash,
-        difference: declaredCash - systemCash,
+        difference: +(declaredCash - expectedCash).toFixed(2),
         total_sales: todayTotal,
         sales_count: openSales.length,
         notes,
@@ -265,17 +273,8 @@ export default function CashRegister() {
         }
       }
 
-      // 2) Consolidación automática de billeteras vinculadas a las ventas del turno.
-      //    Identificamos los métodos de pago usados en `openSales` y vaciamos las
-      //    billeteras que los tengan vinculados, dejando un registro de auditoría.
-      const usedMethods = new Set();
-      for (const s of openSales) {
-        for (const p of (s.payments || [])) {
-          if (p?.method) usedMethods.add(p.method);
-        }
-      }
-      for (const a of sessionAbonos) if (a.method) usedMethods.add(a.method);
-
+      // 2) Vaciado de TODAS las billeteras (modo estadístico: no se arrastra
+      //    saldo entre sesiones), dejando registro de auditoría.
       let consolidated = 0;
       try {
         const wallets = await base44.entities.Wallet.list();
@@ -283,20 +282,17 @@ export default function CashRegister() {
         for (const w of wallets) {
           if (w.is_active === false) continue;
           const balance = Number(w.balance) || 0;
-          if (balance <= 0) continue;
-          // Sólo consolidar billeteras que reciben dinero de las ventas del turno
-          const linked = (w.payment_methods || []).some(m => usedMethods.has(m));
-          if (!linked) continue;
+          if (Math.abs(balance) < 0.005) continue;
           try {
             await consolidateWalletFn({
               wallet: w,
               amountNative: balance,
-              destination: 'Liquidado por Cierre de Turno',
+              destination: 'Vaciado por cierre de caja',
               exchangeRate: rate,
               source: 'cash_register_close',
               cashRegisterId: register?.id,
               closedBy,
-              notes: `Turno ${shift} — ${today}`,
+              notes: `Vaciado por cierre de caja — sesión ${register?.id || ''} · Turno ${shift} — ${today}`,
             });
             consolidated++;
           } catch (e) {
@@ -585,8 +581,14 @@ export default function CashRegister() {
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div><span className="text-muted-foreground">Ventas:</span> <span className="font-semibold">${todayTotal.toFixed(2)}</span></div>
                 <div><span className="text-muted-foreground">Transacciones:</span> <span className="font-semibold">{openSales.length}</span></div>
-                <div><span className="text-muted-foreground">Efectivo (sistema):</span> <span className="font-semibold">${systemCash.toFixed(2)}</span></div>
+                <div><span className="text-muted-foreground">Cobros efectivo:</span> <span className="font-semibold">${systemCash.toFixed(2)}</span></div>
                 <div><span className="text-muted-foreground">Digital:</span> <span className="font-semibold">${systemDigital.toFixed(2)}</span></div>
+              </div>
+              <div className="mt-3 pt-3 border-t border-border space-y-1 text-xs font-mono">
+                <div className="flex justify-between"><span className="font-sans text-muted-foreground">Fondo inicial</span><span>+${openingUsd.toFixed(2)}</span></div>
+                <div className="flex justify-between"><span className="font-sans text-muted-foreground">Cobros en efectivo</span><span>+${systemCash.toFixed(2)}</span></div>
+                <div className="flex justify-between"><span className="font-sans text-muted-foreground">Vueltos en efectivo</span><span>−${cashChangeUsd.toFixed(2)}</span></div>
+                <div className="flex justify-between font-semibold text-sm"><span className="font-sans">Efectivo esperado</span><span>${expectedCash.toFixed(2)}</span></div>
               </div>
             </Card>
             <div>
@@ -603,11 +605,11 @@ export default function CashRegister() {
             <div>
               <Label>Efectivo Físico Contado ($)</Label>
               <Input type="number" step="0.01" value={declaredCash} onChange={e => setDeclaredCash(parseFloat(e.target.value) || 0)} />
-              {declaredCash !== systemCash && declaredCash > 0 && (
+              {Math.abs(declaredCash - expectedCash) > 0.005 && declaredCash > 0 && (
                 <div className="mt-2 flex items-center gap-2 text-sm">
                   <AlertTriangle className="h-4 w-4 text-destructive" />
-                  <span className={declaredCash - systemCash < 0 ? 'text-destructive' : 'text-yellow-600'}>
-                    Diferencia: {(declaredCash - systemCash) > 0 ? '+' : ''}{(declaredCash - systemCash).toFixed(2)}
+                  <span className={declaredCash - expectedCash < 0 ? 'text-destructive' : 'text-yellow-600'}>
+                    Diferencia: {(declaredCash - expectedCash) > 0 ? '+' : ''}{(declaredCash - expectedCash).toFixed(2)}
                   </span>
                 </div>
               )}
@@ -616,12 +618,7 @@ export default function CashRegister() {
               <Label>Observaciones</Label>
               <Textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Notas adicionales..." />
             </div>
-            <div className="rounded-lg border border-amber-300 bg-amber-50 p-2.5 text-[11px] text-amber-800 flex items-start gap-2">
-              <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" />
-              <span>
-                Al confirmar, las billeteras vinculadas a las ventas de este turno se <strong>liquidarán a 0</strong> y quedará registro en <strong>Auditoría de Fondos</strong>.
-              </span>
-            </div>
+            <WalletResetPreview />
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setCloseDialog(false)}>Cancelar</Button>

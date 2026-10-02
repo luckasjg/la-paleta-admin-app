@@ -31,7 +31,8 @@ export async function consolidateWallet({
   if (!skipAudit && (!destination || !destination.trim())) throw new Error('Destino requerido');
 
   const rate = Number(exchangeRate) > 0 ? Number(exchangeRate) : 1;
-  const amount = Math.max(0, Number(amountNative) || 0);
+  // Puede ser negativo (billetera en rojo por vueltos): el vaciado la lleva a 0.
+  const amount = Number(amountNative) || 0;
 
   // Calcular equivalentes según moneda nativa
   let amount_usd = 0;

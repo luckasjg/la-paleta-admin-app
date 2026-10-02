@@ -14,7 +14,7 @@ export const REVERSAL_NOTE_PREFIX = 'Reversión por anulación de venta';
  * skipChangeReversal = true cuando la devolución digital YA fue pagada al
  * cliente (el dinero salió de verdad, no debe volver a la billetera).
  */
-export async function reverseSaleWalletMovements({ saleId, skipChangeReversal = false, reason = '' }) {
+export async function reverseSaleWalletMovements({ saleId, skipChangeReversal = false, skipRefundIds = [], reason = '' }) {
   if (!saleId) return { reversed: 0 };
 
   // Snapshots frescos — nunca caché
@@ -32,6 +32,8 @@ export async function reverseSaleWalletMovements({ saleId, skipChangeReversal = 
 
   for (const t of originals) {
     if (t.type === 'change_given' && skipChangeReversal) continue;
+    // Tramo digital ya pagado al cliente: el dinero salió de verdad.
+    if (t.type === 'change_given' && skipRefundIds.some(id => (t.notes || '').includes(`[refund:${id}]`))) continue;
     const amountNative = -(t.amount_native || 0);
     if (!amountNative) continue;
 

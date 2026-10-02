@@ -64,11 +64,36 @@ export async function depositSalePaymentsToWallets({ payments, exchange_rate, sa
 }
 
 /**
+ * Registra cada tramo del vuelto como un change_given en su billetera.
+ * Los tramos digitales llevan la marca [refund:ID] en la nota para poder
+ * decidir la reversión tramo a tramo al anular la venta.
+ */
+export async function withdrawChangeTramos({ breakdown, exchange_rate, sale_id, wallets }) {
+  const balances = Object.fromEntries(wallets.map(w => [w.id, w.balance || 0]));
+  for (const t of breakdown || []) {
+    await withdrawChangeFromWallet({
+      change: {
+        amount: t.amount_native,
+        currency: t.currency,
+        wallet_id: t.wallet_id,
+        amount_usd_equivalent: t.amount_usd_equivalent,
+        refund_request_id: t.refund_request_id,
+      },
+      exchange_rate,
+      sale_id,
+      // Saldo actualizado entre tramos que comparten billetera
+      wallets: wallets.map(w => ({ ...w, balance: balances[w.id] })),
+      onBalance: (id, b) => { balances[id] = b; },
+    });
+  }
+}
+
+/**
  * Registra la entrega de un vuelto: descuenta el monto de la billetera elegida
  * y crea una WalletTransaction negativa vinculada a la venta.
  * - change: { amount, currency, wallet_id, amount_usd_equivalent }
  */
-export async function withdrawChangeFromWallet({ change, exchange_rate, sale_id, wallets }) {
+export async function withdrawChangeFromWallet({ change, exchange_rate, sale_id, wallets, onBalance }) {
   if (!change?.wallet_id || !(change.amount > 0)) return;
 
   const wallet = wallets.find(w => w.id === change.wallet_id);
@@ -92,11 +117,11 @@ export async function withdrawChangeFromWallet({ change, exchange_rate, sale_id,
     amount_usd_equivalent: -usdEq,
     exchange_rate,
     sale_id,
-    notes: `Vuelto entregado al cliente (${change.amount.toFixed(2)} ${change.currency})`,
+    notes: `Vuelto entregado al cliente (${change.amount.toFixed(2)} ${change.currency})${change.refund_request_id ? ` [refund:${change.refund_request_id}]` : ''}`,
     transaction_date: new Date().toISOString(),
   });
 
-  await base44.entities.Wallet.update(wallet.id, {
-    balance: (wallet.balance || 0) - amountNative,
-  });
+  const newBalance = (wallet.balance || 0) - amountNative;
+  await base44.entities.Wallet.update(wallet.id, { balance: newBalance });
+  onBalance?.(wallet.id, newBalance);
 }

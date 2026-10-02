@@ -8,9 +8,7 @@ import { Plus, Trash2, Printer, Pause } from 'lucide-react';
 import { formatVES, formatEUR, EUR_PER_USD } from '@/lib/useExchangeRate';
 import { usePaymentMethods } from '@/lib/usePaymentMethods';
 import ChangePanel from '@/components/pos/ChangePanel';
-import { isRefundDataComplete } from '@/components/pos/RefundCustomerFields';
-
-const EMPTY_CHANGE = { currency: 'VES', walletId: '', method: 'efectivo', customerData: { tipo_cuenta: 'pago_movil' }, reference: '' };
+import { makeTramo, usdToNative, tramosReady, buildChangeBreakdown } from '@/lib/changeTramos';
 
 // El cobro al cliente se hace en EUR: 1 USD de precio base = 1 EUR.
 // Los métodos cuya moneda por defecto es USD se cobran en EUR.
@@ -62,7 +60,7 @@ export default function MixedPaymentDialog({
   const [rows, setRows] = useState(() => [makeRow(PAYMENT_METHODS, defaultMethodValue)]);
 
   // Vuelto: moneda elegida por el cajero y billetera de donde sale el dinero.
-  const [change, setChange] = useState(EMPTY_CHANGE);
+  const [tramos, setTramos] = useState([]);
 
   useEffect(() => {
     if (open) {
@@ -70,7 +68,7 @@ export default function MixedPaymentDialog({
       const first = makeRow(PAYMENT_METHODS, defaultMethodValue);
       first.amount = toCurrency(totalUSD, first.currency, eurVes);
       setRows([first]);
-      setChange(EMPTY_CHANGE);
+      setTramos([]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
@@ -117,9 +115,19 @@ export default function MixedPaymentDialog({
   }));
 
   const hasChange = diff > 0.005;
-  const isDigitalRefund = change.method === 'pago_movil' || change.method === 'transferencia';
-  const changeReady = !hasChange
-    || (!!change.walletId && (!isDigitalRefund || isRefundDataComplete(change.customerData, change.reference, change.method)));
+  const changeReady = !hasChange || tramosReady(tramos, diff, lockedRate);
+
+  // Con un solo tramo, su monto sigue automáticamente al exceso cobrado.
+  const diffKey = hasChange ? diff.toFixed(2) : '';
+  useEffect(() => {
+    if (!hasChange) { setTramos([]); return; }
+    setTramos(ts => {
+      if (ts.length === 0) return [makeTramo(diff, lockedRate, 'VES')];
+      if (ts.length === 1) return [{ ...ts[0], amount: usdToNative(diff, ts[0].currency, lockedRate).toFixed(2) }];
+      return ts;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [diffKey]);
 
   const handleConfirm = () => {
     const payments = computed
@@ -131,22 +139,10 @@ export default function MixedPaymentDialog({
         else base.amount_ves = +r.amt.toFixed(2);
         return base;
       });
-    const changePayload = hasChange ? {
-      amount: +parseFloat(toCurrency(diff, change.currency, lockedRate) || 0).toFixed(2),
-      currency: change.currency,
-      amount_usd_equivalent: +diff.toFixed(2),
-      wallet_id: change.walletId,
-      wallet_name: wallets.find(w => w.id === change.walletId)?.name || '',
-      method: change.method,
-      ...(isDigitalRefund ? {
-        customer_data: change.customerData,
-        reference: change.reference,
-      } : {}),
-    } : null;
     onConfirm({
       payments,
       exchange_rate: lockedRate,
-      change: changePayload,
+      changeBreakdown: hasChange ? buildChangeBreakdown(tramos, lockedRate, wallets) : null,
     });
   };
 
@@ -249,12 +245,8 @@ export default function MixedPaymentDialog({
             excessUSD={diff}
             eurVes={lockedRate}
             wallets={wallets}
-            currency={change.currency}
-            walletId={change.walletId}
-            method={change.method}
-            customerData={change.customerData}
-            reference={change.reference}
-            onChange={patch => setChange(c => ({ ...c, ...patch }))}
+            tramos={tramos}
+            onChange={setTramos}
           />
         )}
 

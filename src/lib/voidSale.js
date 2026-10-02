@@ -90,12 +90,16 @@ export async function voidSale({ sale, reason = '', operatorEmail = '', reverseP
   // Si el vuelto ya se envió (devolución pagada) sólo se reversa cuando el
   // admin lo marcó explícitamente en el diálogo de anulación.
   const paidRefunds = await base44.entities.RefundRequest.filter({ sale_id: sale.id, status: 'pagada' });
-  const skipChangeReversal =
+  const keptPaid = paidRefunds.filter(r => !reversePaidRefundIds.includes(r.id)).map(r => r.id);
+  const hasTramos = Array.isArray(sale.change_breakdown) && sale.change_breakdown.length > 0;
+  // Ventas con tramos: se decide tramo a tramo. Ventas antiguas: vuelto único.
+  const skipChangeReversal = !hasTramos &&
     paidRefunds.length > 0 && !paidRefunds.some(r => reversePaidRefundIds.includes(r.id));
 
   await reverseSaleWalletMovements({
     saleId: sale.id,
     skipChangeReversal,
+    skipRefundIds: hasTramos ? keptPaid : [],
     reason,
   });
 }

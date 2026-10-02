@@ -14,8 +14,23 @@
         "noche"
       ]
     },
+    "opening_cash_usd": {
+      "type": "number",
+      "default": 0,
+      "description": "Fondo de caja inicial en divisas (EUR/USD f\u00edsico), s\u00f3lo para reconciliaci\u00f3n"
+    },
+    "opening_cash_ves": {
+      "type": "number",
+      "default": 0,
+      "description": "Fondo de caja inicial en bol\u00edvares, s\u00f3lo para reconciliaci\u00f3n"
+    },
+    "cash_change_usd": {
+      "type": "number",
+      "description": "Vueltos entregados en efectivo durante la sesi\u00f3n (USD base)"
+    },
     "system_cash": {
-      "type": "number"
+      "type": "number",
+      "description": "Efectivo esperado: fondo + ventas en efectivo \u2212 vueltos en efectivo (USD base)"
     },
     "system_digital": {
       "type": "number"
