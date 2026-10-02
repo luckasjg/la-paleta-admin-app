@@ -13,6 +13,10 @@
       "allowed_operations": [
         "read"
       ]
+    },
+    {
+      "function_name": "createExpenseFromTelegram",
+      "description": "Registra un gasto variable no recurrente. Par\u00e1metros: description, amount (USD ya convertido), category (existente), date (YYYY-MM-DD), reported_by (nombre de quien reporta), notes."
     }
   ],
   "context_files": [],
