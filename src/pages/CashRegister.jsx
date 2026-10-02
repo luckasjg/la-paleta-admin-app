@@ -35,6 +35,8 @@ import PendingAuditsBanner from '@/components/cashregister/PendingAuditsBanner';
 import RefundsSessionCard from '@/components/cashregister/RefundsSessionCard';
 import AbonosSessionCard from '@/components/cashregister/AbonosSessionCard';
 import { CASH_METHODS } from '@/lib/receivables';
+import CashDrawerCard from '@/components/cashregister/CashDrawerCard';
+import { buildCashDrawerMovements, digitalChangeUsd } from '@/lib/cashDrawerMovements';
 
 export default function CashRegister() {
   const [closeDialog, setCloseDialog] = useState(false);
@@ -394,11 +396,15 @@ export default function CashRegister() {
         </TabsList>
 
         <TabsContent value="today" className="space-y-6">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
             <StatCard title="Ventas Hoy" value={`$${todayTotal.toFixed(2)}`} icon={DollarSign} />
             <StatCard title="Transacciones" value={openSales.length} />
             <StatCard title="Efectivo" value={`$${(systemCash - cashChangeUsd).toFixed(2)}`} />
             <StatCard title="Digital" value={`$${systemDigital.toFixed(2)}`} />
+            <CashDrawerCard
+              movements={buildCashDrawerMovements({ register: openRegister, openingUsd, sales: openSales, abonos: sessionAbonos })}
+              summary={{ opening: openingUsd, cashIn: systemCash, cashChange: cashChangeUsd, digitalChange: digitalChangeUsd(openSales), sales: todayTotal, expected: expectedCash }}
+            />
           </div>
 
           <Card>
