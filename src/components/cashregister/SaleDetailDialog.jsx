@@ -67,6 +67,12 @@ export default function SaleDetailDialog({ sale, supplies = [], open, onOpenChan
             <span className="text-muted-foreground">Total:
               <span className="ml-1 font-bold text-primary">${sale.total?.toFixed(2)}</span>
             </span>
+            {sale.benefit_staff_name && (
+              <span className="flex items-center gap-1 text-amber-600">
+                <Gift className="h-3.5 w-3.5" /> Cortesía a nombre de:
+                <span className="font-medium">{sale.benefit_staff_name}</span>
+              </span>
+            )}
             {sale.cash_amount > 0 && (
               <span className="text-muted-foreground">Efectivo: <span className="ml-1 font-medium text-foreground">${sale.cash_amount?.toFixed(2)}</span></span>
             )}
