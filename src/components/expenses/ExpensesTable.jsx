@@ -22,6 +22,7 @@ export default function ExpensesTable({ rows, onEdit, onDelete }) {
             <TableHead>Fecha</TableHead>
             <TableHead>Descripción</TableHead>
             <TableHead>Categoría</TableHead>
+            <TableHead>Reportado por</TableHead>
             <TableHead>Tipo</TableHead>
             <TableHead>Origen</TableHead>
             <TableHead className="text-right">Monto</TableHead>
@@ -39,6 +40,7 @@ export default function ExpensesTable({ rows, onEdit, onDelete }) {
                 </div>
               </TableCell>
               <TableCell className="text-sm">{r.expense.category || '—'}</TableCell>
+              <TableCell className="text-sm text-muted-foreground">{r.expense.reported_by || '—'}</TableCell>
               <TableCell>
                 <Badge variant={r.expense.type === 'fijo' ? 'default' : 'secondary'} className="text-[10px]">
                   {r.expense.type === 'fijo' ? 'Fijo' : 'Variable'}

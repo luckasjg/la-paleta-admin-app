@@ -35,6 +35,10 @@
       "type": "string",
       "format": "date"
     },
+    "reported_by": {
+      "type": "string",
+      "description": "Persona que dict\u00f3 el gasto (bot de Telegram)"
+    },
     "notes": {
       "type": "string"
     }
