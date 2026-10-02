@@ -42,10 +42,21 @@
       "type": "number"
     },
     "total_sales": {
-      "type": "number"
+      "type": "number",
+      "description": "Ventas cobradas (excluye ventas a cr\u00e9dito)"
     },
     "sales_count": {
       "type": "number"
+    },
+    "credit_sales_usd": {
+      "type": "number",
+      "default": 0,
+      "description": "Monto de ventas a cr\u00e9dito (pendientes de cobro) en la sesi\u00f3n"
+    },
+    "credit_sales_count": {
+      "type": "number",
+      "default": 0,
+      "description": "Cantidad de ventas a cr\u00e9dito en la sesi\u00f3n"
     },
     "notes": {
       "type": "string"

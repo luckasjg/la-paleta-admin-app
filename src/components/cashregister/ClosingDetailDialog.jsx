@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card } from '@/components/ui/card';
 import moment from 'moment';
+import { isCreditSale, creditSummary } from '@/lib/creditSales';
 
 const PAYMENT_LABELS = {
   efectivo: 'Efectivo',
@@ -23,7 +24,8 @@ export default function ClosingDetailDialog({ register, sales = [], open, onOpen
 
   // Excluir ventas anuladas de totales y desglose por método
   const validSales = sales.filter(s => s.status !== 'voided');
-  const total = validSales.reduce((s, v) => s + (v.total || 0), 0);
+  const credit = creditSummary(validSales);
+  const total = validSales.filter(v => !isCreditSale(v)).reduce((s, v) => s + (v.total || 0), 0);
   const byMethod = {};
   validSales.forEach(s => {
     const m = s.payment_method || 'mixto';
@@ -75,6 +77,12 @@ export default function ClosingDetailDialog({ register, sales = [], open, onOpen
                 <div className="text-xs text-muted-foreground">Cajero</div>
                 <div className="font-semibold truncate">{register.operator || register.created_by || '—'}</div>
               </div>
+              {credit.count > 0 && (
+                <div>
+                  <div className="text-xs text-muted-foreground">Crédito pendiente</div>
+                  <div className="font-semibold text-amber-700">${credit.total.toFixed(2)} ({credit.count})</div>
+                </div>
+              )}
               <div>
                 <div className="text-xs text-muted-foreground">Estado</div>
                 <Badge>{register.status === 'cerrada' ? 'Cerrado' : 'Abierto'}</Badge>
@@ -123,7 +131,8 @@ export default function ClosingDetailDialog({ register, sales = [], open, onOpen
                     <TableCell className="text-xs text-muted-foreground">
                       {(s.items || []).map(i => `${i.quantity}x ${i.product_name}`).join(', ').slice(0, 60) || '—'}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="space-x-1">
+                      {isCreditSale(s) && <Badge className="text-xs bg-yellow-100 text-yellow-700">Crédito</Badge>}
                       <Badge variant="secondary" className="text-xs">
                         {PAYMENT_LABELS[s.payment_method] || s.payment_method}
                       </Badge>
@@ -137,7 +146,7 @@ export default function ClosingDetailDialog({ register, sales = [], open, onOpen
 
           {/* Total */}
           <div className="flex justify-between items-center pt-3 border-t">
-            <span className="text-sm text-muted-foreground">Total recalculado de ventas listadas:</span>
+            <span className="text-sm text-muted-foreground">Total recalculado de ventas cobradas:</span>
             <span className="font-bold text-lg">${total.toFixed(2)}</span>
           </div>
         </div>

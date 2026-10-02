@@ -77,6 +77,9 @@ export default async function (req: Request): Promise<Response> {
       `👤 Operario: ${register.operator || '—'}\n` +
       `💵 Total ventas: *${fmtMoney(register.total_sales)}*  ·  🧮 N° ventas: *${register.sales_count ?? 0}*\n` +
       `💰 Efectivo sistema: ${fmtMoney(register.system_cash)}  ·  Declarado: ${fmtMoney(register.declared_cash)}\n` +
+      ((Number(register.credit_sales_count) || 0) > 0
+        ? `📒 Ventas a crédito: *${fmtMoney(register.credit_sales_usd)}* (${register.credit_sales_count}) — pendiente de cobro\n`
+        : '') +
       `${diffEmoji} Diferencia: *${diffText}*` +
       (register.notes ? `\n📝 _${register.notes}_` : '');
 

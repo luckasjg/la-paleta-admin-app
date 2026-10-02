@@ -35,6 +35,7 @@ import PendingAuditsBanner from '@/components/cashregister/PendingAuditsBanner';
 import RefundsSessionCard from '@/components/cashregister/RefundsSessionCard';
 import AbonosSessionCard from '@/components/cashregister/AbonosSessionCard';
 import { CASH_METHODS } from '@/lib/receivables';
+import { isCreditSale, creditSummary } from '@/lib/creditSales';
 import CashDrawerCard from '@/components/cashregister/CashDrawerCard';
 import { buildCashDrawerMovements, digitalChangeUsd } from '@/lib/cashDrawerMovements';
 
@@ -187,7 +188,8 @@ export default function CashRegister() {
   const abonoDigital = sessionAbonos.filter(a => !CASH_METHODS.includes(a.method)).reduce((s, a) => s + (a.amount_usd_equivalent || 0), 0);
   const systemCash = openSales.reduce((sum, s) => sum + (s.cash_amount || 0), 0) + abonoCash;
   const systemDigital = openSales.reduce((sum, s) => sum + (s.digital_amount || 0), 0) + abonoDigital;
-  const todayTotal = openSales.reduce((sum, s) => sum + (s.total || 0), 0);
+  const credit = creditSummary(openSales);
+  const todayTotal = openSales.filter(s => !isCreditSale(s)).reduce((sum, s) => sum + (s.total || 0), 0);
   // Efectivo esperado en gaveta = fondo inicial + cobros en efectivo − vueltos en efectivo
   const openingUsd = (openRegister?.opening_cash_usd || 0)
     + (rate > 0 ? (openRegister?.opening_cash_ves || 0) / rate / EUR_PER_USD : 0);
@@ -251,6 +253,8 @@ export default function CashRegister() {
         difference: +(declaredCash - expectedCash).toFixed(2),
         total_sales: todayTotal,
         sales_count: openSales.length,
+        credit_sales_usd: +credit.total.toFixed(2),
+        credit_sales_count: credit.count,
         notes,
         status: 'cerrada',
         operator: targetSession?.staff_name || me?.email || me?.full_name || '',
@@ -397,7 +401,7 @@ export default function CashRegister() {
 
         <TabsContent value="today" className="space-y-6">
           <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-            <StatCard title="Ventas Hoy" value={`$${todayTotal.toFixed(2)}`} icon={DollarSign} />
+            <StatCard title="Ventas Hoy" value={`$${openSales.filter(s => (s.cash_amount || 0) > 0 || (s.digital_amount || 0) > 0).reduce((sum, s) => sum + (s.total || 0), 0).toFixed(2)}`} icon={DollarSign} />
             <StatCard title="Transacciones" value={openSales.length} />
             <StatCard title="Efectivo" value={`$${openSales.filter(s => (s.cash_amount || 0) > 0).reduce((sum, s) => sum + Math.max(0, (s.total || 0) - (s.digital_amount || 0)), 0).toFixed(2)}`} />
             <StatCard title="Digital" value={`$${systemDigital.toFixed(2)}`} />
@@ -597,6 +601,9 @@ export default function CashRegister() {
                 <div><span className="text-muted-foreground">Transacciones:</span> <span className="font-semibold">{openSales.length}</span></div>
                 <div><span className="text-muted-foreground">Cobros efectivo:</span> <span className="font-semibold">${systemCash.toFixed(2)}</span></div>
                 <div><span className="text-muted-foreground">Digital:</span> <span className="font-semibold">${systemDigital.toFixed(2)}</span></div>
+                {credit.count > 0 && (
+                  <div className="col-span-2 text-amber-700"><span>Crédito (pendiente de cobro):</span> <span className="font-semibold">${credit.total.toFixed(2)} ({credit.count})</span></div>
+                )}
               </div>
               <div className="mt-3 pt-3 border-t border-border space-y-1 text-xs font-mono">
                 <div className="flex justify-between"><span className="font-sans text-muted-foreground">Fondo inicial</span><span>+${openingUsd.toFixed(2)}</span></div>

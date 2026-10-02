@@ -1,5 +1,6 @@
 import React from 'react';
 import moment from 'moment';
+import { isCreditSale, creditSummary } from '@/lib/creditSales';
 
 const PAYMENT_LABELS = {
   efectivo: 'Efectivo',
@@ -18,7 +19,8 @@ const refundMoney = (r) => (r.currency === 'VES'
 export default function PrintReport({ date, shift, operator, sales: rawSales = [], supplies = [], register = null, refunds = [] }) {
   // Excluir ventas anuladas de todos los totales del reporte impreso
   const sales = rawSales.filter(s => s.status !== 'voided');
-  const total = sales.reduce((s, v) => s + (v.total || 0), 0);
+  const credit = creditSummary(sales);
+  const total = sales.filter(v => !isCreditSale(v)).reduce((s, v) => s + (v.total || 0), 0);
   const cashTotal = sales.reduce((s, v) => s + (v.cash_amount || 0), 0);
   const digitalTotal = sales.reduce((s, v) => s + (v.digital_amount || 0), 0);
 
@@ -92,6 +94,11 @@ export default function PrintReport({ date, shift, operator, sales: rawSales = [
         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
           <span>Digital:</span><span>${digitalTotal.toFixed(2)}</span>
         </div>
+        {credit.count > 0 && (
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <span>Crédito (pendiente de cobro):</span><span>${credit.total.toFixed(2)} ({credit.count})</span>
+          </div>
+        )}
         {register && (
           <>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -179,7 +186,7 @@ export default function PrintReport({ date, shift, operator, sales: rawSales = [
       {sales.map((sale, si) => (
         <div key={sale.id || si} className="sale-row" style={{ marginBottom: 8 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold' }}>
-            <span>#{si + 1} {moment(sale.sale_date).format('HH:mm')} — {PAYMENT_LABELS[sale.payment_method] || sale.payment_method}</span>
+            <span>#{si + 1} {moment(sale.sale_date).format('HH:mm')} — {isCreditSale(sale) ? '[CRÉDITO] ' : ''}{PAYMENT_LABELS[sale.payment_method] || sale.payment_method}</span>
             <span>${sale.total?.toFixed(2)}</span>
           </div>
           {(sale.items || []).map((item, ii) => {
