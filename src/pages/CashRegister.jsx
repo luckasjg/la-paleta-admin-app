@@ -397,7 +397,7 @@ export default function CashRegister() {
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <StatCard title="Ventas Hoy" value={`$${todayTotal.toFixed(2)}`} icon={DollarSign} />
             <StatCard title="Transacciones" value={openSales.length} />
-            <StatCard title="Efectivo" value={`$${systemCash.toFixed(2)}`} />
+            <StatCard title="Efectivo" value={`$${(systemCash - cashChangeUsd).toFixed(2)}`} />
             <StatCard title="Digital" value={`$${systemDigital.toFixed(2)}`} />
           </div>
 
