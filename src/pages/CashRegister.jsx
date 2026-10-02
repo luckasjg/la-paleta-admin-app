@@ -11,7 +11,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { DollarSign, AlertTriangle, CheckCircle, Printer, Eye, RefreshCw, UserCog } from 'lucide-react';
+import { DollarSign, AlertTriangle, CheckCircle, Printer, Eye, RefreshCw, UserCog, Wallet } from 'lucide-react';
+import EditOpeningFundDialog from '@/components/cashregister/EditOpeningFundDialog';
 import PageHeader from '@/components/shared/PageHeader';
 import StatCard from '@/components/shared/StatCard';
 import { toast } from 'sonner';
@@ -38,6 +39,7 @@ import { CASH_METHODS } from '@/lib/receivables';
 export default function CashRegister() {
   const [closeDialog, setCloseDialog] = useState(false);
   const [staffChangeOpen, setStaffChangeOpen] = useState(false);
+  const [fundOpen, setFundOpen] = useState(false);
   const [declaredCash, setDeclaredCash] = useState(0);
   const [shift, setShift] = useState('manana');
   const [notes, setNotes] = useState('');
@@ -363,6 +365,11 @@ export default function CashRegister() {
                 <UserCog className="h-4 w-4 mr-2" /> Cambiar Cajero / Turno
               </Button>
             )}
+            {openRegister && (
+              <Button variant="ghost" onClick={() => setFundOpen(true)}>
+                <Wallet className="h-4 w-4 mr-2" /> Editar fondo inicial
+              </Button>
+            )}
             <Button variant="outline" onClick={printToday}>
               <Printer className="h-4 w-4 mr-2" /> Imprimir Reporte
             </Button>
@@ -378,6 +385,7 @@ export default function CashRegister() {
         onOpenChange={setStaffChangeOpen}
         register={openRegister}
       />
+      <EditOpeningFundDialog open={fundOpen} onOpenChange={setFundOpen} register={openRegister} />
 
       <Tabs defaultValue="today" className="space-y-4">
         <TabsList>

@@ -5,9 +5,9 @@ import { Button } from '@/components/ui/button';
 import { Wallet } from 'lucide-react';
 
 /** Paso 2 de la apertura: el cajero declara el fondo de caja con que inicia. */
-export default function OpeningFundForm({ staffName, submitting, onBack, onConfirm }) {
-  const [usd, setUsd] = useState('');
-  const [ves, setVes] = useState('');
+export default function OpeningFundForm({ staffName, submitting, onBack, onConfirm, initialUsd, initialVes, confirmLabel = 'Abrir caja', backLabel = 'Atrás' }) {
+  const [usd, setUsd] = useState(initialUsd ? String(initialUsd) : '');
+  const [ves, setVes] = useState(initialVes ? String(initialVes) : '');
 
   return (
     <div className="space-y-4">
@@ -31,13 +31,13 @@ export default function OpeningFundForm({ staffName, submitting, onBack, onConfi
         Sólo se usa para cuadrar el efectivo al cerrar. Puedes dejarlo en 0.
       </p>
       <div className="flex gap-2">
-        <Button variant="outline" onClick={onBack} disabled={submitting}>Atrás</Button>
+        <Button variant="outline" onClick={onBack} disabled={submitting}>{backLabel}</Button>
         <Button className="flex-1 h-11" disabled={submitting}
           onClick={() => onConfirm({
             opening_cash_usd: Math.max(0, parseFloat(usd) || 0),
             opening_cash_ves: Math.max(0, parseFloat(ves) || 0),
           })}>
-          <Wallet className="h-4 w-4" /> {submitting ? 'Abriendo…' : 'Abrir caja'}
+          <Wallet className="h-4 w-4" /> {submitting ? 'Guardando…' : confirmLabel}
         </Button>
       </div>
     </div>
