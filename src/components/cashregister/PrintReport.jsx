@@ -1,6 +1,7 @@
 import React from 'react';
 import moment from 'moment';
 import { isCreditSale, creditSummary } from '@/lib/creditSales';
+import { fmtUsd, fmtBs, signed } from '@/lib/cashCurrencyBreakdown';
 
 const PAYMENT_LABELS = {
   efectivo: 'Efectivo',
@@ -105,9 +106,25 @@ export default function PrintReport({ date, shift, operator, sales: rawSales = [
               <span>Efectivo Declarado:</span><span>${(register.declared_cash || 0).toFixed(2)}</span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span>Diferencia:</span>
+              <span>Diferencia total:</span>
               <span>{(register.difference || 0) > 0 ? '+' : ''}${(register.difference || 0).toFixed(2)}</span>
             </div>
+            {register.system_cash_usd != null && (
+              <>
+                <hr style={{ borderTop: '1px dashed black', margin: '6px 0' }} />
+                <p style={{ margin: '2px 0', fontWeight: 'bold' }}>POR MONEDA (esperado / contado / dif.)</p>
+                {[
+                  ['Efectivo USD', fmtUsd(register.system_cash_usd), fmtUsd(register.declared_cash_usd), signed(register.difference_usd || 0, fmtUsd)],
+                  ['Efectivo Bs', fmtBs(register.system_cash_ves), fmtBs(register.declared_cash_ves), signed(register.difference_ves || 0, fmtBs)],
+                ].map(([l, e, d, df]) => (
+                  <div key={l} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
+                    <span>{l}</span><span>{e} / {d} / {df}</span>
+                  </div>
+                ))}
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Bs digital:</span><span>{fmtBs(register.digital_ves)}</span></div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>USD digital:</span><span>{fmtUsd(register.digital_usd)}</span></div>
+              </>
+            )}
           </>
         )}
       </div>

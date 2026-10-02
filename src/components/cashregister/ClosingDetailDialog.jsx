@@ -5,6 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Card } from '@/components/ui/card';
 import moment from 'moment';
 import { isCreditSale, creditSummary } from '@/lib/creditSales';
+import CurrencyBreakdownTable from '@/components/cashregister/CurrencyBreakdownTable';
 
 const PAYMENT_LABELS = {
   efectivo: 'Efectivo',
@@ -88,6 +89,15 @@ export default function ClosingDetailDialog({ register, sales = [], open, onOpen
                 <Badge>{register.status === 'cerrada' ? 'Cerrado' : 'Abierto'}</Badge>
               </div>
             </div>
+            {register.system_cash_usd != null && (
+              <div className="mt-3 pt-3 border-t">
+                <div className="text-xs font-semibold text-muted-foreground mb-1">Desglose por moneda (esperado · contado)</div>
+                <CurrencyBreakdownTable
+                  b={{ cashUsd: register.system_cash_usd, cashVes: register.system_cash_ves, digitalUsd: register.digital_usd, digitalVes: register.digital_ves, declaredUsd: register.declared_cash_usd, declaredVes: register.declared_cash_ves }}
+                  diffs={{ usd: register.difference_usd || 0, ves: register.difference_ves || 0, total: register.difference || 0 }}
+                />
+              </div>
+            )}
             {register.notes && (
               <div className="mt-3 pt-3 border-t text-xs">
                 <span className="text-muted-foreground">Observaciones: </span>{register.notes}

@@ -3,6 +3,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { List } from 'lucide-react';
 import CashDrawerDetailDialog from '@/components/cashregister/CashDrawerDetailDialog';
+import { fmtUsd, fmtBs } from '@/lib/cashCurrencyBreakdown';
 
 export default function CashDrawerCard({ movements, summary }) {
   const [open, setOpen] = useState(false);
@@ -15,7 +16,11 @@ export default function CashDrawerCard({ movements, summary }) {
         </Button>
       </div>
       <p className="text-2xl font-bold mt-1">${summary.expected.toFixed(2)}</p>
-      <p className="text-xs text-muted-foreground mt-1">Efectivo físico esperado</p>
+      {summary.breakdown ? (
+        <p className="text-xs text-muted-foreground mt-1 font-mono">{fmtUsd(summary.breakdown.cashUsd)} · {fmtBs(summary.breakdown.cashVes)}</p>
+      ) : (
+        <p className="text-xs text-muted-foreground mt-1">Efectivo físico esperado</p>
+      )}
       <CashDrawerDetailDialog open={open} onOpenChange={setOpen} movements={movements} summary={summary} />
     </Card>
   );

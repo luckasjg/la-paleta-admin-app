@@ -3,6 +3,7 @@ import moment from 'moment';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card } from '@/components/ui/card';
+import CurrencyBreakdownTable from '@/components/cashregister/CurrencyBreakdownTable';
 
 const KIND_STYLES = {
   fondo: 'text-blue-700', venta: 'text-green-700', abono: 'text-green-700',
@@ -28,6 +29,12 @@ export default function CashDrawerDetailDialog({ open, onOpenChange, movements, 
           <Line label="Ventas reales de la sesión" value={`$${summary.sales.toFixed(2)}`} />
           <Line label="Efectivo físico esperado" value={`$${summary.expected.toFixed(2)}`} strong />
         </Card>
+        {summary.breakdown && (
+          <Card className="p-4">
+            <p className="text-xs font-semibold text-muted-foreground mb-2">Por moneda (lo que debe haber en gaveta y en cuentas)</p>
+            <CurrencyBreakdownTable b={summary.breakdown} />
+          </Card>
+        )}
         <Table>
           <TableHeader>
             <TableRow>

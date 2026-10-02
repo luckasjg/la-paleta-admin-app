@@ -30,16 +30,48 @@
     },
     "system_cash": {
       "type": "number",
-      "description": "Efectivo esperado: fondo + ventas en efectivo \u2212 vueltos en efectivo (USD base)"
+      "description": "Efectivo esperado total combinado (USD base)"
     },
     "system_digital": {
       "type": "number"
     },
     "declared_cash": {
-      "type": "number"
+      "type": "number",
+      "description": "Efectivo declarado total combinado (USD base)"
     },
     "difference": {
+      "type": "number",
+      "description": "Diferencia total combinada (USD base)"
+    },
+    "system_cash_usd": {
+      "type": "number",
+      "description": "Efectivo USD f\u00edsico esperado"
+    },
+    "system_cash_ves": {
+      "type": "number",
+      "description": "Efectivo Bs f\u00edsico esperado (Bs)"
+    },
+    "declared_cash_usd": {
       "type": "number"
+    },
+    "declared_cash_ves": {
+      "type": "number",
+      "description": "Bs contados"
+    },
+    "difference_usd": {
+      "type": "number"
+    },
+    "difference_ves": {
+      "type": "number",
+      "description": "Diferencia en Bs"
+    },
+    "digital_usd": {
+      "type": "number",
+      "description": "Ingresos digitales en USD (Binance, Zelle\u2026)"
+    },
+    "digital_ves": {
+      "type": "number",
+      "description": "Ingresos digitales en Bs (pago m\u00f3vil, punto\u2026)"
     },
     "total_sales": {
       "type": "number",

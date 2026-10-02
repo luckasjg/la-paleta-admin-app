@@ -38,12 +38,15 @@ import { CASH_METHODS } from '@/lib/receivables';
 import { isCreditSale, creditSummary } from '@/lib/creditSales';
 import CashDrawerCard from '@/components/cashregister/CashDrawerCard';
 import { buildCashDrawerMovements, digitalChangeUsd } from '@/lib/cashDrawerMovements';
+import { computeCurrencyBreakdown, vesToUsd } from '@/lib/cashCurrencyBreakdown';
+import CurrencyBreakdownTable from '@/components/cashregister/CurrencyBreakdownTable';
 
 export default function CashRegister() {
   const [closeDialog, setCloseDialog] = useState(false);
   const [staffChangeOpen, setStaffChangeOpen] = useState(false);
   const [fundOpen, setFundOpen] = useState(false);
   const [declaredCash, setDeclaredCash] = useState(0);
+  const [declaredVes, setDeclaredVes] = useState(0);
   const [shift, setShift] = useState('manana');
   const [notes, setNotes] = useState('');
   const [selectedSale, setSelectedSale] = useState(null);
@@ -195,6 +198,11 @@ export default function CashRegister() {
     + (rate > 0 ? (openRegister?.opening_cash_ves || 0) / rate / EUR_PER_USD : 0);
   const cashChangeUsd = openSales.reduce((sum, s) => sum + saleCashChangeUsd(s), 0);
   const expectedCash = systemCash + openingUsd - cashChangeUsd;
+  const breakdown = computeCurrencyBreakdown({ register: openRegister, sales: openSales, abonos: sessionAbonos, eurVes: rate });
+  const diffUsd = declaredCash - breakdown.cashUsd;
+  const diffVes = declaredVes - breakdown.cashVes;
+  const declaredTotal = declaredCash + vesToUsd(declaredVes, rate);
+  const diffTotal = diffUsd + vesToUsd(diffVes, rate);
 
   // Ventas asociadas a un cierre. Si el cierre tiene ventas con cash_register_id,
   // esa es la fuente de verdad (sesiones nuevas). Si no, caemos al método legado
@@ -249,8 +257,16 @@ export default function CashRegister() {
         system_cash: +expectedCash.toFixed(2),
         cash_change_usd: +cashChangeUsd.toFixed(2),
         system_digital: systemDigital,
-        declared_cash: declaredCash,
-        difference: +(declaredCash - expectedCash).toFixed(2),
+        declared_cash: +declaredTotal.toFixed(2),
+        difference: +diffTotal.toFixed(2),
+        system_cash_usd: +breakdown.cashUsd.toFixed(2),
+        system_cash_ves: +breakdown.cashVes.toFixed(2),
+        declared_cash_usd: declaredCash,
+        declared_cash_ves: declaredVes,
+        difference_usd: +diffUsd.toFixed(2),
+        difference_ves: +diffVes.toFixed(2),
+        digital_usd: +breakdown.digitalUsd.toFixed(2),
+        digital_ves: +breakdown.digitalVes.toFixed(2),
         total_sales: todayTotal,
         sales_count: openSales.length,
         credit_sales_usd: +credit.total.toFixed(2),
@@ -407,7 +423,7 @@ export default function CashRegister() {
             <StatCard title="Digital" value={`$${systemDigital.toFixed(2)}`} />
             <CashDrawerCard
               movements={buildCashDrawerMovements({ register: openRegister, openingUsd, sales: openSales, abonos: sessionAbonos })}
-              summary={{ opening: openingUsd, cashIn: systemCash, cashChange: cashChangeUsd, digitalChange: digitalChangeUsd(openSales), sales: todayTotal, expected: expectedCash }}
+              summary={{ opening: openingUsd, cashIn: systemCash, cashChange: cashChangeUsd, digitalChange: digitalChangeUsd(openSales), sales: todayTotal, expected: expectedCash, breakdown }}
             />
           </div>
 
@@ -609,8 +625,12 @@ export default function CashRegister() {
                 <div className="flex justify-between"><span className="font-sans text-muted-foreground">Fondo inicial</span><span>+${openingUsd.toFixed(2)}</span></div>
                 <div className="flex justify-between"><span className="font-sans text-muted-foreground">Cobros en efectivo</span><span>+${systemCash.toFixed(2)}</span></div>
                 <div className="flex justify-between"><span className="font-sans text-muted-foreground">Vueltos en efectivo</span><span>−${cashChangeUsd.toFixed(2)}</span></div>
-                <div className="flex justify-between font-semibold text-sm"><span className="font-sans">Efectivo esperado</span><span>${expectedCash.toFixed(2)}</span></div>
+                <div className="flex justify-between font-semibold text-sm"><span className="font-sans">Efectivo esperado (total)</span><span>${expectedCash.toFixed(2)}</span></div>
               </div>
+            </Card>
+            <Card className="p-4">
+              <p className="text-xs font-semibold text-muted-foreground mb-2">Esperado por moneda</p>
+              <CurrencyBreakdownTable b={breakdown} />
             </Card>
             <div>
               <Label>Turno</Label>
@@ -624,16 +644,19 @@ export default function CashRegister() {
               </Select>
             </div>
             <div>
-              <Label>Efectivo Físico Contado ($)</Label>
-              <Input type="number" step="0.01" value={declaredCash} onChange={e => setDeclaredCash(parseFloat(e.target.value) || 0)} />
-              {Math.abs(declaredCash - expectedCash) > 0.005 && declaredCash > 0 && (
-                <div className="mt-2 flex items-center gap-2 text-sm">
-                  <AlertTriangle className="h-4 w-4 text-destructive" />
-                  <span className={declaredCash - expectedCash < 0 ? 'text-destructive' : 'text-yellow-600'}>
-                    Diferencia: {(declaredCash - expectedCash) > 0 ? '+' : ''}{(declaredCash - expectedCash).toFixed(2)}
-                  </span>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>Billetes USD contados ($)</Label>
+                  <Input type="number" step="0.01" value={declaredCash} onChange={e => setDeclaredCash(parseFloat(e.target.value) || 0)} />
                 </div>
-              )}
+                <div>
+                  <Label>Bs contados</Label>
+                  <Input type="number" step="0.01" value={declaredVes} onChange={e => setDeclaredVes(parseFloat(e.target.value) || 0)} />
+                </div>
+              </div>
+              <div className="mt-2">
+                <CurrencyBreakdownTable b={{ ...breakdown, hideLines: true }} diffs={{ usd: diffUsd, ves: diffVes, total: diffTotal }} onlyDiffs />
+              </div>
             </div>
             <div>
               <Label>Observaciones</Label>

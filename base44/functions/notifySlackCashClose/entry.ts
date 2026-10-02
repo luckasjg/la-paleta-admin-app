@@ -4,6 +4,8 @@ const CONNECTOR_ID = '6a18ea9c0da9a2b27b53e4c2';
 const CHANNEL_NAME = 'caja';
 
 const fmtMoney = (n) => `$${(Number(n) || 0).toFixed(2)}`;
+const fmtBs = (n) => `Bs ${(Number(n) || 0).toFixed(2)}`;
+const fmtSigned = (n, f) => { const v = Number(n) || 0; return `${v > 0.005 ? '+' : v < -0.005 ? '−' : ''}${f(Math.abs(v))}`; };
 const shiftLabel = (s) =>
   s === 'manana' ? 'Mañana' : s === 'tarde' ? 'Tarde' : s === 'noche' ? 'Noche' : (s || '—');
 
@@ -80,7 +82,12 @@ export default async function (req: Request): Promise<Response> {
       ((Number(register.credit_sales_count) || 0) > 0
         ? `📒 Ventas a crédito: *${fmtMoney(register.credit_sales_usd)}* (${register.credit_sales_count}) — pendiente de cobro\n`
         : '') +
-      `${diffEmoji} Diferencia: *${diffText}*` +
+      (register.system_cash_usd != null
+        ? `💵 Efectivo USD: ${fmtMoney(register.system_cash_usd)} · contado ${fmtMoney(register.declared_cash_usd)} · dif ${fmtSigned(register.difference_usd, fmtMoney)}\n` +
+          `💴 Efectivo Bs: ${fmtBs(register.system_cash_ves)} · contado ${fmtBs(register.declared_cash_ves)} · dif ${fmtSigned(register.difference_ves, fmtBs)}\n` +
+          `📲 Bs digital: ${fmtBs(register.digital_ves)}  ·  🪙 USD digital: ${fmtMoney(register.digital_usd)}\n`
+        : '') +
+      `${diffEmoji} Diferencia total: *${diffText}*` +
       (register.notes ? `\n📝 _${register.notes}_` : '');
 
     const post = await fetch('https://slack.com/api/chat.postMessage', {
