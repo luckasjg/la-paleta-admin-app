@@ -606,7 +606,7 @@ export default function CashRegister() {
       )}
 
       <Dialog open={closeDialog} onOpenChange={setCloseDialog}>
-        <DialogContent className="max-w-sm">
+        <DialogContent className="max-w-sm max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Arqueo y Cierre de Caja</DialogTitle>
           </DialogHeader>
