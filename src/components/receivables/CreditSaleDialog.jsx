@@ -20,7 +20,7 @@ export default function CreditSaleDialog({ open, onOpenChange, totalUSD, onConfi
     queryKey: ['credit_customers'],
     enabled: open,
     queryFn: async () => (await base44.entities.Customer.filter(
-      { is_registered: { $ne: false } }, { sort: 'full_name', limit: 1000 }
+      {}, { sort: 'full_name', limit: 1000 }
     )).items,
   });
   const customer = customers.find(c => c.id === customerId);
