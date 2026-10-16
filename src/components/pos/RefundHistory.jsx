@@ -35,7 +35,7 @@ export default function RefundHistory() {
     enabled: open,
     initialPageParam: undefined,
     queryFn: ({ pageParam }) => base44.entities.RefundRequest.filter(query,
-      { sort: '-confirmed_at', limit: 30, ...(pageParam ? { cursor: pageParam } : {}) }),
+      { sort: '-confirmed_at', limit: 20, ...(pageParam ? { cursor: pageParam } : {}) }),
     getNextPageParam: (p) => (p.has_more ? p.next_cursor : undefined),
   });
   const rows = data?.pages.flatMap(p => p.items) || [];
