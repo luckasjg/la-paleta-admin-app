@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import moment from 'moment';
 import RefundQueueCard from '@/components/pos/RefundQueueCard';
 import RefundCompletedSection from '@/components/pos/RefundCompletedSection';
+import RefundHistory from '@/components/pos/RefundHistory';
 import { cancelRefund } from '@/lib/cancelRefund';
 
 /**
@@ -90,6 +91,7 @@ export default function RefundQueue() {
         </div>
       </Card>
       <RefundCompletedSection refunds={paidToday} />
+      <RefundHistory />
       </div>
     );
   }
@@ -111,6 +113,7 @@ export default function RefundQueue() {
         />
       ))}
       <RefundCompletedSection refunds={paidToday} />
+      <RefundHistory />
     </div>
   );
 }
