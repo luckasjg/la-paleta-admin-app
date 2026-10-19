@@ -46,7 +46,13 @@ export default function Production() {
 
   const { data: trays = [] } = useQuery({
     queryKey: ['trays'],
-    queryFn: () => base44.entities.Tray.list('-created_date', 50),
+    queryFn: async () => {
+      const [active, exhausted] = await Promise.all([
+        base44.entities.Tray.filter({ status: 'activa' }, '-created_date', 1000),
+        base44.entities.Tray.filter({ status: 'agotada' }, '-created_date', 50),
+      ]);
+      return [...active, ...exhausted];
+    },
   });
 
   const { data: recipes = [] } = useQuery({
