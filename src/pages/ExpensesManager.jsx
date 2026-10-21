@@ -13,6 +13,7 @@ import ExpensesTable from '@/components/expenses/ExpensesTable';
 import BreakevenAnalysis from '@/components/expenses/BreakevenAnalysis';
 import ExpenseCategoryManager from '@/components/expenses/ExpenseCategoryManager';
 import SheetSyncCard from '@/components/expenses/SheetSyncCard';
+import DeleteRecurringButton from '@/components/expenses/DeleteRecurringButton';
 import { useExpenseCategories } from '@/lib/useExpenseCategories';
 import { useAverageMargin } from '@/lib/useAverageMargin';
 import { buildMonthRows } from '@/lib/expenseProjections';
@@ -153,6 +154,7 @@ export default function ExpensesManager() {
         }
       />
 
+      <div className="flex justify-end"><DeleteRecurringButton /></div>
       <SheetSyncCard />
 
       {/* Month selector */}
