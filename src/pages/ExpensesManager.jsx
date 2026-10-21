@@ -12,6 +12,7 @@ import ExpenseForm from '@/components/expenses/ExpenseForm';
 import ExpensesTable from '@/components/expenses/ExpensesTable';
 import BreakevenAnalysis from '@/components/expenses/BreakevenAnalysis';
 import ExpenseCategoryManager from '@/components/expenses/ExpenseCategoryManager';
+import SheetSyncCard from '@/components/expenses/SheetSyncCard';
 import { useExpenseCategories } from '@/lib/useExpenseCategories';
 import { useAverageMargin } from '@/lib/useAverageMargin';
 import { buildMonthRows } from '@/lib/expenseProjections';
@@ -151,6 +152,8 @@ export default function ExpensesManager() {
           </div>
         }
       />
+
+      <SheetSyncCard />
 
       {/* Month selector */}
       <Card>

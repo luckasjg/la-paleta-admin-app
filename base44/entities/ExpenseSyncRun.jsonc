@@ -1,0 +1,98 @@
+{
+  "name": "ExpenseSyncRun",
+  "type": "object",
+  "properties": {
+    "run_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "source": {
+      "type": "string",
+      "enum": [
+        "automatico",
+        "manual"
+      ],
+      "default": "automatico"
+    },
+    "tabs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "rows_read": {
+      "type": "number",
+      "default": 0
+    },
+    "created_count": {
+      "type": "number",
+      "default": 0
+    },
+    "duplicate_count": {
+      "type": "number",
+      "default": 0
+    },
+    "review_count": {
+      "type": "number",
+      "default": 0
+    },
+    "review_rows": {
+      "type": "array",
+      "description": "Filas no cargadas que requieren revisi\u00f3n",
+      "items": {
+        "type": "object",
+        "properties": {
+          "tab": {
+            "type": "string"
+          },
+          "row": {
+            "type": "number"
+          },
+          "text": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "ok",
+        "error"
+      ],
+      "default": "ok"
+    },
+    "error": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "run_at",
+    "status"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

@@ -1,0 +1,47 @@
+{
+  "description": "Cada d\u00eda revisa la hoja de estado de cuentas, clasifica los egresos nuevos con IA y los carga en Gastos evitando duplicados.",
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "scheduled",
+      "events": [],
+      "schedule_mode": "recurring",
+      "cron_expression": "0 22 * * *",
+      "one_time_date": null,
+      "timezone": "America/Caracas",
+      "interval_value": null,
+      "interval_unit": null,
+      "interval_anchor": null,
+      "ends_type": "never",
+      "ends_on_date": null,
+      "ends_after_count": null
+    }
+  },
+  "name": "Cargar gastos desde Google Sheets",
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "cargar_gastos_sheets",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "sincronizar_gastos": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "syncExpensesFromSheet",
+            "args": {
+              "source": "automatico"
+            }
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Revisar hoja y cargar gastos",
+            "description": "\u00daltimas 3 semanas"
+          }
+        }
+      }
+    ]
+  }
+}
