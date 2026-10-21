@@ -213,6 +213,7 @@ export default function ExpensesManager() {
       {/* Breakeven analysis */}
       <BreakevenAnalysis
         fixedExpenses={fixedTotal}
+        variableExpenses={monthRows.filter(r => r.expense.type === 'variable').reduce((s, r) => s + (r.expense.amount || 0), 0)}
         marginPct={marginInfo.marginPct}
         marginInfo={marginInfo}
         monthlySales={monthlySales}

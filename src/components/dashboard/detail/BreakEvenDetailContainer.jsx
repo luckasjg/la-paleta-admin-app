@@ -2,7 +2,7 @@ import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import moment from 'moment';
-import { buildMonthRows, getFixedExpensesForMonth } from '@/lib/expenseProjections';
+import { buildMonthRows, getFixedExpensesForMonth, getVariableExpensesForMonth } from '@/lib/expenseProjections';
 import { useAverageMargin } from '@/lib/useAverageMargin';
 import { BreakEvenDetail } from './MonthDetails';
 
@@ -26,6 +26,7 @@ export default function BreakEvenDetailContainer({ ctx }) {
     <BreakEvenDetail
       monthLabel={ctx.monthLabel}
       fixedExpenses={getFixedExpensesForMonth(expenses, ctx.selectedYear, ctx.selectedMonth)}
+      variableExpenses={getVariableExpensesForMonth(expenses, ctx.selectedYear, ctx.selectedMonth)}
       expenseRows={rows}
       marginInfo={marginInfo}
       monthlySales={ctx.grossRevenue}

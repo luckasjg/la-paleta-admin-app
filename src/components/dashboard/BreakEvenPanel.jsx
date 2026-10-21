@@ -6,6 +6,7 @@ import { Link } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { getFixedExpensesForMonth, getVariableExpensesForMonth } from '@/lib/expenseProjections';
 import { useAverageMargin } from '@/lib/useAverageMargin';
+import { computeBreakEven } from '@/lib/breakEven';
 import { ExpandButton } from '@/components/dashboard/ExpandableCard';
 
 export default function BreakEvenPanel({ year, month, monthlySales, recipes, products, supplies, onExpand }) {
@@ -18,10 +19,7 @@ export default function BreakEvenPanel({ year, month, monthlySales, recipes, pro
   const marginInfo = useAverageMargin({ recipes, products, supplies, fixedServiceCosts: 0 });
   const marginPct = marginInfo.marginPct;
   const variableExpenses = getVariableExpensesForMonth(expenses, year, month);
-  const variableRatio = monthlySales > 0 ? Math.min(0.98, variableExpenses / monthlySales) : 0;
-  const marginRatio = Math.max(0.01, Math.min(0.99, marginPct / 100 - variableRatio));
-
-  const breakevenRevenue = fixedExpenses > 0 ? fixedExpenses / marginRatio : 0;
+  const { variableRatio, marginRatio, breakevenRevenue } = computeBreakEven({ fixedExpenses, variableExpenses, monthlySales, marginPct });
   const progressPct = breakevenRevenue > 0 ? Math.min(100, (monthlySales / breakevenRevenue) * 100) : 0;
   const reached = monthlySales >= breakevenRevenue && breakevenRevenue > 0;
   const missing = Math.max(0, breakevenRevenue - monthlySales);

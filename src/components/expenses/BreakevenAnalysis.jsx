@@ -1,6 +1,7 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Target, AlertCircle, CheckCircle2, Info, Sparkles } from 'lucide-react';
+import { computeBreakEven } from '@/lib/breakEven';
 
 export default function BreakevenAnalysis({
   fixedExpenses,
@@ -8,9 +9,9 @@ export default function BreakevenAnalysis({
   marginInfo,
   monthlySales,
   monthLabel,
+  variableExpenses = 0,
 }) {
-  const marginRatio = Math.max(0.01, Math.min(0.99, (marginPct || 0) / 100));
-  const breakevenRevenue = fixedExpenses > 0 ? fixedExpenses / marginRatio : 0;
+  const { breakevenRevenue } = computeBreakEven({ fixedExpenses, variableExpenses, monthlySales, marginPct });
   const progressPct = breakevenRevenue > 0 ? Math.min(100, (monthlySales / breakevenRevenue) * 100) : 0;
   const reached = monthlySales >= breakevenRevenue && breakevenRevenue > 0;
   const missing = Math.max(0, breakevenRevenue - monthlySales);

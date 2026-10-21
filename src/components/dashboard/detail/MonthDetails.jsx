@@ -1,6 +1,7 @@
 import React from 'react';
 import DetailTable, { money, num, pct } from './DetailTable';
 import ComparisonGrid from './ComparisonGrid';
+import { computeBreakEven } from '@/lib/breakEven';
 import { BigBar, BigLine, ChartBlock } from './DetailCharts';
 
 /** KPIs del mes: curva diaria, comparación con el mes anterior y ranking. */
@@ -130,9 +131,8 @@ export function FinancialDetail({ analytics, monthLabel, grossRevenue, cogs, pre
 }
 
 /** Punto de equilibrio: progreso, gastos fijos por categoría y metas diarias. */
-export function BreakEvenDetail({ monthLabel, fixedExpenses, expenseRows, marginInfo, monthlySales, daysInMonth, activeDays }) {
-  const marginRatio = Math.max(0.01, Math.min(0.99, marginInfo.marginPct / 100));
-  const breakevenRevenue = fixedExpenses > 0 ? fixedExpenses / marginRatio : 0;
+export function BreakEvenDetail({ monthLabel, fixedExpenses, variableExpenses = 0, expenseRows, marginInfo, monthlySales, daysInMonth, activeDays }) {
+  const { breakevenRevenue } = computeBreakEven({ fixedExpenses, variableExpenses, monthlySales, marginPct: marginInfo.marginPct });
   const missing = Math.max(0, breakevenRevenue - monthlySales);
   const surplus = Math.max(0, monthlySales - breakevenRevenue);
   const progressPct = breakevenRevenue > 0 ? (monthlySales / breakevenRevenue) * 100 : 0;
