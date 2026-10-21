@@ -17,6 +17,7 @@ import PageHeader from '@/components/shared/PageHeader';
 import StatCard from '@/components/shared/StatCard';
 import { toast } from 'sonner';
 import moment from 'moment';
+import { useRole } from '@/lib/useRole';
 import SaleDetailDialog from '@/components/cashregister/SaleDetailDialog';
 import PrintReport from '@/components/cashregister/PrintReport';
 import IceCreamAudit from '@/components/cashregister/IceCreamAudit';
@@ -42,6 +43,7 @@ import { computeCurrencyBreakdown, vesToUsd } from '@/lib/cashCurrencyBreakdown'
 import CurrencyBreakdownTable from '@/components/cashregister/CurrencyBreakdownTable';
 
 export default function CashRegister() {
+  const { isAdmin } = useRole();
   const [closeDialog, setCloseDialog] = useState(false);
   const [staffChangeOpen, setStaffChangeOpen] = useState(false);
   const [fundOpen, setFundOpen] = useState(false);
@@ -412,7 +414,7 @@ export default function CashRegister() {
       <Tabs defaultValue="today" className="space-y-4">
         <TabsList>
           <TabsTrigger value="today">Hoy</TabsTrigger>
-          <TabsTrigger value="history">Historial de Cierres</TabsTrigger>
+          {isAdmin && <TabsTrigger value="history">Historial de Cierres</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="today" className="space-y-6">
@@ -510,7 +512,7 @@ export default function CashRegister() {
           />
         </TabsContent>
 
-        <TabsContent value="history">
+        {isAdmin && <TabsContent value="history">
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-semibold">Cierres Anteriores</CardTitle>
@@ -575,7 +577,7 @@ export default function CashRegister() {
               </Table>
             </CardContent>
           </Card>
-        </TabsContent>
+        </TabsContent>}
       </Tabs>
 
       <SaleDetailDialog
