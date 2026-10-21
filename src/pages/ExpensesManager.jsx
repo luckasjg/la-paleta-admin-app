@@ -14,6 +14,7 @@ import BreakevenAnalysis from '@/components/expenses/BreakevenAnalysis';
 import ExpenseCategoryManager from '@/components/expenses/ExpenseCategoryManager';
 import SheetSyncCard from '@/components/expenses/SheetSyncCard';
 import DeleteRecurringButton from '@/components/expenses/DeleteRecurringButton';
+import FixCurrencyHistoryButton from '@/components/expenses/FixCurrencyHistoryButton';
 import { useExpenseCategories } from '@/lib/useExpenseCategories';
 import { useAverageMargin } from '@/lib/useAverageMargin';
 import { buildMonthRows } from '@/lib/expenseProjections';
@@ -154,7 +155,7 @@ export default function ExpensesManager() {
         }
       />
 
-      <div className="flex justify-end"><DeleteRecurringButton /></div>
+      <div className="flex justify-end gap-2"><FixCurrencyHistoryButton /><DeleteRecurringButton /></div>
       <SheetSyncCard />
 
       {/* Month selector */}

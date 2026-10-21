@@ -2,7 +2,7 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.54';
 
 const SHEET_ID = '1mJ_uNsu0xx93jrq6MhIGxS_sUBt_oUMMoEgVgS9kNr8';
 const TAB_RE = /^(\d{1,2})\/(\d{1,2})\s+al\s+(\d{1,2})\/(\d{1,2})$/i;
-const USD_ACCOUNTS = /(\$|usd|usdt|binance|zelle)/i;
+const USD_ACCOUNTS = /(caja efectivo \$|binance)/i;
 
 const parseNum = (v) => {
   const s = String(v ?? '').replace(/[$\s]/g, '');
@@ -85,14 +85,14 @@ export default async function (req: Request): Promise<Response> {
           continue;
         }
         const cuenta = String(r[c.cuenta] || '').trim();
-        const isUsd = USD_ACCOUNTS.test(cuenta) || String(r[c.detalle] || '').trim() === '$';
+        const isUsd = USD_ACCOUNTS.test(cuenta);
         const usdCol = parseNum(r[c.usd]);
         const tasa = parseNum(r[c.tasa]);
         let amount; let trail;
         if (isUsd) { amount = monto; trail = `Original: ${monto} USD`; }
-        else if (Number.isFinite(usdCol) && usdCol > 0) { amount = usdCol; trail = `Original: ${monto} Bs | USD según hoja`; }
+        else if (appRate > 0) { amount = monto / appRate; trail = `Original: ${monto} Bs | Tasa Euro BCV app: ${appRate}`; }
         else if (Number.isFinite(tasa) && tasa > 0) { amount = monto / tasa; trail = `Original: ${monto} Bs | Tasa hoja: ${tasa}`; }
-        else if (appRate > 0) { amount = monto / appRate; trail = `Original: ${monto} Bs | Tasa app: ${appRate}`; }
+        else if (Number.isFinite(usdCol) && usdCol > 0) { amount = usdCol; trail = `Original: ${monto} Bs | USD según hoja`; }
         else { review.push({ tab, row: i + 1, text, reason: 'Sin tasa para convertir Bs' }); continue; }
         amount = Math.round(amount * 100) / 100;
         const extra = [r[c.detalle], r[c.desc]].map((x) => String(x || '').trim()).filter((x) => x && x !== '$').join(' · ');
