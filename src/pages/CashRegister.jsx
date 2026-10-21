@@ -41,6 +41,7 @@ import CashDrawerCard from '@/components/cashregister/CashDrawerCard';
 import { buildCashDrawerMovements, digitalChangeUsd } from '@/lib/cashDrawerMovements';
 import { computeCurrencyBreakdown, vesToUsd } from '@/lib/cashCurrencyBreakdown';
 import CurrencyBreakdownTable from '@/components/cashregister/CurrencyBreakdownTable';
+import HistoricalSaleButton from '@/components/cashregister/HistoricalSaleButton';
 
 export default function CashRegister() {
   const { isAdmin } = useRole();
@@ -394,6 +395,7 @@ export default function CashRegister() {
                 <Wallet className="h-4 w-4 mr-2" /> Editar fondo inicial
               </Button>
             )}
+            {isAdmin && <HistoricalSaleButton />}
             <Button variant="outline" onClick={printToday}>
               <Printer className="h-4 w-4 mr-2" /> Imprimir Reporte
             </Button>
