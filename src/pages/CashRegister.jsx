@@ -74,8 +74,8 @@ export default function CashRegister() {
   });
 
   const { data: trays = [] } = useQuery({
-    queryKey: ['trays'],
-    queryFn: () => base44.entities.Tray.list('-created_date', 50),
+    queryKey: ['trays', 'active'],
+    queryFn: () => base44.entities.Tray.filter({ status: 'activa' }, '-created_date', 1000),
   });
 
   const { data: recipes = [] } = useQuery({
