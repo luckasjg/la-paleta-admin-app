@@ -41,6 +41,13 @@ export function buildMonthRows(expenses, year, month) {
   return rows;
 }
 
+/** Sum of variable expenses for a given month (real + active recurring). */
+export function getVariableExpensesForMonth(expenses, year, month) {
+  return buildMonthRows(expenses, year, month)
+    .filter(r => r.expense.type === 'variable')
+    .reduce((s, r) => s + (r.expense.amount || 0), 0);
+}
+
 /** Sum of fixed expenses for a given month (real + active recurring). */
 export function getFixedExpensesForMonth(expenses, year, month) {
   return buildMonthRows(expenses, year, month)

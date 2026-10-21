@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Target, Info, Sparkles, CheckCircle2, AlertCircle, ExternalLink } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
-import { getFixedExpensesForMonth } from '@/lib/expenseProjections';
+import { getFixedExpensesForMonth, getVariableExpensesForMonth } from '@/lib/expenseProjections';
 import { useAverageMargin } from '@/lib/useAverageMargin';
 import { ExpandButton } from '@/components/dashboard/ExpandableCard';
 
@@ -17,7 +17,9 @@ export default function BreakEvenPanel({ year, month, monthlySales, recipes, pro
   const fixedExpenses = getFixedExpensesForMonth(expenses, year, month);
   const marginInfo = useAverageMargin({ recipes, products, supplies, fixedServiceCosts: 0 });
   const marginPct = marginInfo.marginPct;
-  const marginRatio = Math.max(0.01, Math.min(0.99, marginPct / 100));
+  const variableExpenses = getVariableExpensesForMonth(expenses, year, month);
+  const variableRatio = monthlySales > 0 ? Math.min(0.98, variableExpenses / monthlySales) : 0;
+  const marginRatio = Math.max(0.01, Math.min(0.99, marginPct / 100 - variableRatio));
 
   const breakevenRevenue = fixedExpenses > 0 ? fixedExpenses / marginRatio : 0;
   const progressPct = breakevenRevenue > 0 ? Math.min(100, (monthlySales / breakevenRevenue) * 100) : 0;
@@ -46,7 +48,7 @@ export default function BreakEvenPanel({ year, month, monthlySales, recipes, pro
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           <div className="rounded-lg bg-secondary/60 p-2.5">
             <p className="text-[10px] text-muted-foreground">Gastos Fijos</p>
             <p className="text-base font-bold font-mono">${fixedExpenses.toFixed(2)}</p>
@@ -59,6 +61,11 @@ export default function BreakEvenPanel({ year, month, monthlySales, recipes, pro
             <p className={`text-base font-bold font-mono ${marginInfo.usingFallback ? 'text-amber-700' : 'text-emerald-700'}`}>
               {marginPct.toFixed(1)}%
             </p>
+          </div>
+          <div className="rounded-lg bg-secondary/60 p-2.5" title={`Gastos variables: $${variableExpenses.toFixed(2)}`}>
+            <p className="text-[10px] text-muted-foreground">Variables / ventas</p>
+            <p className="text-base font-bold font-mono">{(variableRatio * 100).toFixed(1)}%</p>
+            <p className="text-[9px] text-muted-foreground">Margen neto {(marginRatio * 100).toFixed(1)}%</p>
           </div>
           <div className="rounded-lg bg-primary/5 border border-primary/20 p-2.5">
             <p className="text-[10px] text-muted-foreground">Equilibrio</p>
