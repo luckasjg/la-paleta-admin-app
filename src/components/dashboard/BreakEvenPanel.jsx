@@ -19,7 +19,9 @@ export default function BreakEvenPanel({ year, month, monthlySales, recipes, pro
   const marginInfo = useAverageMargin({ recipes, products, supplies, fixedServiceCosts: 0 });
   const marginPct = marginInfo.marginPct;
   const variableExpenses = getVariableExpensesForMonth(expenses, year, month);
-  const { variableRatio, marginRatio, breakevenRevenue } = computeBreakEven({ fixedExpenses, variableExpenses, monthlySales, marginPct });
+  const variableRatio = monthlySales > 0 ? variableExpenses / monthlySales : 0;
+  const realMarginPct = monthlySales > 0 ? ((monthlySales - variableExpenses) / monthlySales) * 100 : 0;
+  const { marginRatio, breakevenRevenue } = computeBreakEven({ fixedExpenses, monthlySales, marginPct: realMarginPct });
   const progressPct = breakevenRevenue > 0 ? Math.min(100, (monthlySales / breakevenRevenue) * 100) : 0;
   const reached = monthlySales >= breakevenRevenue && breakevenRevenue > 0;
   const missing = Math.max(0, breakevenRevenue - monthlySales);

@@ -132,7 +132,8 @@ export function FinancialDetail({ analytics, monthLabel, grossRevenue, cogs, pre
 
 /** Punto de equilibrio: progreso, gastos fijos por categoría y metas diarias. */
 export function BreakEvenDetail({ monthLabel, fixedExpenses, variableExpenses = 0, expenseRows, marginInfo, monthlySales, daysInMonth, activeDays }) {
-  const { breakevenRevenue } = computeBreakEven({ fixedExpenses, variableExpenses, monthlySales, marginPct: marginInfo.marginPct });
+  const realMarginPct = monthlySales > 0 ? ((monthlySales - variableExpenses) / monthlySales) * 100 : 0;
+  const { breakevenRevenue } = computeBreakEven({ fixedExpenses, monthlySales, marginPct: realMarginPct });
   const missing = Math.max(0, breakevenRevenue - monthlySales);
   const surplus = Math.max(0, monthlySales - breakevenRevenue);
   const progressPct = breakevenRevenue > 0 ? (monthlySales / breakevenRevenue) * 100 : 0;
