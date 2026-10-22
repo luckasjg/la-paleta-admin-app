@@ -121,6 +121,10 @@ export default function ExpensesManager() {
 
   // ── Average margin from Profitability Matrix logic ──
   const marginInfo = useAverageMargin({ recipes, products, supplies, fixedServiceCosts: 0 });
+  const realMarginPct = useMemo(
+    () => (monthlySales <= 0 ? 0 : ((monthlySales - variableTotal) / monthlySales) * 100),
+    [monthlySales, variableTotal]
+  );
 
   // ── Category usage count (across ALL expenses, all months) ──
   const categoryUsage = (catName) => expenses.filter(e => e.category === catName).length;
@@ -213,8 +217,7 @@ export default function ExpensesManager() {
       {/* Breakeven analysis */}
       <BreakevenAnalysis
         fixedExpenses={fixedTotal}
-        variableExpenses={monthRows.filter(r => r.expense.type === 'variable').reduce((s, r) => s + (r.expense.amount || 0), 0)}
-        marginPct={marginInfo.marginPct}
+        marginPct={realMarginPct}
         marginInfo={marginInfo}
         monthlySales={monthlySales}
         monthLabel={monthLabel}
