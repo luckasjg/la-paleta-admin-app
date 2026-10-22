@@ -28,6 +28,7 @@ export default function ExpensesManager() {
   const [month, setMonth] = useState(moment().month());
   const [typeFilter, setTypeFilter] = useState('all');
   const [search, setSearch] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('all');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [categoriesOpen, setCategoriesOpen] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -92,10 +93,16 @@ export default function ExpensesManager() {
   const filteredRows = useMemo(() => {
     return monthRows.filter(r => {
       if (typeFilter !== 'all' && r.expense.type !== typeFilter) return false;
+      if (categoryFilter !== 'all' && r.expense.category !== categoryFilter) return false;
       if (search && !r.expense.description.toLowerCase().includes(search.toLowerCase())) return false;
       return true;
     });
-  }, [monthRows, typeFilter, search]);
+  }, [monthRows, typeFilter, categoryFilter, search]);
+
+  const monthCategories = useMemo(
+    () => [...new Set(monthRows.map(r => r.expense.category).filter(Boolean))].sort(),
+    [monthRows]
+  );
 
   // ── Aggregates for the month ──
   const fixedTotal = useMemo(
@@ -241,6 +248,13 @@ export default function ExpensesManager() {
                 onChange={e => setSearch(e.target.value)}
                 className="h-8 w-48 text-sm"
               />
+              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                <SelectTrigger className="h-8 w-44 text-sm"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas las categorías</SelectItem>
+                  {monthCategories.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                </SelectContent>
+              </Select>
               <Select value={typeFilter} onValueChange={setTypeFilter}>
                 <SelectTrigger className="h-8 w-32 text-sm"><SelectValue /></SelectTrigger>
                 <SelectContent>
