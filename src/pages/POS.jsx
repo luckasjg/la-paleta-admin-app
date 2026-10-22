@@ -914,9 +914,9 @@ export default function POS() {
 
       {/* Flavor selection dialog */}
       <Dialog open={!!flavorDialog} onOpenChange={() => setFlavorDialog(null)}>
-        <DialogContent className="max-w-sm">
+        <DialogContent className="w-[calc(100%-2rem)] max-w-md grid-cols-1 [&>*]:min-w-0 overflow-hidden">
           <DialogHeader>
-            <DialogTitle>
+            <DialogTitle className="pr-6 break-words">
               Seleccionar Sabor — {flavorDialog?.name}
               <p className="text-sm font-normal text-muted-foreground mt-0.5">{targetGrams}g en total</p>
             </DialogTitle>
