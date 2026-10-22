@@ -107,13 +107,18 @@ export default async function (req: Request): Promise<Response> {
     // Deduplicación por fecha + monto + descripción
     const dates = [...new Set(candidates.map((x) => x.date))];
     const existing = dates.length ? await db.Expense.filter({ date: { $in: dates } }, '-date', 5000) : [];
+    // Además de fecha+monto+descripción, se identifica cada fila por su hoja y número de fila
+    // (el monto convertido cambia con la tasa y no sirve solo)
+    const srcOf = (notes) => (String(notes || '').match(/Hoja: (.+? fila \d+)/) || [])[1];
     const seen = new Set(existing.map((e) => keyOf(e.date, e.amount, e.description)));
+    const seenSrc = new Set(existing.map((e) => srcOf(e.notes) && `${srcOf(e.notes)}|${norm(e.description)}`).filter(Boolean));
     const fresh = [];
     let duplicates = 0;
     for (const x of candidates) {
       const k = keyOf(x.date, x.amount, x.description);
-      if (seen.has(k)) { duplicates++; continue; }
-      seen.add(k); fresh.push(x);
+      const s = `${x.tab} fila ${x.row}|${norm(x.description)}`;
+      if (seen.has(k) || seenSrc.has(s)) { duplicates++; continue; }
+      seen.add(k); seenSrc.add(s); fresh.push(x);
     }
 
     // El agente IA clasifica categoría/tipo y descarta lo que no es gasto
