@@ -59,7 +59,7 @@ export default function BreakEvenPanel({ year, month, monthlySales, recipes, pro
               <p className="text-[10px] text-muted-foreground">Margen</p>
             </div>
             <p className={`text-base font-bold font-mono ${marginInfo.usingFallback ? 'text-amber-700' : 'text-emerald-700'}`}>
-              {marginPct.toFixed(1)}%
+              {realMarginPct.toFixed(1)}%
             </p>
           </div>
           <div className="rounded-lg bg-secondary/60 p-2.5" title={`Gastos variables: $${variableExpenses.toFixed(2)}`}>

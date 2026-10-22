@@ -111,7 +111,7 @@ export default function ExpensesManager() {
 
   const monthlySales = useMemo(() => sales
     .filter(s => {
-      if (!s.sale_date) return false;
+      if (!s.sale_date || s.status === 'voided') return false;
       const d = moment(s.sale_date);
       return d.year() === year && d.month() === month;
     })
