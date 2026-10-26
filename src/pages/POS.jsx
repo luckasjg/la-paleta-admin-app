@@ -789,10 +789,10 @@ export default function POS() {
         <div className="flex-1 overflow-y-auto p-3 space-y-2 min-h-0">
           <StaffBenefitSelector staff={bonusStaff} onChange={setBonusStaff} balance={bonusBalance} />
           {pricedCart.map((item, idx) => (
-            <div key={idx} className={`flex items-center gap-2 p-2 rounded-lg transition-colors ${item.is_courtesy ? 'bg-amber-50 border border-amber-200' : 'bg-secondary/50'}`}>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-1.5">
-                  <p className="text-sm font-medium truncate">{item.product_name}</p>
+            <div key={idx} className={`flex flex-col gap-1.5 p-2 rounded-lg transition-colors ${item.is_courtesy ? 'bg-amber-50 border border-amber-200' : 'bg-secondary/50'}`}>
+              <div className="min-w-0">
+                <div className="flex items-start gap-1.5">
+                  <p className="text-sm font-medium leading-snug break-words">{item.product_name}</p>
                   {item.is_courtesy && <Gift className="h-3.5 w-3.5 text-amber-500 flex-shrink-0" />}
                 </div>
                 {item.flavor && <p className="text-xs text-muted-foreground">{item.flavor} · {item.grams}g</p>}
@@ -812,6 +812,7 @@ export default function POS() {
                 {item.is_courtesy && <p className="text-xs text-amber-600 font-medium">{item.staff_unlimited ? 'Cortesía · colaborador ilimitado' : item.bonus_free_qty ? 'Cortesía · bono colaborador' : 'Cortesía'}</p>}
                 {item.staff_discount && <p className="text-xs text-primary font-medium">{item.bonus_free_qty ? `${item.bonus_free_qty} de bono · ` : ''}{item.bonus_amount_usd > 0 ? `${formatEUR(toEur(item.bonus_amount_usd))} de bono · ` : ''}resto con {bonusStaff?.discount_percentage}% dto.</p>}
               </div>
+              <div className="flex items-center gap-2">
               <div className="flex items-center gap-1">
                 <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => updateQty(idx, -1)}>
                   <Minus className="h-3 w-3" />
@@ -821,11 +822,11 @@ export default function POS() {
                   <Plus className="h-3 w-3" />
                 </Button>
               </div>
-              <div className={`w-20 text-right ${item.is_courtesy ? 'text-amber-600' : ''}`}>
+              <div className={`flex-1 text-right ${item.is_courtesy ? 'text-amber-600' : ''}`}>
                 <div className="text-sm font-semibold">{formatEUR(toEur(item.subtotal))}</div>
                 <div className="text-[10px] text-muted-foreground font-mono">{formatVES(toEur(item.subtotal) * eurVes)}</div>
               </div>
-              <div className="flex flex-col gap-0.5">
+              <div className="flex gap-0.5">
                 <Button
                   variant="ghost" size="icon" className={`h-6 w-6 ${item.is_courtesy ? 'text-amber-500' : 'text-muted-foreground'}`}
                   title={item.is_courtesy ? 'Quitar cortesía' : 'Marcar como cortesía'}
@@ -836,6 +837,7 @@ export default function POS() {
                 <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => removeItem(idx)}>
                   <Trash2 className="h-3 w-3" />
                 </Button>
+              </div>
               </div>
             </div>
           ))}
