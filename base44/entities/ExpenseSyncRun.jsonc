@@ -53,6 +53,30 @@
           },
           "reason": {
             "type": "string"
+          },
+          "date": {
+            "type": "string"
+          },
+          "concepto": {
+            "type": "string"
+          },
+          "monto": {
+            "type": "number"
+          },
+          "tasa": {
+            "type": "number"
+          },
+          "is_usd": {
+            "type": "boolean"
+          },
+          "cuenta": {
+            "type": "string"
+          },
+          "responsable": {
+            "type": "string"
+          },
+          "approved": {
+            "type": "boolean"
           }
         }
       }

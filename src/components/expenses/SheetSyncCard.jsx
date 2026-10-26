@@ -4,13 +4,15 @@ import { base44 } from '@/api/base44Client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { FileSpreadsheet, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react';
+import { FileSpreadsheet, RefreshCw, ChevronDown, ChevronUp, Check } from 'lucide-react';
+import ReviewApproveDialog from '@/components/expenses/ReviewApproveDialog';
 import { toast } from 'sonner';
 import moment from 'moment';
 
 export default function SheetSyncCard() {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
+  const [approving, setApproving] = useState(null);
   const { data: last } = useQuery({
     queryKey: ['expense_sync_runs'],
     queryFn: async () => (await base44.entities.ExpenseSyncRun.list('-run_at', 1))[0] || null,
@@ -56,12 +58,21 @@ export default function SheetSyncCard() {
         {open && last?.review_rows?.length > 0 && (
           <div className="max-h-64 overflow-y-auto border rounded-md divide-y text-xs">
             {last.review_rows.map((r, i) => (
-              <div key={i} className="p-2">
-                <span className="font-medium">{r.tab} · fila {r.row}:</span> {r.text}
-                <div className="text-amber-700">{r.reason}</div>
+              <div key={i} className="p-2 flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <span className="font-medium">{r.tab} · fila {r.row}:</span> {r.text}
+                  {/vuelto/i.test(`${r.text} ${r.concepto || ''}`) && <Badge className="ml-2 bg-blue-100 text-blue-700">Vuelto</Badge>}
+                  <div className="text-amber-700">{r.reason}</div>
+                </div>
+                {r.approved
+                  ? <Badge className="bg-green-100 text-green-700 shrink-0"><Check className="h-3 w-3 mr-1" />Aprobado</Badge>
+                  : <Button size="sm" variant="outline" className="h-7 shrink-0" onClick={() => setApproving(i)}>Aprobar</Button>}
               </div>
             ))}
           </div>
+        )}
+        {approving !== null && (
+          <ReviewApproveDialog run={last} index={approving} onClose={() => setApproving(null)} />
         )}
       </CardContent>
     </Card>

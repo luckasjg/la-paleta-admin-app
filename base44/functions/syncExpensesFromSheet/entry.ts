@@ -81,7 +81,7 @@ export default async function (req: Request): Promise<Response> {
         }
         const monto = parseNum(montoRaw);
         if (!concepto || !Number.isFinite(monto) || monto <= 0) {
-          review.push({ tab, row: i + 1, text, reason: 'Falta concepto o monto válido' });
+          review.push({ tab, row: i + 1, text, reason: 'Falta concepto o monto válido', date: lastDate, concepto, monto: Number.isFinite(monto) ? monto : null, tasa: parseNum(r[c.tasa]) || null, is_usd: USD_ACCOUNTS.test(String(r[c.cuenta] || '')) });
           continue;
         }
         const cuenta = String(r[c.cuenta] || '').trim();
@@ -93,11 +93,12 @@ export default async function (req: Request): Promise<Response> {
         else if (appRate > 0) { amount = monto / appRate; trail = `Original: ${monto} Bs | Tasa Euro BCV app: ${appRate}`; }
         else if (Number.isFinite(tasa) && tasa > 0) { amount = monto / tasa; trail = `Original: ${monto} Bs | Tasa hoja: ${tasa}`; }
         else if (Number.isFinite(usdCol) && usdCol > 0) { amount = usdCol; trail = `Original: ${monto} Bs | USD según hoja`; }
-        else { review.push({ tab, row: i + 1, text, reason: 'Sin tasa para convertir Bs' }); continue; }
+        else { review.push({ tab, row: i + 1, text, reason: 'Sin tasa para convertir Bs', date: lastDate, concepto, monto, is_usd: false }); continue; }
         amount = Math.round(amount * 100) / 100;
         const extra = [r[c.detalle], r[c.desc]].map((x) => String(x || '').trim()).filter((x) => x && x !== '$').join(' · ');
         candidates.push({
           tab, row: i + 1, text, date: lastDate, amount, description: concepto.slice(0, 200), cuenta,
+          monto, tasa: Number.isFinite(tasa) && tasa > 0 ? tasa : null, is_usd: isUsd,
           responsable: String(r[c.resp] || '').trim(),
           notes: [`Cuenta: ${cuenta || '—'}`, extra, trail, `Hoja: ${tab} fila ${i + 1}`].filter(Boolean).join(' | '),
         });
@@ -145,8 +146,9 @@ ${chunk.map((x, j) => `${j}. ${x.description} | ${x.notes}`).join('\n')}`,
         for (const it of res.items || []) {
           const x = chunk[it.index];
           if (!x) continue;
-          if (it.is_expense === false) { review.push({ tab: x.tab, row: x.row, text: x.text, reason: `No parece gasto: ${it.reason || ''}` }); continue; }
-          if (!cats.includes(it.category)) { review.push({ tab: x.tab, row: x.row, text: x.text, reason: 'No se pudo asignar categoría' }); continue; }
+          const info = { tab: x.tab, row: x.row, text: x.text, date: x.date, concepto: x.description, monto: x.monto, tasa: x.tasa, is_usd: x.is_usd, cuenta: x.cuenta, responsable: x.responsable };
+          if (it.is_expense === false) { review.push({ ...info, reason: `No parece gasto: ${it.reason || ''}` }); continue; }
+          if (!cats.includes(it.category)) { review.push({ ...info, reason: 'No se pudo asignar categoría' }); continue; }
           out.push({
             description: x.description, amount: x.amount, category: it.category,
             type: it.type === 'fijo' ? 'fijo' : 'variable', date: x.date,
