@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { loadRates, RATES_QUERY_KEY } from '@/lib/useExchangeRate';
+import { findHistoricalEurRate } from '@/lib/historicalRate';
 import { useExpenseCategories } from '@/lib/useExpenseCategories';
 
 const isVuelto = (r) => /vuelto/i.test(`${r.text} ${r.concepto || ''}`);
@@ -16,7 +16,7 @@ export default function ReviewApproveDialog({ run, index, onClose }) {
   const qc = useQueryClient();
   const row = run.review_rows[index];
   const { categories } = useExpenseCategories();
-  const { data: rates } = useQuery({ queryKey: RATES_QUERY_KEY, queryFn: loadRates });
+
   const [f, setF] = useState({
     date: row.date || new Date().toISOString().slice(0, 10),
     description: row.concepto || (isVuelto(row) ? 'Vuelto' : ''),
@@ -29,9 +29,14 @@ export default function ReviewApproveDialog({ run, index, onClose }) {
   const [saving, setSaving] = useState(false);
   const set = (k) => (v) => setF((p) => ({ ...p, [k]: v?.target ? v.target.value : v }));
 
-  // Tasa mixta: la de la fila si existe; si no, la vigente de la app
-  const rate = Number(f.tasa) > 0 ? Number(f.tasa) : rates?.eurVes || 0;
-  const rateSource = Number(f.tasa) > 0 ? 'tasa de la hoja' : 'tasa vigente de la app';
+  const { data: hist, isFetching: histLoading } = useQuery({
+    queryKey: ['historical_eur_rate', f.date],
+    queryFn: () => findHistoricalEurRate(f.date),
+    enabled: f.currency === 'VES',
+  });
+  // Prioridad: tasa original de la fila; si no, tasa histórica EUR de esa fecha. Nunca la tasa actual.
+  const rate = Number(f.tasa) > 0 ? Number(f.tasa) : hist?.rate || 0;
+  const rateSource = Number(f.tasa) > 0 ? 'tasa de la hoja' : hist ? `tasa EUR del ${hist.date}` : 'sin tasa histórica';
   const monto = Number(f.monto);
   const amount = f.currency === 'VES' ? (rate > 0 ? monto / rate : 0) : monto;
   const cats = categories?.[f.type] || [];
@@ -82,13 +87,16 @@ export default function ReviewApproveDialog({ run, index, onClose }) {
           </div>
           {f.currency === 'VES' && (
             <div className="col-span-2"><Label>Tasa de la hoja (opcional)</Label>
-              <Input type="number" step="0.01" value={f.tasa} onChange={set('tasa')} placeholder={`Vigente app: ${rates?.eurVes || '—'}`} />
+              <Input type="number" step="0.01" value={f.tasa} onChange={set('tasa')} placeholder={histLoading ? 'Buscando tasa del día…' : hist ? `Histórica: ${hist.rate}` : 'Sin tasa histórica'} />
             </div>
           )}
         </div>
         <div className="text-sm rounded-md border p-2">
           Gasto: <strong>€{amount.toFixed(2)}</strong>
-          {f.currency === 'VES' && <span className="text-xs text-muted-foreground"> · {rateSource} {rate}</span>}
+          {f.currency === 'VES' && <span className="text-xs text-muted-foreground"> · {rateSource} {rate || ''}</span>}
+          {f.currency === 'VES' && !rate && !histLoading && (
+            <div className="text-xs text-amber-700 mt-1">No hay tasa para esa fecha. Escribe la tasa de la hoja o deja la fila pendiente.</div>
+          )}
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={onClose}>Cancelar</Button>
