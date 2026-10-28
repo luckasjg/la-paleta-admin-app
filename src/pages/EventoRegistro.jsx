@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
 // Reemplazar por la URL real del perfil de la heladería.
-const INSTAGRAM_URL = 'https://www.instagram.com/';
+const INSTAGRAM_URL = 'https://www.instagram.com/lapaletacafe';
 
 export default function EventoRegistro() {
   const [f, setF] = useState({ full_name: '', phone: '', instagram: '' });
