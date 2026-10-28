@@ -1,9 +1,12 @@
 import React, { useState } from 'react';
-import { IceCream, Check } from 'lucide-react';
+import { IceCream, Check, Instagram } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+
+// Reemplazar por la URL real del perfil de la heladería.
+const INSTAGRAM_URL = 'https://www.instagram.com/';
 
 export default function EventoRegistro() {
   const [f, setF] = useState({ full_name: '', phone: '', instagram: '' });
@@ -37,6 +40,12 @@ export default function EventoRegistro() {
             <Check className="h-10 w-10 mx-auto text-primary" />
             <p className="font-semibold text-lg">¡Listo, {f.full_name.split(' ')[0]}!</p>
             <p className="text-sm text-muted-foreground">Muestra tu nombre en el stand para recibir tu helado.</p>
+            <div className="pt-4 mt-2 border-t space-y-3">
+              <p className="text-sm font-medium">Último paso: síguenos en Instagram</p>
+              <Button asChild className="w-full">
+                <a href={INSTAGRAM_URL} target="_blank" rel="noopener noreferrer"><Instagram className="h-4 w-4" /> Seguir en Instagram</a>
+              </Button>
+            </div>
           </div>
         ) : (
           <form onSubmit={submit} className="rounded-2xl border bg-card p-6 space-y-4">
