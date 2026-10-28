@@ -12,14 +12,20 @@
       "type": "string",
       "description": "Nombre del bono, ej. Cup\u00f3n de bienvenida"
     },
+    "benefit": {
+      "type": "string",
+      "description": "Beneficio concreto que recibe el cliente, ej. 1 helado peque\u00f1o gratis"
+    },
     "description": {
-      "type": "string"
+      "type": "string",
+      "description": "Condiciones o c\u00f3mo usarlo"
     },
     "status": {
       "type": "string",
       "enum": [
         "activo",
-        "canjeado"
+        "canjeado",
+        "anulado"
       ],
       "default": "activo"
     },
@@ -32,6 +38,16 @@
       "format": "date-time"
     },
     "redeemed_by": {
+      "type": "string"
+    },
+    "voided_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "voided_by": {
+      "type": "string"
+    },
+    "void_reason": {
       "type": "string"
     }
   },
