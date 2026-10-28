@@ -38,6 +38,7 @@ import TVSabores from '@/pages/TVSabores.jsx';
 import TVEspeciales from '@/pages/TVEspeciales.jsx';
 import TVCafeMerengadas from '@/pages/TVCafeMerengadas.jsx';
 import MenuMovil from '@/pages/MenuMovil.jsx';
+import EventoRegistro from '@/pages/EventoRegistro.jsx';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings } = useAuth();
@@ -61,6 +62,7 @@ const AuthenticatedApp = () => {
       <Route path="/tv/especiales" element={<TVEspeciales />} />
       <Route path="/tv/cafe-merengadas" element={<TVCafeMerengadas />} />
       <Route path="/menu-movil" element={<MenuMovil />} />
+      <Route path="/evento" element={<EventoRegistro />} />
 
       {/* Páginas de autenticación — públicas */}
       <Route path="/login" element={<Login />} />

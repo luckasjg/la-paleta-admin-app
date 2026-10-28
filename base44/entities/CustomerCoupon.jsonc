@@ -1,0 +1,75 @@
+{
+  "name": "CustomerCoupon",
+  "type": "object",
+  "properties": {
+    "customer_id": {
+      "type": "string"
+    },
+    "customer_name": {
+      "type": "string"
+    },
+    "title": {
+      "type": "string",
+      "description": "Nombre del bono, ej. Cup\u00f3n de bienvenida"
+    },
+    "description": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "activo",
+        "canjeado"
+      ],
+      "default": "activo"
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date"
+    },
+    "redeemed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "redeemed_by": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "customer_id",
+    "title",
+    "status"
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "gerente"
+          }
+        }
+      ]
+    },
+    "read": {},
+    "update": {},
+    "delete": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "gerente"
+          }
+        }
+      ]
+    }
+  }
+}

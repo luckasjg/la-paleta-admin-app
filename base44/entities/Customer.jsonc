@@ -17,6 +17,10 @@
     "email": {
       "type": "string"
     },
+    "instagram": {
+      "type": "string",
+      "description": "Usuario de Instagram (sin @)"
+    },
     "is_registered": {
       "type": "boolean",
       "default": true,
@@ -26,6 +30,29 @@
       "type": "number",
       "default": 0,
       "description": "L\u00edmite de cr\u00e9dito en USD base. 0 = sin l\u00edmite"
+    },
+    "category": {
+      "type": "string",
+      "description": "Origen del cliente, ej. Evento"
+    },
+    "event_status": {
+      "type": "string",
+      "enum": [
+        "pendiente",
+        "canjeado"
+      ],
+      "description": "Estado del helado de regalo del evento"
+    },
+    "event_registered_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "event_redeemed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "event_redeemed_by": {
+      "type": "string"
     },
     "notes": {
       "type": "string"
