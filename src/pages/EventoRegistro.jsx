@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 const INSTAGRAM_URL = 'https://www.instagram.com/lapaletacafe';
 
 export default function EventoRegistro() {
-  const [f, setF] = useState({ full_name: '', phone: '', instagram: '' });
+  const [f, setF] = useState({ full_name: '', cedula: '', phone: '', instagram: '' });
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState('');
@@ -50,6 +50,7 @@ export default function EventoRegistro() {
         ) : (
           <form onSubmit={submit} className="rounded-2xl border bg-card p-6 space-y-4">
             <div className="space-y-1.5"><Label>Nombre</Label><Input required value={f.full_name} onChange={set('full_name')} /></div>
+            <div className="space-y-1.5"><Label>Cédula de identidad</Label><Input required inputMode="numeric" placeholder="V12345678" value={f.cedula} onChange={set('cedula')} /></div>
             <div className="space-y-1.5"><Label>Teléfono</Label><Input required type="tel" placeholder="0414 1234567" value={f.phone} onChange={set('phone')} /></div>
             <div className="space-y-1.5"><Label>Instagram</Label><Input placeholder="@usuario" value={f.instagram} onChange={set('instagram')} /></div>
             {error && <p className="text-sm text-destructive">{error}</p>}

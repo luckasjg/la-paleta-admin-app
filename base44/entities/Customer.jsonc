@@ -10,6 +10,10 @@
       "type": "string",
       "description": "Tel\u00e9fono de contacto (identificador para volver a entrar)"
     },
+    "cedula": {
+      "type": "string",
+      "description": "C\u00e9dula de identidad"
+    },
     "address": {
       "type": "string",
       "description": "Direcci\u00f3n para delivery"
