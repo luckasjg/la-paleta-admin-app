@@ -53,21 +53,21 @@ export default function EventoRegistro() {
               </div>
               <form onSubmit={submit} className="space-y-3.5">
                 <EventoField label="Nombre y apellido" hint="requerido">
-                  <input required className={`${fieldInput} rounded-xl`} placeholder="Ej. Valentina Rodríguez" value={f.full_name} onChange={set('full_name')} />
+                  <input required className={`${fieldInput} rounded-xl`} value={f.full_name} onChange={set('full_name')} />
                 </EventoField>
                 <EventoField label="Cédula de identidad" hint="para validar en stand">
                   <select value={f.tipo} onChange={set('tipo')} className="rounded-l-xl border border-r-0 border-[#F2E8D8] bg-[#F2E8D8]/60 px-3 text-xs font-bold text-[#5A121A] focus:outline-none">
                     <option value="V">V-</option><option value="E">E-</option>
                   </select>
-                  <input required inputMode="numeric" className={`${fieldInput} rounded-r-xl font-mono tracking-wider`} placeholder="24.891.302" value={f.cedula}
+                  <input required inputMode="numeric" className={`${fieldInput} rounded-r-xl font-mono tracking-wider`} value={f.cedula}
                     onChange={set('cedula', (v) => { const d = v.replace(/\D/g, '').slice(0, 8); return d ? new Intl.NumberFormat('de-DE').format(d) : ''; })} />
                 </EventoField>
                 <EventoField label="Teléfono / WhatsApp" hint="para tus puntos" prefix="+58">
-                  <input required type="tel" inputMode="numeric" className={`${fieldInput} rounded-r-xl`} placeholder="0414 1234567" value={f.phone}
+                  <input required type="tel" inputMode="numeric" className={`${fieldInput} rounded-r-xl`} value={f.phone}
                     onChange={set('phone', (v) => { const d = v.replace(/\D/g, '').slice(0, 11); return d.length > 4 ? `${d.slice(0, 4)} ${d.slice(4)}` : d; })} />
                 </EventoField>
                 <EventoField label="Instagram" hint="para verificar seguimiento" prefix="@">
-                  <input required className={`${fieldInput} rounded-r-xl`} placeholder="usuario" value={f.instagram}
+                  <input required className={`${fieldInput} rounded-r-xl`} value={f.instagram}
                     onChange={set('instagram', (v) => v.replace(/^@/, '').replace(/[^a-zA-Z0-9._]/g, ''))} />
                 </EventoField>
                 {error && <p className="text-sm text-destructive">{error}</p>}
