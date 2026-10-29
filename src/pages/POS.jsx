@@ -27,6 +27,7 @@ import RegisterOpenGate from '@/components/pos/RegisterOpenGate';
 import PosTabs from '@/components/pos/PosTabs';
 import RefundQueue from '@/components/pos/RefundQueue';
 import OrderTicket from '@/components/pos/OrderTicket';
+import CustomerIdentifyGate from '@/components/pos/CustomerIdentifyGate';
 import PrintRelayBadge from '@/components/pos/PrintRelayBadge';
 import { printComanda, usePrintRelay } from '@/lib/printRelay';
 import { getActiveSession, setActiveSession, clearActiveSession } from '@/lib/cashSession';
@@ -48,6 +49,7 @@ import {
 
 export default function POS() {
   const [cart, setCart] = useState([]);
+  const [saleCustomer, setSaleCustomer] = useState(null);
   const [bonusStaff, setBonusStaff] = useState(null);
   const { data: bonusBalance } = useQuery({
     queryKey: ['staff_bonus_balance', bonusStaff?.id],
@@ -537,6 +539,7 @@ export default function POS() {
       }
 
       const sale = await base44.entities.Sale.create({
+        ...(saleCustomer && !saleCustomer.none ? { customer_id: saleCustomer.id, customer_name: saleCustomer.full_name, customer_cedula: saleCustomer.cedula } : {}),
         ...(bonusStaff ? { benefit_staff_id: bonusStaff.id, benefit_staff_name: bonusStaff.full_name } : {}),
         items: pricedCart.map(i => ({
           ...i,
@@ -623,6 +626,7 @@ export default function POS() {
       qc.invalidateQueries({ queryKey: ['refund_requests'] });
       setLinkedOrder(null);
       setCart([]);
+      setSaleCustomer(null);
       setBonusStaff(null);
       qc.invalidateQueries({ queryKey: ['staff_bonus_balance'] });
       clearPosDraft();
@@ -672,9 +676,24 @@ export default function POS() {
     );
   }
 
+  if (!saleCustomer && cart.length === 0 && !linkedOrder) {
+    return (
+      <>
+        <PosTabs value={posTab} onChange={setPosTab} pendingRefunds={pendingRefundsCount} />
+        <CustomerIdentifyGate onDone={setSaleCustomer} />
+      </>
+    );
+  }
+
   return (
     <>
     <PosTabs value={posTab} onChange={setPosTab} pendingRefunds={pendingRefundsCount} />
+    <div className="mt-3 flex items-center gap-2 text-sm">
+      <Badge variant={saleCustomer?.none ? 'outline' : 'secondary'}>
+        {saleCustomer && !saleCustomer.none ? `Cliente: ${saleCustomer.full_name} · V-${saleCustomer.cedula}` : 'Venta sin datos de cliente'}
+      </Badge>
+      <button type="button" className="text-xs underline text-muted-foreground" onClick={() => setSaleCustomer(null)}>Cambiar</button>
+    </div>
     <div className="flex flex-col md:flex-row gap-3 lg:gap-4 h-[calc(100vh-8rem)] mt-3">
       {/* Product Grid */}
       <div className="flex-1 flex flex-col min-h-0">

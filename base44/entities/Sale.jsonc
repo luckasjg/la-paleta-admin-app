@@ -307,6 +307,16 @@
     },
     "benefit_staff_name": {
       "type": "string"
+    },
+    "customer_id": {
+      "type": "string",
+      "description": "Cliente identificado en el POS (por c\u00e9dula)"
+    },
+    "customer_name": {
+      "type": "string"
+    },
+    "customer_cedula": {
+      "type": "string"
     }
   },
   "required": [
