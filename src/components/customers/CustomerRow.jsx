@@ -14,7 +14,7 @@ export default function CustomerRow({ c, onOpen, onEdit, onDelete, onRedeem }) {
       <div className="flex-1 min-w-0">
         <p className="font-medium truncate">{c.full_name}</p>
         <p className="text-xs text-muted-foreground truncate flex items-center gap-1">
-          {c.phone}
+          {c.cedula ? `C.I. ${c.cedula} · ` : ''}{c.phone}
           {c.instagram && <><span>·</span><Instagram className="h-3 w-3" />@{c.instagram}</>}
         </p>
       </div>

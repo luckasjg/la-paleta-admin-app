@@ -20,7 +20,7 @@ export default function CustomerDetailSheet({ customer, onOpenChange }) {
         {customer && <>
           <SheetHeader className="text-left">
             <SheetTitle>{customer.full_name}</SheetTitle>
-            <p className="text-sm text-muted-foreground">{customer.phone}{customer.instagram ? ` · @${customer.instagram}` : ''}</p>
+            <p className="text-sm text-muted-foreground">{customer.cedula ? `C.I. ${customer.cedula} · ` : ''}{customer.phone}{customer.instagram ? ` · @${customer.instagram}` : ''}</p>
           </SheetHeader>
           <Tabs defaultValue="historial" className="mt-6">
             <TabsList className="grid grid-cols-3 w-full">

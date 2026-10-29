@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { base44 } from '@/api/base44Client';
 
-const EMPTY = { full_name: '', phone: '', address: '', email: '', credit_limit: 0, notes: '' };
+const EMPTY = { full_name: '', phone: '', cedula: '', address: '', email: '', credit_limit: 0, notes: '' };
 
 export default function CustomerForm({ open, onOpenChange, customer, onSaved }) {
   const [form, setForm] = useState(EMPTY);
@@ -19,7 +19,7 @@ export default function CustomerForm({ open, onOpenChange, customer, onSaved }) 
     if (!form.full_name.trim() || !form.phone.trim()) return setError('Nombre y teléfono son obligatorios');
     setSaving(true);
     try {
-      const data = { full_name: form.full_name.trim(), phone: form.phone.trim(), address: form.address, email: form.email, notes: form.notes, credit_limit: Number(form.credit_limit) || 0 };
+      const data = { full_name: form.full_name.trim(), phone: form.phone.trim(), cedula: (form.cedula || '').toUpperCase().replace(/[^VEJGP\d]/g, ''), address: form.address, email: form.email, notes: form.notes, credit_limit: Number(form.credit_limit) || 0 };
       if (customer) await base44.entities.Customer.update(customer.id, data);
       else await base44.entities.Customer.create({ ...data, is_registered: true });
       onSaved();
@@ -35,6 +35,7 @@ export default function CustomerForm({ open, onOpenChange, customer, onSaved }) 
         <div className="grid grid-cols-2 gap-3">
           <div className="col-span-2 space-y-1"><Label>Nombre *</Label><Input value={form.full_name} onChange={set('full_name')} /></div>
           <div className="space-y-1"><Label>Teléfono *</Label><Input value={form.phone} onChange={set('phone')} /></div>
+          <div className="space-y-1"><Label>Cédula</Label><Input placeholder="V12345678" value={form.cedula || ''} onChange={set('cedula')} /></div>
           <div className="space-y-1"><Label>Email</Label><Input value={form.email || ''} onChange={set('email')} /></div>
           <div className="col-span-2 space-y-1"><Label>Dirección</Label><Input value={form.address || ''} onChange={set('address')} /></div>
           <div className="space-y-1"><Label>Límite de crédito (USD, 0 = sin límite)</Label><Input type="number" value={form.credit_limit ?? 0} onChange={set('credit_limit')} /></div>
