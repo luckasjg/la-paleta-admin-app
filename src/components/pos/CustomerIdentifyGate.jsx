@@ -20,8 +20,9 @@ export default function CustomerIdentifyGate({ onDone }) {
     const ced = clean(cedula);
     if (ced.length < 5) return toast.error('Ingresa una cédula válida');
     setBusy(true);
-    const found = await base44.entities.Customer.filter({ cedula: ced }, '-created_date', 1);
+    const found = await base44.entities.Customer.filter({ cedula: { $in: [ced, `V${ced}`, `E${ced}`] } }, '-created_date', 1);
     const c = found[0] || null;
+    if (c && c.cedula !== ced) base44.entities.Customer.update(c.id, { cedula: ced }).catch(() => {});
     setExisting(c);
     setForm({ full_name: c?.full_name || '', phone: c?.phone || '', email: c?.email || '' });
     setSearched(true);

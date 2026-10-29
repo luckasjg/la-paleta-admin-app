@@ -1,23 +1,26 @@
 import { base44 } from '@/api/base44Client';
 
 // Historial de consumo de un cliente: ventas a crédito (vía cuentas por cobrar) + pedidos.
-// Las ventas de contado no guardan cliente, por eso no aparecen aquí.
+// Incluye ventas POS (contado o crédito) vinculadas por customer_id.
 export async function getCustomerHistory(customer) {
-  const [recv, byId, byPhone] = await Promise.all([
+  const [recv, byId, byPhone, direct] = await Promise.all([
     base44.entities.AccountReceivable.filter({ customer_id: customer.id }, { sort: '-sale_date', limit: 200, fields: ['sale_id'] }),
     base44.entities.Order.filter({ customer_id: customer.id, status: { $ne: 'cancelado' } }, { sort: '-created_date', limit: 200 }),
     base44.entities.Order.filter({ customer_phone: customer.phone, status: { $ne: 'cancelado' } }, { sort: '-created_date', limit: 200 }),
+    base44.entities.Sale.filter({ customer_id: customer.id, status: { $ne: 'voided' } }, { sort: '-sale_date', limit: 200 }),
   ]);
-  const saleIds = recv.items.map(r => r.sale_id).filter(Boolean);
-  const sales = saleIds.length
-    ? (await base44.entities.Sale.filter({ id: { $in: saleIds }, status: { $ne: 'voided' } }, { limit: 200 })).items
+  const creditIds = new Set(recv.items.map(r => r.sale_id).filter(Boolean));
+  const credit = creditIds.size
+    ? (await base44.entities.Sale.filter({ id: { $in: [...creditIds] }, status: { $ne: 'voided' } }, { limit: 200 })).items
     : [];
+  const sales = [...new Map([...direct.items, ...credit].map(s => [s.id, s])).values()];
+  const saleIds = sales.map(s => s.id);
 
   const orders = [...new Map([...byId.items, ...byPhone.items].map(o => [o.id, o])).values()]
     .filter(o => !o.linked_sale_id || !saleIds.includes(o.linked_sale_id));
 
   const entries = [
-    ...sales.map(s => ({ id: s.id, kind: 'Venta a crédito', date: s.sale_date || s.created_date, total: s.total_eur ?? s.total, items: s.items || [] })),
+    ...sales.map(s => ({ id: s.id, kind: creditIds.has(s.id) ? 'Venta a crédito' : 'Venta POS', date: s.sale_date || s.created_date, total: s.total_eur ?? s.total, items: s.items || [] })),
     ...orders.map(o => ({ id: o.id, kind: 'Pedido', date: o.created_date, total: o.total, items: o.items || [] })),
   ].sort((a, b) => new Date(b.date) - new Date(a.date));
 
