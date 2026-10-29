@@ -19,7 +19,7 @@ export default function EventoRegistro() {
     try {
       await base44.functions.invoke('registerEventCustomer', {
         full_name: f.full_name, phone: f.phone, instagram: f.instagram,
-        cedula: `${f.tipo}${f.cedula.replace(/\D/g, '')}`,
+        cedula: f.cedula.replace(/\D/g, ''),
       });
       setDone(true);
     } catch (err) {

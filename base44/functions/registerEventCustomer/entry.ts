@@ -13,7 +13,7 @@ export default async function (req: Request): Promise<Response> {
     const fullName = String(body?.full_name || '').trim().slice(0, 80);
     const instagram = String(body?.instagram || '').trim().replace(/^@/, '').replace(/[^\w.]/g, '').slice(0, 40);
 
-    const cedula = String(body?.cedula || '').toUpperCase().replace(/[^VEJGP\d]/g, '').slice(0, 15);
+    const cedula = String(body?.cedula || '').replace(/\D/g, '').slice(0, 15);
 
     if (!fullName) return Response.json({ error: 'Nombre requerido' }, { status: 400 });
     if (!/\d{5,}/.test(cedula)) return Response.json({ error: 'Cédula inválida' }, { status: 400 });
