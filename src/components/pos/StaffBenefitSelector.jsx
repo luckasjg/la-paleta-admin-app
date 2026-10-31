@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState } from 'react';
+import StaffPinDialog from '@/components/pos/StaffPinDialog';
 import { useQuery } from '@tanstack/react-query';
 import { BadgeCheck, X } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
@@ -10,12 +11,20 @@ export default function StaffBenefitSelector({ staff, onChange, balance }) {
     queryKey: ['bonus_staff'],
     queryFn: async () => (await base44.entities.StaffPOS.filter({ bonus_enabled: true, is_active: { $ne: false } }, { limit: 200 })).items,
   });
+  const [pending, setPending] = useState(null);
   if (!staff) {
     if (!list.length) return null;
+    const pick = (id) => {
+      const s = list.find(x => x.id === id);
+      if (s?.bonus_unlimited) setPending(s); else onChange(s);
+    };
     return (
-      <SearchableCombobox value="" onChange={id => onChange(list.find(s => s.id === id))}
-        options={list.map(s => ({ value: s.id, label: s.full_name, sublabel: s.position }))}
-        placeholder="Colaborador con bono (opcional)" searchPlaceholder="Buscar colaborador..." />
+      <>
+        <SearchableCombobox value="" onChange={pick}
+          options={list.map(s => ({ value: s.id, label: s.full_name, sublabel: s.bonus_unlimited ? 'Ilimitado · requiere PIN' : s.position }))}
+          placeholder="Colaborador con bono (opcional)" searchPlaceholder="Buscar colaborador..." />
+        {pending && <StaffPinDialog staff={pending} onCancel={() => setPending(null)} onValid={s => { setPending(null); onChange(s); }} />}
+      </>
     );
   }
   return (
@@ -25,7 +34,7 @@ export default function StaffBenefitSelector({ staff, onChange, balance }) {
         <span className="font-semibold flex-1 truncate">{staff.full_name}{staff.position ? ` · ${staff.position}` : ''}</span>
         <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => onChange(null)}><X className="h-3.5 w-3.5" /></Button>
       </div>
-      {staff.bonus_unlimited && <p className="text-primary font-medium">Cortesía ilimitada · todo el pedido es gratis</p>}
+      {staff.bonus_unlimited && <p className="text-primary font-medium">Cortesía ilimitada · PIN validado para esta venta</p>}
       {!staff.bonus_unlimited && staff.bonus_mode === 'monto' && (
         <div className="flex justify-between text-muted-foreground">
           <span>Cupo semanal en monto</span>

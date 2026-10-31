@@ -848,13 +848,6 @@ export default function POS() {
                 <div className="text-[10px] text-muted-foreground font-mono">{formatVES(toEur(item.subtotal) * eurVes)}</div>
               </div>
               <div className="flex gap-0.5">
-                <Button
-                  variant="ghost" size="icon" className={`h-6 w-6 ${item.is_courtesy ? 'text-amber-500' : 'text-muted-foreground'}`}
-                  title={item.is_courtesy ? 'Quitar cortesía' : 'Marcar como cortesía'}
-                  onClick={() => toggleCourtesy(idx)}
-                >
-                  <Gift className="h-3 w-3" />
-                </Button>
                 <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => removeItem(idx)}>
                   <Trash2 className="h-3 w-3" />
                 </Button>

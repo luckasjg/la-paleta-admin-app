@@ -56,7 +56,12 @@ export function applyStaffBonus(cart, staff, balance) {
   if (isAmountMode(staff)) return applyAmountBonus(cart, staff, balance, disc);
   const left = { ...balance };
   return cart.map(item => {
-    if (!(item.product_id in left) || item.is_courtesy) return item;
+    if (item.is_courtesy) return item;
+    if (!(item.product_id in left)) {
+      // Fuera de la lista asignada: solo descuento, nunca gratis.
+      if (!disc) return item;
+      return { ...item, staff_discount: true, subtotal: +((item.quantity || 1) * item.unit_price * (1 - disc)).toFixed(4) };
+    }
     const qty = item.quantity || 1;
     const free = Math.min(qty, left[item.product_id]);
     left[item.product_id] -= free;
