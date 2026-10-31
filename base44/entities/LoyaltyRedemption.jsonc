@@ -1,0 +1,44 @@
+{
+  "name": "LoyaltyRedemption",
+  "type": "object",
+  "properties": {
+    "customer_id": {
+      "type": "string"
+    },
+    "customer_name": {
+      "type": "string"
+    },
+    "level": {
+      "type": "number",
+      "description": "Nivel de fidelidad canjeado"
+    },
+    "redeemed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "staff_name": {
+      "type": "string"
+    },
+    "cash_register_id": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "customer_id",
+    "level"
+  ],
+  "rls": {
+    "create": {},
+    "read": {},
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}
