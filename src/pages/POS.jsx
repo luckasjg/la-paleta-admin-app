@@ -28,6 +28,7 @@ import PosTabs from '@/components/pos/PosTabs';
 import RefundQueue from '@/components/pos/RefundQueue';
 import OrderTicket from '@/components/pos/OrderTicket';
 import CustomerIdentifyGate from '@/components/pos/CustomerIdentifyGate';
+import LoyaltyBenefitAlert from '@/components/pos/LoyaltyBenefitAlert';
 import PrintRelayBadge from '@/components/pos/PrintRelayBadge';
 import { printComanda, usePrintRelay } from '@/lib/printRelay';
 import { getActiveSession, setActiveSession, clearActiveSession } from '@/lib/cashSession';
@@ -694,6 +695,7 @@ export default function POS() {
       </Badge>
       <button type="button" className="text-xs underline text-muted-foreground" onClick={() => setSaleCustomer(null)}>Cambiar</button>
     </div>
+    {saleCustomer && !saleCustomer.none && <LoyaltyBenefitAlert key={saleCustomer.id} customer={saleCustomer} />}
     <div className="flex flex-col md:flex-row gap-3 lg:gap-4 h-[calc(100vh-8rem)] mt-3">
       {/* Product Grid */}
       <div className="flex-1 flex flex-col min-h-0">
