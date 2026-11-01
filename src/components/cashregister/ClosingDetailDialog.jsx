@@ -1,7 +1,7 @@
 import React from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import ClosingSaleRow from '@/components/cashregister/ClosingSaleRow';
 import { Card } from '@/components/ui/card';
 import moment from 'moment';
 import { isCreditSale, creditSummary } from '@/lib/creditSales';
@@ -123,35 +123,13 @@ export default function ClosingDetailDialog({ register, sales = [], open, onOpen
           {/* Sales list */}
           <div>
             <h3 className="font-semibold text-sm mb-2">Ventas del cierre ({sales.length})</h3>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Hora</TableHead>
-                  <TableHead>Ítems</TableHead>
-                  <TableHead>Método</TableHead>
-                  <TableHead className="text-right">Total</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {sales.length === 0 ? (
-                  <TableRow><TableCell colSpan={4} className="text-center py-4 text-muted-foreground text-sm">Sin ventas</TableCell></TableRow>
-                ) : sales.map(s => (
-                  <TableRow key={s.id}>
-                    <TableCell className="text-sm">{moment(s.sale_date).format('HH:mm')}</TableCell>
-                    <TableCell className="text-xs text-muted-foreground">
-                      {(s.items || []).map(i => `${i.quantity}x ${i.product_name}`).join(', ').slice(0, 60) || '—'}
-                    </TableCell>
-                    <TableCell className="space-x-1">
-                      {isCreditSale(s) && <Badge className="text-xs bg-yellow-100 text-yellow-700">Crédito</Badge>}
-                      <Badge variant="secondary" className="text-xs">
-                        {PAYMENT_LABELS[s.payment_method] || s.payment_method}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right font-mono">${s.total?.toFixed(2)}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            {sales.length === 0 ? (
+              <p className="text-center py-4 text-muted-foreground text-sm border rounded-lg">Sin ventas asociadas a este cierre.</p>
+            ) : (
+              <div className="space-y-2">
+                {sales.map(s => <ClosingSaleRow key={s.id} sale={s} labels={PAYMENT_LABELS} />)}
+              </div>
+            )}
           </div>
 
           {/* Total */}
