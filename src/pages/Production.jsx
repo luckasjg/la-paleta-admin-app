@@ -9,7 +9,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Plus, Factory, Pencil, Trash2, Package, AlertTriangle, CheckCircle2, Info, Store, Search, X } from 'lucide-react';
+import { Plus, Factory, Pencil, Trash2, Package, AlertTriangle, CheckCircle2, Info, Store, Search, X, History, Merge } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import MergeTraysDialog from '@/components/production/MergeTraysDialog';
 import VitrineTrayCard from '@/components/production/VitrineTrayCard';
 import ReserveTrayCard from '@/components/production/ReserveTrayCard';
 import { Switch } from '@/components/ui/switch';
@@ -41,6 +43,7 @@ export default function Production() {
   // Sustituciones de insumos elegidas por el operario: índice de ingrediente → { supply_id, save_preferred }
   const [substitutions, setSubstitutions] = useState({});
   const [consumableDialog, setConsumableDialog] = useState(false);
+  const [mergeOpen, setMergeOpen] = useState(false);
   const [selectedUtensil, setSelectedUtensil] = useState('');
   const qc = useQueryClient();
 
@@ -106,10 +109,11 @@ export default function Production() {
           },
         ],
       });
+      await logEvent({ type: 'relleno', tray_id: target.id, recipe_name: target.recipe_name, grams: gramsToAdd, remaining_before: remainingBefore, remaining_after: content });
       return { refilled: true, name: target.recipe_name };
     }
 
-    await base44.entities.Tray.create({
+    const created = await base44.entities.Tray.create({
       recipe_id: recipe.id,
       recipe_name: recipe.name,
       remaining_grams: gramsToAdd,
@@ -123,7 +127,16 @@ export default function Production() {
       substitutions: subs,
       refill_log: [],
     });
+    await logEvent({ type: 'nueva', tray_id: created?.id, recipe_name: recipe.name, grams: gramsToAdd, remaining_before: 0, remaining_after: gramsToAdd });
     return { refilled: false, name: recipe.name };
+  };
+
+  // Registro histórico + resumen del día a Slack (no bloquea si Slack falla)
+  const logEvent = async (data) => {
+    const date = moment().format('YYYY-MM-DD');
+    const me = await base44.auth.me().catch(() => null);
+    await base44.entities.TrayEvent.create({ ...data, date, operator: me?.full_name || me?.email || '' });
+    base44.functions.invoke('notifySlackProductionDay', { date }).catch(e => console.error('Slack producción:', e));
   };
 
   // Resolve an ingredient to its current Supply: first by id, then fallback by name
@@ -376,6 +389,12 @@ export default function Production() {
         description="Registro de bandejas y control de producción"
         actions={
           <div className="flex gap-2">
+            <Button variant="outline" asChild>
+              <Link to="/produccion/historial"><History className="h-4 w-4 mr-2" /> Historial</Link>
+            </Button>
+            <Button variant="outline" onClick={() => setMergeOpen(true)}>
+              <Merge className="h-4 w-4 mr-2" /> Unir bandejas
+            </Button>
             <Button variant="outline" onClick={() => setConsumableDialog(true)}>
               <Package className="h-4 w-4 mr-2" /> Registrar Paquete Gastado
             </Button>
@@ -482,6 +501,8 @@ export default function Production() {
           </div>
         </div>
       )}
+
+      <MergeTraysDialog open={mergeOpen} onOpenChange={setMergeOpen} trays={trays} />
 
       {/* Edit Tray Dialog */}
       <Dialog open={!!editTray} onOpenChange={() => setEditTray(null)}>

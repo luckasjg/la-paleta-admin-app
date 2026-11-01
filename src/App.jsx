@@ -20,6 +20,7 @@ import Recipes from '@/pages/Recipes';
 import Preparations from '@/pages/Preparations.jsx';
 import Production from '@/pages/Production';
 import Products from '@/pages/Products';
+import ProductionHistory from '@/pages/ProductionHistory.jsx';
 import Orders from '@/pages/Orders.jsx';
 import CashRegister from '@/pages/CashRegister';
 import Adjustments from '@/pages/Adjustments';
@@ -78,6 +79,7 @@ const AuthenticatedApp = () => {
           <Route path="/recetas" element={<RequirePermission module="recetas"><Recipes /></RequirePermission>} />
           <Route path="/preparados" element={<RequirePermission module="preparados"><Preparations /></RequirePermission>} />
           <Route path="/produccion" element={<RequirePermission module="produccion"><Production /></RequirePermission>} />
+          <Route path="/produccion/historial" element={<RequirePermission module="produccion"><ProductionHistory /></RequirePermission>} />
           <Route path="/productos" element={<RequirePermission module="productos"><Products /></RequirePermission>} />
           <Route path="/pedidos" element={<RequirePermission module="pedidos"><Orders /></RequirePermission>} />
           <Route path="/caja" element={<RequirePermission module="caja"><CashRegister /></RequirePermission>} />
