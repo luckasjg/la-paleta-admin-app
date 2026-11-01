@@ -546,7 +546,9 @@ export default function POS() {
       }
 
       const sale = await base44.entities.Sale.create({
-        ...(saleCustomer && !saleCustomer.none ? { customer_id: saleCustomer.id, customer_name: saleCustomer.full_name, customer_cedula: saleCustomer.cedula } : {}),
+        ...(credit
+          ? { customer_id: credit.id, customer_name: credit.full_name, customer_cedula: credit.cedula }
+          : saleCustomer && !saleCustomer.none ? { customer_id: saleCustomer.id, customer_name: saleCustomer.full_name, customer_cedula: saleCustomer.cedula } : {}),
         ...(bonusStaff ? { benefit_staff_id: bonusStaff.id, benefit_staff_name: bonusStaff.full_name } : {}),
         items: pricedCart.map(i => ({
           ...i,
