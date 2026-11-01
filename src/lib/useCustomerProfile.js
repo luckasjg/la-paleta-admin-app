@@ -19,14 +19,16 @@ const readProfile = () => {
 export function useCustomerProfile() {
   const [profile, setProfile] = useState(readProfile);
 
-  const register = useCallback(async ({ full_name, phone, address }) => {
+  const register = useCallback(async ({ full_name, phone, address, cedula, register: wants = true }) => {
     const res = await base44.functions.invoke('registerMenuCustomer', {
       full_name,
       phone,
       address,
+      cedula,
+      register: wants,
     });
     const saved = res?.data;
-    if (!saved?.customer_id) throw new Error('registro incompleto');
+    if (!saved?.customer_id) return null;
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(saved));
     } catch {

@@ -158,6 +158,12 @@ export default function POS() {
     clearPendingOrder();
     setCart(buildCartFromOrder(pending, products));
     setLinkedOrder(pending);
+    if (pending.customer_id) {
+      base44.entities.Customer.filter({ id: pending.customer_id }).then((r) => {
+        const c = Array.isArray(r) ? r[0] : r?.items?.[0];
+        if (c) setSaleCustomer(c);
+      });
+    }
     toast.success(`Pedido ${pending.order_number || ''} cargado en el carrito`);
   }, [products]);
 

@@ -38,7 +38,9 @@ export default function CheckoutSheet({
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState('');
 
+  const [cedula, setCedula] = useState(profile?.cedula || '');
   const digitsPhone = phone.replace(/[^\d]/g, '');
+  const digitsCedula = cedula.replace(/[^\d]/g, '');
 
   const handleSend = async () => {
     setError('');
@@ -51,12 +53,14 @@ export default function CheckoutSheet({
     setIsSending(true);
     try {
       let customerId = profile?.customer_id || '';
-      if (wantsRegister || profile) {
+      if (wantsRegister || profile || digitsCedula) {
         try {
           const saved = await onRegister({
             full_name: name.trim(),
             phone: digitsPhone,
             address: address.trim(),
+            cedula: digitsCedula,
+            register: wantsRegister || !!profile,
           });
           customerId = saved?.customer_id || customerId;
         } catch {
@@ -165,6 +169,18 @@ export default function CheckoutSheet({
               onChange={(e) => setName(e.target.value)}
               placeholder="Nombre y apellido"
             />
+            <div>
+              <input
+                className={inputClass}
+                value={cedula}
+                onChange={(e) => setCedula(e.target.value.replace(/[^\d]/g, ''))}
+                placeholder="Cédula (opcional)"
+                inputMode="numeric"
+              />
+              <p className="mt-1 px-1 text-[10px] font-bold text-[#777984]">
+                Si ya eres cliente, tu cédula suma los puntos de este pedido a tu cuenta.
+              </p>
+            </div>
             {channel === 'delivery' && (
               <textarea
                 className={inputClass}
