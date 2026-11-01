@@ -50,7 +50,13 @@ export default async function (req: Request): Promise<Response> {
     let rowsRead = 0;
 
     for (const tab of tabs) {
-      const [, sd, sm, , em] = tab.trim().match(TAB_RE).map(Number);
+      const [, sd, sm, ed, em] = tab.trim().match(TAB_RE).map(Number);
+      // Año de la pestaña: si su inicio cae en el futuro, es del año anterior
+      const tabYear = new Date(year, sm - 1, sd) > today ? year - 1 : year;
+      const tabStart = new Date(tabYear, sm - 1, sd);
+      const tabEnd = new Date(em < sm ? tabYear + 1 : tabYear, em - 1, ed);
+      const maxDate = tabEnd < today ? tabEnd : today;
+      const iso = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
       const data = await gs(`/values/${encodeURIComponent(`'${tab}'!A1:Q600`)}`);
       const rows = data.values || [];
       const hIdx = rows.findIndex((r) => r.some((c) => norm(c) === 'concepto') && r.some((c) => norm(c) === 'fecha'));
@@ -58,7 +64,8 @@ export default async function (req: Request): Promise<Response> {
       const h = rows[hIdx].map(norm);
       const col = (name) => h.findIndex((c) => c.startsWith(name));
       const c = { fecha: col('fecha'), cuenta: col('cuenta'), concepto: col('concepto'), detalle: col('detalle'), monto: col('monto'), desc: col('descrip'), resp: col('respons'), tasa: col('tasa'), usd: h.lastIndexOf('$') };
-      let lastDate = `${year}-${pad(sm)}-${pad(sd)}`;
+      let lastDate = iso(tabStart);
+      let badDate = false;
 
       for (let i = hIdx + 1; i < rows.length; i++) {
         const r = rows[i];
@@ -75,9 +82,15 @@ export default async function (req: Request): Promise<Response> {
         if (m) {
           const d = Number(m[1]);
           const mo = m[2] ? Number(m[2]) : (d >= sd ? sm : em);
-          let y = year;
-          if (new Date(y, mo - 1, d) > new Date(today.getTime() + 31 * 864e5)) y -= 1;
-          lastDate = `${y}-${pad(mo)}-${pad(d)}`;
+          const y = mo < sm ? tabStart.getFullYear() + 1 : tabStart.getFullYear();
+          const dt = new Date(y, mo - 1, d);
+          // Solo se acepta una fecha dentro de la semana de la pestaña y no futura
+          badDate = !(dt >= tabStart && dt <= maxDate);
+          if (!badDate) lastDate = iso(dt);
+        }
+        if (badDate) {
+          review.push({ tab, row: i + 1, text, reason: `Fecha fuera de la semana o futura: "${f}"`, concepto, monto: parseNum(montoRaw) || null });
+          continue;
         }
         const monto = parseNum(montoRaw);
         if (!concepto || !Number.isFinite(monto) || monto <= 0) {
@@ -107,17 +120,27 @@ export default async function (req: Request): Promise<Response> {
 
     // Deduplicación por fecha + monto + descripción
     const dates = [...new Set(candidates.map((x) => x.date))];
-    const existing = dates.length ? await db.Expense.filter({ date: { $in: dates } }, '-date', 5000) : [];
-    // Además de fecha+monto+descripción, se identifica cada fila por su hoja y número de fila
-    // (el monto convertido cambia con la tasa y no sirve solo)
+    const byDate = dates.length ? await db.Expense.filter({ date: { $in: dates } }, '-date', 5000) : [];
+    // Todos los gastos importados de la hoja (sin importar su fecha) para detectar la fila de origen
+    const imported = await db.Expense.filter({ notes: { $regex: 'Hoja: ' } }, '-date', 5000);
+    const existing = [...byDate, ...imported];
+    // Cada fila se identifica por su pestaña y número de fila (el monto cambia con la tasa)
     const srcOf = (notes) => (String(notes || '').match(/Hoja: (.+? fila \d+)/) || [])[1];
     const seen = new Set(existing.map((e) => keyOf(e.date, e.amount, e.description)));
-    const seenSrc = new Set(existing.map((e) => srcOf(e.notes) && `${srcOf(e.notes)}|${norm(e.description)}`).filter(Boolean));
+    const seenSrc = new Set(existing.map((e) => srcOf(e.notes)).filter(Boolean));
+
+    // Reportar (sin borrar) gastos ya importados más de una vez desde la misma fila
+    const groups = {};
+    for (const e of imported) { const s = srcOf(e.notes); if (s) (groups[s] ||= []).push(e); }
+    for (const [s, list] of Object.entries(groups)) {
+      if (list.length < 2) continue;
+      review.push({ tab: s.split(' fila ')[0], row: Number(s.split(' fila ')[1]), text: list.map((e) => `${e.date} ${e.description} $${e.amount}`).join(' | ').slice(0, 250), reason: `Duplicado ya registrado (${list.length} veces): revisar y eliminar sobrantes`, concepto: list[0].description });
+    }
     const fresh = [];
     let duplicates = 0;
     for (const x of candidates) {
       const k = keyOf(x.date, x.amount, x.description);
-      const s = `${x.tab} fila ${x.row}|${norm(x.description)}`;
+      const s = `${x.tab} fila ${x.row}`;
       if (seen.has(k) || seenSrc.has(s)) { duplicates++; continue; }
       seen.add(k); seenSrc.add(s); fresh.push(x);
     }
