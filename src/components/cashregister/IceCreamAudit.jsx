@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -80,8 +80,17 @@ export default function IceCreamAudit({ activeTrays = [], todaySales = [], shift
   const totalFinancialImpact = rows.reduce((s, r) => s + (r.financialImpact || 0), 0);
   const allFilled = rows.length > 0 && rows.every(r => r.physicalWeight !== null && !isNaN(r.physicalWeight));
 
+  const auditQuery = cashRegisterId ? { cash_register_id: cashRegisterId } : { audit_date: today, shift };
+  const { data: existingAudits = [], isLoading: loadingExisting } = useQuery({
+    queryKey: ['ice_cream_audits', 'session', cashRegisterId || `${today}-${shift}`],
+    queryFn: () => base44.entities.IceCreamAudit.filter(auditQuery, '-created_date', 1),
+  });
+  const existingAudit = existingAudits[0];
+
   const saveAudit = useMutation({
     mutationFn: async () => {
+      const dup = await base44.entities.IceCreamAudit.filter(auditQuery, '-created_date', 1);
+      if (dup.length > 0) throw new Error('Esta sesión ya tiene una auditoría registrada.');
       // Save audit record
       await base44.entities.IceCreamAudit.create({
         audit_date: today,
@@ -129,6 +138,29 @@ export default function IceCreamAudit({ activeTrays = [], todaySales = [], shift
     onError: (err) => toast.error(err.message),
   });
 
+  if (existingAudit) {
+    return (
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-semibold flex items-center gap-2">
+            <ClipboardCheck className="h-4 w-4" /> Auditoría de Inventario de Helado
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-start gap-2 rounded-lg bg-green-50 text-green-800 p-3 text-sm">
+            <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0" />
+            <div>
+              <p className="font-medium">Este turno ya tiene una auditoría registrada.</p>
+              <p className="text-xs mt-0.5">
+                Registrada el {moment(existingAudit.created_date).format('DD/MM/YYYY [a las] hh:mm A')} · {existingAudit.entries?.length || 0} bandejas · Merma {(existingAudit.total_variance_grams || 0).toFixed(0)}g
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   if (vitrineTrays.length === 0) {
     return (
       <Card>
@@ -163,7 +195,7 @@ export default function IceCreamAudit({ activeTrays = [], todaySales = [], shift
             )}
             <Button
               size="sm"
-              disabled={!allFilled || saveAudit.isPending}
+              disabled={!allFilled || saveAudit.isPending || saveAudit.isSuccess || loadingExisting}
               onClick={() => saveAudit.mutate()}
             >
               <ClipboardCheck className="h-4 w-4 mr-1.5" />

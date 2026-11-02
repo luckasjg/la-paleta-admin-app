@@ -155,7 +155,10 @@ export default function AuditHistory() {
                   const isWarn = v < 0 && v >= -50;
                   return (
                     <TableRow key={a.id} className="cursor-pointer hover:bg-secondary/40" onClick={() => setSelected(a)}>
-                      <TableCell className="text-sm">{moment(a.audit_date).format('DD/MM/YYYY')}</TableCell>
+                      <TableCell className="text-sm">
+                        {moment(a.audit_date).format('DD/MM/YYYY')}
+                        {a.created_date && <div className="text-xs text-muted-foreground">Registrada {moment(a.created_date).format('DD/MM hh:mm A')}</div>}
+                      </TableCell>
                       <TableCell className="text-sm capitalize">{shiftLabel(a.shift)}</TableCell>
                       <TableCell className="text-center text-sm">{(a.entries || []).length}</TableCell>
                       <TableCell className="text-right">
