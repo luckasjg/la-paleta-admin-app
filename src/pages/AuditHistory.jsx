@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Printer, Eye, TrendingDown, AlertTriangle, CheckCircle2, ClipboardCheck } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 import moment from 'moment';
+import { formatVET } from '@/lib/vetTime';
 import PageHeader from '@/components/shared/PageHeader';
 import StatCard from '@/components/shared/StatCard';
 import AuditDetailDialog from '@/components/audits/AuditDetailDialog';
@@ -157,7 +158,7 @@ export default function AuditHistory() {
                     <TableRow key={a.id} className="cursor-pointer hover:bg-secondary/40" onClick={() => setSelected(a)}>
                       <TableCell className="text-sm">
                         {moment(a.audit_date).format('DD/MM/YYYY')}
-                        {a.created_date && <div className="text-xs text-muted-foreground">Registrada {moment(a.created_date).format('DD/MM hh:mm A')}</div>}
+                        {a.created_date && <div className="text-xs text-muted-foreground">Registrada {formatVET(a.created_date)} (hora VE)</div>}
                       </TableCell>
                       <TableCell className="text-sm capitalize">{shiftLabel(a.shift)}</TableCell>
                       <TableCell className="text-center text-sm">{(a.entries || []).length}</TableCell>

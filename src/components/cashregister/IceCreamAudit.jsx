@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { ClipboardCheck, AlertTriangle, CheckCircle2, TrendingDown, DollarSign } from 'lucide-react';
 import { toast } from 'sonner';
 import moment from 'moment';
+import { formatVET } from '@/lib/vetTime';
 
 // Cost per gram of a recipe = (sum of ingredient_qty * supply.cost_per_unit) / yield_amount
 const computeRecipeCostPerGram = (recipe, supplies) => {
@@ -152,7 +153,7 @@ export default function IceCreamAudit({ activeTrays = [], todaySales = [], shift
             <div>
               <p className="font-medium">Este turno ya tiene una auditoría registrada.</p>
               <p className="text-xs mt-0.5">
-                Registrada el {moment(existingAudit.created_date).format('DD/MM/YYYY [a las] hh:mm A')} · {existingAudit.entries?.length || 0} bandejas · Merma {(existingAudit.total_variance_grams || 0).toFixed(0)}g
+                Registrada el {formatVET(existingAudit.created_date)} (hora VE) · {existingAudit.entries?.length || 0} bandejas · Merma {(existingAudit.total_variance_grams || 0).toFixed(0)}g
               </p>
             </div>
           </div>
