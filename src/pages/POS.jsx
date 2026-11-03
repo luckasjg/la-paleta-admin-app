@@ -59,6 +59,7 @@ export default function POS() {
   });
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [flavorDialog, setFlavorDialog] = useState(null);
+  const [editingIndex, setEditingIndex] = useState(null);
   const [selectedFlavors, setSelectedFlavors] = useState([]);
   const [payDialog, setPayDialog] = useState(false);
   // Pestañas del POS: cobro de ventas y cola de devoluciones por pago móvil.
@@ -275,17 +276,40 @@ export default function POS() {
     });
   };
 
+  // Abre el selector de sabores para un ítem pendiente ya en el carrito.
+  const openFlavorsForItem = (index) => {
+    const item = cart[index];
+    const product = products.find(p => p.id === item?.product_id);
+    if (!product) return;
+    const totalGrams = product.grams_per_serving || 80;
+    const portions = splitGramsEqually(totalGrams, productMaxFlavors(product));
+    setEditingIndex(index);
+    setFlavorDialog(product);
+    setSelectedFlavors(item.flavors?.length
+      ? item.flavors.map(f => ({ tray_id: f.tray_id, grams: f.grams }))
+      : portions.map(g => ({ tray_id: '', grams: g })));
+  };
+
   const addToCart = (product) => {
     if (productNeedsFlavor(product)) {
-      const totalGrams = product.grams_per_serving || 80;
-      // Abrimos con tantos sabores como permita el producto, ya repartidos en
-      // partes iguales (ej. 200g / 2 sabores → 100g + 100g). Así el descuento
-      // cae sobre las dos bandejas sin que el cajero tenga que recordarlo.
-      // Si el cliente quiere un solo sabor, el cajero puede quitar un slot.
-      const slots = productMaxFlavors(product);
-      const portions = splitGramsEqually(totalGrams, slots);
-      setFlavorDialog(product);
-      setSelectedFlavors(portions.map(g => ({ tray_id: '', grams: g })));
+      // Entra directo al carrito sin sabores; el heladero despacha en vitrina.
+      setCart(prev => [...prev, {
+        product_id: product.id,
+        product_name: product.name,
+        category: product.category,
+        recipe_id: product.recipe_id,
+        flavors: [],
+        pending_dispatch: true,
+        utensil_supply_id: product.utensil_supply_id || '',
+        linked_supplies: Array.isArray(product.linked_supplies) ? product.linked_supplies : [],
+        grams: product.grams_per_serving || 80,
+        quantity: 1,
+        base_price: product.price,
+        flavor_surcharge: 0,
+        unit_price: product.price,
+        subtotal: product.price,
+        is_courtesy: false,
+      }]);
     } else if (product.vessel_optional) {
       // Pide elección de recipiente antes de añadir
       setVesselDialog(product);
@@ -344,11 +368,12 @@ export default function POS() {
     const surcharge = computeFlavorSurcharge(selectedFlavors);
     const finalPrice = +(product.price + surcharge).toFixed(2);
 
-    setCart(prev => [...prev, {
+    const newItem = {
       product_id: product.id,
       product_name: product.name,
       category: product.category,
       recipe_id: product.recipe_id,
+      pending_dispatch: true,
       flavor: flavorLabel,
       flavors: selectedFlavors.map(f => {
         const tray = trays.find(t => t.id === f.tray_id);
@@ -364,8 +389,14 @@ export default function POS() {
       unit_price: finalPrice,
       subtotal: finalPrice,
       is_courtesy: false,
-    }]);
+    };
+    setCart(prev => editingIndex != null && prev[editingIndex]
+      ? prev.map((it, i) => i === editingIndex
+          ? { ...newItem, quantity: it.quantity, is_courtesy: it.is_courtesy, subtotal: it.is_courtesy ? 0 : it.quantity * finalPrice }
+          : it)
+      : [...prev, newItem]);
 
+    setEditingIndex(null);
     setFlavorDialog(null);
     setSelectedFlavors([]);
   };
@@ -545,7 +576,13 @@ export default function POS() {
         breakdown.push({ ...t, refund_request_id: refund.id });
       }
 
+      // Correlativo del turno (sesión de caja activa)
+      const shiftSalesCount = await base44.entities.Sale.count({ cash_register_id: activeSession.id });
+      const hasPendingDispatchItems = cart.some(i => i.pending_dispatch);
+
       const sale = await base44.entities.Sale.create({
+        dispatch_status: hasPendingDispatchItems ? 'pendiente' : 'despachado',
+        ticket_number: shiftSalesCount + 1,
         ...(credit
           ? { customer_id: credit.id, customer_name: credit.full_name, customer_cedula: credit.cedula }
           : saleCustomer && !saleCustomer.none ? { customer_id: saleCustomer.id, customer_name: saleCustomer.full_name, customer_cedula: saleCustomer.cedula } : {}),
@@ -824,7 +861,13 @@ export default function POS() {
                   <p className="text-sm font-medium leading-snug break-words">{item.product_name}</p>
                   {item.is_courtesy && <Gift className="h-3.5 w-3.5 text-amber-500 flex-shrink-0" />}
                 </div>
-                {item.flavor && <p className="text-xs text-muted-foreground">{item.flavor} · {item.grams}g</p>}
+                {item.pending_dispatch ? (
+                  <button type="button" onClick={() => openFlavorsForItem(idx)} className="text-xs text-left underline-offset-2 hover:underline">
+                    {item.flavor
+                      ? <span className="text-muted-foreground">{item.flavor} · {item.grams}g</span>
+                      : <span className="text-amber-700 font-medium">Sabores pendientes · tocar para elegir</span>}
+                  </button>
+                ) : item.flavor && <p className="text-xs text-muted-foreground">{item.flavor} · {item.grams}g</p>}
                 {item.vessel && (
                   <p className="text-[11px] text-muted-foreground flex items-center gap-1">
                     {item.vessel === 'taza'
@@ -937,7 +980,7 @@ export default function POS() {
       </Card>
 
       {/* Flavor selection dialog */}
-      <Dialog open={!!flavorDialog} onOpenChange={() => setFlavorDialog(null)}>
+      <Dialog open={!!flavorDialog} onOpenChange={() => { setFlavorDialog(null); setEditingIndex(null); }}>
         <DialogContent className="w-[calc(100%-2rem)] max-w-md grid-cols-1 [&>*]:min-w-0 overflow-hidden">
           <DialogHeader>
             <DialogTitle className="pr-6 break-words">
@@ -1022,8 +1065,8 @@ export default function POS() {
             )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setFlavorDialog(null)}>Cancelar</Button>
-            <Button onClick={addIceCreamToCart} disabled={!allFlavorsFilled || !flavorGramsOk}>Agregar</Button>
+            <Button variant="outline" onClick={() => { setFlavorDialog(null); setEditingIndex(null); }}>Cancelar</Button>
+            <Button onClick={addIceCreamToCart} disabled={!allFlavorsFilled || !flavorGramsOk}>{editingIndex != null ? 'Guardar' : 'Agregar'}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

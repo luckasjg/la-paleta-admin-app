@@ -19,7 +19,8 @@ function looksMultiFlavor(item) {
  * @returns {Array<{tray_id: string, grams: number}>} gramos por bandeja (sin multiplicar por cantidad)
  */
 export function getTrayPortions(item) {
-  if (!item) return [];
+  // Pendiente de despacho: el helado lo descuenta la tablet de vitrina al servir.
+  if (!item || item.pending_dispatch) return [];
 
   if (Array.isArray(item.flavors) && item.flavors.length > 0) {
     return item.flavors

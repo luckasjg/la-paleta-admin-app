@@ -72,6 +72,10 @@
           "is_courtesy": {
             "type": "boolean"
           },
+          "pending_dispatch": {
+            "type": "boolean",
+            "description": "Helado pendiente de servir en vitrina (los gramos se descuentan al despachar)"
+          },
           "staff_discount": {
             "type": "boolean",
             "description": "Excedente del bono cobrado con descuento de colaborador"
@@ -317,6 +321,22 @@
     },
     "customer_cedula": {
       "type": "string"
+    },
+    "dispatch_status": {
+      "type": "string",
+      "enum": [
+        "pendiente",
+        "despachado"
+      ],
+      "enumColors": [
+        "yellow",
+        "green"
+      ],
+      "default": "despachado"
+    },
+    "ticket_number": {
+      "type": "number",
+      "description": "Correlativo de la venta dentro del turno (sesi\u00f3n de caja)"
     }
   },
   "required": [
