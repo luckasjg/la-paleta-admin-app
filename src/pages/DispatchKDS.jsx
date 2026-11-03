@@ -42,10 +42,10 @@ export default function DispatchKDS() {
   const maxFlavors = Math.max(1, product?.max_flavors || product?.flavor_count || 1);
 
   const dispatch = useMutation({
-    mutationFn: (trayIds) => base44.functions.invoke('dispatchSaleItem', {
+    mutationFn: (units) => base44.functions.invoke('dispatchSaleItem', {
       sale_id: selection.order.id,
       item_index: selection.index,
-      tray_ids: trayIds,
+      units,
     }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['sales'] });

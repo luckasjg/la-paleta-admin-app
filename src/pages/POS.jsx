@@ -402,6 +402,19 @@ export default function POS() {
   };
 
   const updateQty = (index, delta) => {
+    // Helados: cada unidad es un renglón propio para asignarle sus sabores.
+    const target = cart[index];
+    if (delta > 0 && target?.pending_dispatch) {
+      setCart(prev => {
+        const copy = { ...target, quantity: 1, flavors: [], flavor: undefined, tray_id: undefined,
+          flavor_surcharge: 0, unit_price: target.base_price ?? target.unit_price };
+        copy.subtotal = copy.is_courtesy ? 0 : copy.unit_price;
+        const n = [...prev];
+        n.splice(index + 1, 0, ...Array.from({ length: delta }, () => ({ ...copy })));
+        return n;
+      });
+      return;
+    }
     setCart(prev => prev.map((item, i) => {
       if (i !== index) return item;
       const newQty = Math.max(0, item.quantity + delta);
