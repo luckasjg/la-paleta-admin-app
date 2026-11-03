@@ -1,0 +1,42 @@
+{
+  "name": "ModuleLock",
+  "type": "object",
+  "properties": {
+    "module": {
+      "type": "string",
+      "description": "M\u00f3dulo protegido, ej. recetas"
+    },
+    "password_hash": {
+      "type": "string",
+      "description": "SHA-256 de la clave"
+    },
+    "updated_by": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "module"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

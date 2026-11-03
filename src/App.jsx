@@ -13,6 +13,7 @@ import ProtectedRoute from '@/components/ProtectedRoute';
 import AppLayout from '@/components/layout/AppLayout';
 import RequireAdmin from '@/components/RequireAdmin';
 import RequirePermission from '@/components/RequirePermission';
+import ModulePasswordGate from '@/components/ModulePasswordGate';
 import Dashboard from '@/pages/Dashboard.jsx';
 import POS from '@/pages/POS';
 import Inventory from '@/pages/Inventory';
@@ -78,7 +79,7 @@ const AuthenticatedApp = () => {
           <Route path="/pos" element={<RequirePermission module="pos"><POS /></RequirePermission>} />
           <Route path="/despacho" element={<RequirePermission module="produccion"><DispatchKDS /></RequirePermission>} />
           <Route path="/inventario" element={<RequirePermission module="inventario"><Inventory /></RequirePermission>} />
-          <Route path="/recetas" element={<RequirePermission module="recetas"><Recipes /></RequirePermission>} />
+          <Route path="/recetas" element={<RequirePermission module="recetas"><ModulePasswordGate module="recetas" title="Recetas"><Recipes /></ModulePasswordGate></RequirePermission>} />
           <Route path="/preparados" element={<RequirePermission module="preparados"><Preparations /></RequirePermission>} />
           <Route path="/produccion" element={<RequirePermission module="produccion"><Production /></RequirePermission>} />
           <Route path="/produccion/historial" element={<RequirePermission module="produccion"><ProductionHistory /></RequirePermission>} />

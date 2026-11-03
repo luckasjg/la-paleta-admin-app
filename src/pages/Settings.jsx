@@ -9,6 +9,7 @@ import WhatsAppConfigCard from '@/components/settings/WhatsAppConfigCard';
 import UsersManagerCard from '@/components/settings/users/UsersManagerCard';
 import StaffPOSManagerCard from '@/components/settings/StaffPOSManagerCard';
 import PrintRelayCard from '@/components/settings/PrintRelayCard';
+import RecipesPasswordCard from '@/components/settings/RecipesPasswordCard';
 
 export default function Settings() {
   return (
@@ -19,6 +20,7 @@ export default function Settings() {
       />
       <UsersManagerCard />
       <StaffPOSManagerCard />
+      <RecipesPasswordCard />
       <ExchangeRatesCard />
       <CurrencySelectorCard />
       <WhatsAppConfigCard />
