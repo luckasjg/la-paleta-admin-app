@@ -20,7 +20,7 @@ const navItems = [
 { label: 'Recetas', icon: BookOpen, path: '/recetas', module: 'recetas' },
 { label: 'Preparados', icon: FlaskConical, path: '/preparados', module: 'preparados' },
 { label: 'Producción', icon: Factory, path: '/produccion', module: 'produccion' },
-{ label: 'Despacho', icon: IceCreamCone, path: '/despacho', module: 'produccion' },
+{ label: 'Despacho', icon: IceCreamCone, path: '/despacho', module: 'despacho' },
 { label: 'Productos', icon: Package, path: '/productos', module: 'productos' },
 { label: 'Pedidos', icon: ClipboardList, path: '/pedidos', module: 'pedidos' },
 { label: 'Caja', icon: DollarSign, path: '/caja', module: 'caja' },

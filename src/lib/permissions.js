@@ -9,6 +9,7 @@ export const PERMISSION_MODULES = [
   { key: "recetas",        label: "Recetas",           path: "/recetas" },
   { key: "preparados",     label: "Preparados",        path: "/preparados" },
   { key: "produccion",     label: "Producción",        path: "/produccion" },
+  { key: "despacho",       label: "Despacho",          path: "/despacho" },
   { key: "productos",      label: "Productos",         path: "/productos" },
   { key: "pedidos",        label: "Pedidos",           path: "/pedidos" },
   { key: "caja",           label: "Caja",              path: "/caja" },

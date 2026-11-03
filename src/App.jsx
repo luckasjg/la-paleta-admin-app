@@ -77,7 +77,7 @@ const AuthenticatedApp = () => {
         <Route element={<AppLayout />}>
           <Route path="/" element={<RequirePermission module="dashboard"><Dashboard /></RequirePermission>} />
           <Route path="/pos" element={<RequirePermission module="pos"><POS /></RequirePermission>} />
-          <Route path="/despacho" element={<RequirePermission module="produccion"><DispatchKDS /></RequirePermission>} />
+          <Route path="/despacho" element={<RequirePermission module="despacho"><DispatchKDS /></RequirePermission>} />
           <Route path="/inventario" element={<RequirePermission module="inventario"><Inventory /></RequirePermission>} />
           <Route path="/recetas" element={<RequirePermission module="recetas"><ModulePasswordGate module="recetas" title="Recetas"><Recipes /></ModulePasswordGate></RequirePermission>} />
           <Route path="/preparados" element={<RequirePermission module="preparados"><Preparations /></RequirePermission>} />
