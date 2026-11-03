@@ -40,6 +40,7 @@ import TVEspeciales from '@/pages/TVEspeciales.jsx';
 import TVCafeMerengadas from '@/pages/TVCafeMerengadas.jsx';
 import MenuMovil from '@/pages/MenuMovil.jsx';
 import EventoRegistro from '@/pages/EventoRegistro.jsx';
+import DispatchKDS from '@/pages/DispatchKDS.jsx';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings } = useAuth();
@@ -75,6 +76,7 @@ const AuthenticatedApp = () => {
         <Route element={<AppLayout />}>
           <Route path="/" element={<RequirePermission module="dashboard"><Dashboard /></RequirePermission>} />
           <Route path="/pos" element={<RequirePermission module="pos"><POS /></RequirePermission>} />
+          <Route path="/despacho" element={<RequirePermission module="produccion"><DispatchKDS /></RequirePermission>} />
           <Route path="/inventario" element={<RequirePermission module="inventario"><Inventory /></RequirePermission>} />
           <Route path="/recetas" element={<RequirePermission module="recetas"><Recipes /></RequirePermission>} />
           <Route path="/preparados" element={<RequirePermission module="preparados"><Preparations /></RequirePermission>} />
