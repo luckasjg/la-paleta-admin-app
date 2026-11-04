@@ -5,7 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, SlidersHorizontal, Pencil } from 'lucide-react';
+import { Plus, SlidersHorizontal, Pencil, Search } from 'lucide-react';
+import { Input } from '@/components/ui/input';
 import PageHeader from '@/components/shared/PageHeader';
 import { toast } from 'sonner';
 import moment from 'moment';
@@ -22,8 +23,18 @@ export default function Adjustments() {
 
   const { data: adjustments = [] } = useQuery({
     queryKey: ['adjustments'],
-    queryFn: () => base44.entities.InventoryAdjustment.list('-created_date', 50),
+    queryFn: () => base44.entities.InventoryAdjustment.list('-created_date', 2000),
   });
+
+  const [search, setSearch] = useState('');
+  const [month, setMonth] = useState(null);
+  const monthKey = (a) => moment(a.created_date).utcOffset(-240).format('YYYY-MM');
+  const months = [...new Set(adjustments.map(monthKey))].sort().reverse();
+  const activeMonth = month && months.includes(month) ? month : months[0];
+  const q = search.trim().toLowerCase();
+  const visible = adjustments.filter(a => monthKey(a) === activeMonth && (!q ||
+    [a.reference_name, a.notes, reasonLabel(a.reason, reasons), a.reason]
+      .some(v => (v || '').toLowerCase().includes(q))));
 
   const { data: supplies = [] } = useQuery({
     queryKey: ['supplies'],
@@ -122,6 +133,19 @@ export default function Adjustments() {
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-semibold">Historial de Ajustes</CardTitle>
+          <div className="flex flex-col sm:flex-row gap-3 pt-2">
+            <div className="flex gap-1 overflow-x-auto pb-1">
+              {months.map(m => (
+                <Button key={m} size="sm" variant={m === activeMonth ? 'default' : 'outline'} onClick={() => setMonth(m)} className="capitalize">
+                  {new Date(`${m}-15T12:00:00`).toLocaleDateString('es', { month: 'short', year: 'numeric' })}
+                </Button>
+              ))}
+            </div>
+            <div className="relative sm:ml-auto sm:w-72">
+              <Search className="h-4 w-4 absolute left-2.5 top-2.5 text-muted-foreground" />
+              <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar insumo, motivo o nota" className="pl-8" />
+            </div>
+          </div>
         </CardHeader>
         <CardContent className="p-0">
           <Table>
@@ -137,15 +161,15 @@ export default function Adjustments() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {adjustments.length === 0 ? (
+              {visible.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7} className="text-center py-8">
                     <SlidersHorizontal className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
-                    <p className="text-muted-foreground">Sin ajustes registrados</p>
+                    <p className="text-muted-foreground">{search ? 'Sin coincidencias en este mes' : 'Sin ajustes registrados'}</p>
                   </TableCell>
                 </TableRow>
               ) : (
-                adjustments.map(a => (
+                visible.map(a => (
                   <TableRow key={a.id}>
                     <TableCell className="text-sm">
                       <div>{moment(a.created_date).format('DD/MM/YY HH:mm')}</div>
