@@ -323,9 +323,18 @@ export default function Production() {
         utensil.id,
         buildStockDelta(utensil, sourceLocation, -1)
       );
+      await base44.entities.InventoryAdjustment.create({
+        type: 'supply',
+        reference_id: utensil.id,
+        reference_name: utensil.name,
+        quantity_change: -1,
+        reason: 'paquete_gastado',
+        notes: `Paquete gastado en Producción · ${LOCATION_LABEL[sourceLocation]} · stock antes: ${avail}, después: ${avail - 1}`,
+      });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['supplies'] });
+      qc.invalidateQueries({ queryKey: ['adjustments'] });
       setConsumableDialog(false);
       setSelectedUtensil('');
       toast.success('Paquete registrado como gastado');
@@ -538,26 +547,36 @@ export default function Production() {
 
       {/* Consumable Dialog */}
       <Dialog open={consumableDialog} onOpenChange={setConsumableDialog}>
-        <DialogContent className="max-w-sm">
+        <DialogContent className="w-[calc(100vw-2rem)] max-w-md overflow-hidden">
           <DialogHeader>
             <DialogTitle>Registrar Paquete Gastado</DialogTitle>
           </DialogHeader>
-          <div className="grid gap-4 py-2">
-            <p className="text-sm text-muted-foreground">Selecciona el utensilio consumido. Se descontará 1 unidad del stock en la ubicación elegida.</p>
+          <div className="grid gap-4 py-2 min-w-0">
+            <p className="text-sm text-muted-foreground">Selecciona el paquete/caja que se acabó. Se descontará <strong>1 unidad de stock</strong> en la ubicación elegida y quedará registrado en Ajustes de inventario.</p>
             <StockLocationSelector value={sourceLocation} onChange={setSourceLocation} />
             <div>
               <Label>Utensilio</Label>
               <Select value={selectedUtensil} onValueChange={setSelectedUtensil}>
-                <SelectTrigger><SelectValue placeholder="Seleccionar utensilio..." /></SelectTrigger>
-                <SelectContent>
+                <SelectTrigger className="w-full min-w-0 [&>span]:truncate"><SelectValue placeholder="Seleccionar utensilio..." /></SelectTrigger>
+                <SelectContent className="max-w-[calc(100vw-2rem)]">
                   {utensilios.map(s => (
                     <SelectItem key={s.id} value={s.id}>
-                      {s.name} — {LOCATION_LABEL[sourceLocation]}: {getStockAt(s, sourceLocation)} {s.unit}
+                      {s.name} — {getStockAt(s, sourceLocation)} {s.unit}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
+            {selectedUtensil && (() => {
+              const u = supplies.find(s => s.id === selectedUtensil);
+              const avail = getStockAt(u, sourceLocation);
+              return (
+                <div className="rounded-lg bg-muted/50 p-3 text-sm flex justify-between gap-2">
+                  <span className="text-muted-foreground">Stock en {LOCATION_LABEL[sourceLocation]}</span>
+                  <span className="font-medium whitespace-nowrap">{avail} → {avail - 1} {u?.unit}</span>
+                </div>
+              );
+            })()}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setConsumableDialog(false)}>Cancelar</Button>
