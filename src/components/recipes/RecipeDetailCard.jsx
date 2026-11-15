@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Pencil, Trash2, Calculator, Copy } from 'lucide-react';
 import { useRole } from '@/lib/useRole';
+import { recipeTheoreticalCost, variegatoGrams } from '@/lib/recipeCost';
 
 const TYPES = [
   { value: 'helado', label: 'Helado' },
@@ -24,14 +25,11 @@ export default function RecipeDetailCard({ recipe, supplies, onEdit, onDelete, o
   const mixValue = parseFloat(mixDeseado) || 0;
   const showCalc = mixValue > 0 && totalBaseGrams > 0;
 
-  const calculateCost = () => {
-    return ingredients.reduce((sum, ing) => {
-      const supply = supplies.find(s => s.id === ing.supply_id);
-      return sum + (supply?.cost_per_unit || 0) * (ing.quantity || 0);
-    }, 0);
-  };
-
-  const cost = isAdmin ? calculateCost() : 0;
+  const variegatos = recipe.variegatos || [];
+  const supplyCost = (ing) => (supplies.find(s => s.id === ing.supply_id)?.cost_per_unit || 0) * (ing.quantity || 0);
+  const baseCost = isAdmin ? ingredients.reduce((s, ing) => s + supplyCost(ing), 0) : 0;
+  const cost = isAdmin ? recipeTheoreticalCost(recipe, supplies) : 0;
+  const varGrams = variegatoGrams(recipe);
 
   return (
     <Card className="group hover:shadow-md transition-shadow">
@@ -54,7 +52,7 @@ export default function RecipeDetailCard({ recipe, supplies, onEdit, onDelete, o
                 </Badge>
               )}
               <span className="text-xs text-muted-foreground">
-                Rinde: {recipe.yield_amount}{recipe.yield_unit}
+                Rinde: {recipe.yield_amount}{recipe.yield_unit}{varGrams > 0 && ` + ${varGrams}g variegados`}
               </span>
             </div>
           </div>
@@ -152,12 +150,27 @@ export default function RecipeDetailCard({ recipe, supplies, onEdit, onDelete, o
               <span>Total Base</span>
               <span className="font-mono text-right">{totalBaseGrams}g</span>
               <span className="font-mono text-right border-l border-border/70 pl-3">100.00%</span>
-              {isAdmin && <span className="font-mono text-right text-amber-700 border-l border-border/70 pl-3">${cost.toFixed(2)}</span>}
+              {isAdmin && <span className="font-mono text-right text-amber-700 border-l border-border/70 pl-3">${baseCost.toFixed(2)}</span>}
               {showCalc && <span className="font-mono text-right text-primary border-l border-primary/30 pl-3 bg-primary/5 rounded-sm py-0.5">{mixValue.toFixed(1)}g</span>}
             </div>
           </div>
         ) : (
           <p className="text-xs text-muted-foreground italic">Sin ingredientes definidos</p>
+        )}
+
+        {variegatos.length > 0 && (
+          <div>
+            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">Variegados / Inclusiones Post-Mantecado</p>
+            <div className="divide-y divide-border/70">
+              {variegatos.map((v, i) => (
+                <div key={i} className="flex justify-between gap-3 text-sm py-1.5">
+                  <span className="text-muted-foreground truncate flex-1">{v.supply_name}</span>
+                  <span className="font-mono">{v.quantity}{v.unit}</span>
+                  {isAdmin && <span className="font-mono text-amber-700 w-16 text-right">${supplyCost(v).toFixed(2)}</span>}
+                </div>
+              ))}
+            </div>
+          </div>
         )}
 
         {isAdmin && (

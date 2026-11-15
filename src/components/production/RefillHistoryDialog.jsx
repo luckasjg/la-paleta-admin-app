@@ -46,6 +46,29 @@ export default function RefillHistoryDialog({ tray, open, onOpenChange }) {
                   <span className="text-muted-foreground">Costo por gramo</span>
                   <span className="font-mono text-right">${(r.cost_per_gram || 0).toFixed(4)}</span>
                 </div>
+                {r.process_loss_grams != null && (
+                  <p className="text-xs text-muted-foreground">Merma de proceso: <span className="font-mono">{r.process_loss_grams.toFixed(0)}g</span></p>
+                )}
+                {(r.ingredient_variations || []).length > 0 && (
+                  <div className="pt-1 border-t space-y-1">
+                    <p className="text-xs font-medium text-blue-700">Variaciones de mezcla base</p>
+                    {r.ingredient_variations.map((v, j) => (
+                      <p key={j} className="text-xs text-muted-foreground">
+                        {v.supply_name}: {v.status === 'omitted' ? 'Omitido' : 'Ajustado'} ({(v.planned_quantity || 0).toFixed(1)} → {(v.actual_quantity || 0).toFixed(1)}{v.unit}){v.reason ? ` · ${v.reason}` : ''}
+                      </p>
+                    ))}
+                  </div>
+                )}
+                {(r.variegatos_used || []).length > 0 && (
+                  <div className="pt-1 border-t space-y-1">
+                    <p className="text-xs font-medium text-primary">Variegados</p>
+                    {r.variegatos_used.map((v, j) => (
+                      <p key={j} className="text-xs text-muted-foreground">
+                        {v.supply_name}: {(v.quantity || 0).toFixed(1)}{v.unit}{v.is_extra ? ' (adicional)' : ''}
+                      </p>
+                    ))}
+                  </div>
+                )}
                 {(r.substitutions || []).length > 0 && (
                   <div className="pt-1 border-t space-y-1">
                     <p className="text-xs font-medium text-amber-700">Sustituciones</p>

@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { recipeTheoreticalCostPerGram } from '@/lib/recipeCost';
 
 const IVA_RATE = 0.16;
 const FALLBACK_MARGIN_PCT = 50;
@@ -9,16 +10,7 @@ const isIceCreamRecipe = (r) => {
   return t === 'helado' || t === 'sorbete' || c === 'helado' || c === 'sorbete';
 };
 
-function recipeCostPerGram(recipe, supplies) {
-  if (!recipe?.ingredients?.length) return 0;
-  const totalIngredientCost = recipe.ingredients.reduce((sum, ing) => {
-    const supply = supplies.find(s => s.id === ing.supply_id);
-    if (!supply || !supply.cost_per_unit) return sum;
-    return sum + (supply.cost_per_unit * (ing.quantity || 0));
-  }, 0);
-  const yieldAmt = recipe.yield_amount || 1000;
-  return yieldAmt > 0 ? totalIngredientCost / yieldAmt : 0;
-}
+const recipeCostPerGram = (recipe, supplies) => recipeTheoreticalCostPerGram(recipe, supplies);
 
 /**
  * Calculates the average contribution margin (%) across all active ice cream

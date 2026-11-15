@@ -17,6 +17,7 @@ import SearchableCombobox from '@/components/shared/SearchableCombobox';
 import ImageUploadField from '@/components/shared/ImageUploadField';
 import { useRole } from '@/lib/useRole';
 import UnsavedFlag from '@/components/shared/UnsavedFlag';
+import VariegatosEditor from '@/components/recipes/VariegatosEditor';
 
 const TYPES = [
   { value: 'helado', label: 'Helado' },
@@ -29,7 +30,7 @@ const FLAVOR_TAGS = ['Regular', 'Premium', 'Sorbete'];
 
 const emptyRecipe = {
   name: '', type: 'helado', yield_amount: 1000, yield_unit: 'ml',
-  ingredients: [], sale_price: 0, is_active: true,
+  ingredients: [], variegatos: [], sale_price: 0, is_active: true,
   flavor_tag: 'Regular', ref_surcharge_amount: 0, ref_surcharge_grams: 0,
   image_url: '',
 };
@@ -87,6 +88,9 @@ export default function Recipes() {
         ingredients: (r.ingredients || []).map(({ supply_id, supply_name, quantity, unit }) => ({
           supply_id, supply_name, quantity, unit,
         })),
+        variegatos: (r.variegatos || []).map(({ supply_id, supply_name, quantity, unit }) => ({
+          supply_id, supply_name, quantity, unit,
+        })),
       });
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['recipes'] }); toast.success('Receta duplicada'); },
@@ -105,6 +109,7 @@ export default function Recipes() {
     setForm({
       name: r.name, type: r.type, yield_amount: mix,
       yield_unit: r.yield_unit || 'ml', ingredients: ingsWithPct,
+      variegatos: r.variegatos || [],
       sale_price: r.sale_price || 0, is_active: r.is_active !== false,
       flavor_tag: r.flavor_tag || 'Regular',
       ref_surcharge_amount: r.ref_surcharge_amount || 0,
@@ -365,7 +370,7 @@ export default function Recipes() {
             {/* Ingredients */}
             <div>
               <div className="flex items-center justify-between mb-2">
-                <Label className="text-sm font-semibold">Ingredientes</Label>
+                <Label className="text-sm font-semibold">Mezcla Base</Label>
                 <Button variant="outline" size="sm" onClick={addIngredient}><Plus className="h-3 w-3 mr-1" />Agregar</Button>
               </div>
 
@@ -429,6 +434,12 @@ export default function Recipes() {
                 </div>
               )}
             </div>
+
+            <VariegatosEditor
+              value={form.variegatos || []}
+              onChange={(variegatos) => setForm(f => ({ ...f, variegatos }))}
+              supplies={supplies}
+            />
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={close}>Cancelar</Button>

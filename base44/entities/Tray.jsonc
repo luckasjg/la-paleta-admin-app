@@ -62,11 +62,78 @@
     },
     "real_cost_total": {
       "type": "number",
-      "description": "Costo real de la materia prima del \u00faltimo lote producido"
+      "description": "Costo real de la materia prima del contenido actual"
     },
     "real_cost_per_gram": {
       "type": "number",
-      "description": "Costo real por gramo del \u00faltimo lote"
+      "description": "Costo real por gramo (ponderado tras rellenos)"
+    },
+    "batch_multiplier": {
+      "type": "number",
+      "description": "Multiplicador del \u00faltimo lote"
+    },
+    "process_loss_grams": {
+      "type": "number",
+      "description": "Peso te\u00f3rico usado (solo g) \u2212 peso neto f\u00edsico obtenido"
+    },
+    "variegatos_used": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "supply_id": {
+            "type": "string"
+          },
+          "supply_name": {
+            "type": "string"
+          },
+          "planned_quantity": {
+            "type": "number"
+          },
+          "quantity": {
+            "type": "number"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "is_extra": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "ingredient_variations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "supply_id": {
+            "type": "string"
+          },
+          "supply_name": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "omitted",
+              "adjusted"
+            ]
+          },
+          "planned_quantity": {
+            "type": "number"
+          },
+          "actual_quantity": {
+            "type": "number"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          }
+        }
+      }
     },
     "refill_log": {
       "type": "array",
@@ -92,6 +159,64 @@
           },
           "remaining_after": {
             "type": "number"
+          },
+          "process_loss_grams": {
+            "type": "number"
+          },
+          "variegatos_used": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "supply_id": {
+                  "type": "string"
+                },
+                "supply_name": {
+                  "type": "string"
+                },
+                "planned_quantity": {
+                  "type": "number"
+                },
+                "quantity": {
+                  "type": "number"
+                },
+                "unit": {
+                  "type": "string"
+                },
+                "is_extra": {
+                  "type": "boolean"
+                }
+              }
+            }
+          },
+          "ingredient_variations": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "supply_id": {
+                  "type": "string"
+                },
+                "supply_name": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string"
+                },
+                "planned_quantity": {
+                  "type": "number"
+                },
+                "actual_quantity": {
+                  "type": "number"
+                },
+                "unit": {
+                  "type": "string"
+                },
+                "reason": {
+                  "type": "string"
+                }
+              }
+            }
           },
           "substitutions": {
             "type": "array",

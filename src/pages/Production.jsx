@@ -22,12 +22,21 @@ import StockLocationSelector from '@/components/shared/StockLocationSelector';
 import SearchableCombobox from '@/components/shared/SearchableCombobox';
 import { getStockAt, buildStockDelta, LOCATION_LABEL } from '@/lib/stockHelpers';
 import IngredientCheckList from '@/components/production/IngredientCheckList';
-import { buildIngredientPlan, computeRealCost, SUBSTITUTION_REASON } from '@/lib/productionSubstitutes';
+import { buildIngredientPlan, SUBSTITUTION_REASON } from '@/lib/productionSubstitutes';
+import { buildVariegatoPlan, computeBatchSummary } from '@/lib/batchProduction';
+import BatchMultiplierInput from '@/components/production/BatchMultiplierInput';
+import VariegatosPanel from '@/components/production/VariegatosPanel';
+import BatchSummary from '@/components/production/BatchSummary';
 
 export default function Production() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [recipeId, setRecipeId] = useState('');
-  const [grams, setGrams] = useState(5000);
+  const [grams, setGrams] = useState(0); // peso neto físico obtenido / añadido
+  const [multiplier, setMultiplier] = useState(1);
+  const [variations, setVariations] = useState({}); // índice → { status, actual_quantity, reason }
+  const [varOverrides, setVarOverrides] = useState({}); // key → cantidad real
+  const [varExtras, setVarExtras] = useState([]);
+  const [refillBefore, setRefillBefore] = useState(null);
   // Bypass de descuento de inventario para carga inicial / ajuste de saldo.
   // NOTA RBAC: hoy la ruta /produccion está protegida por RequireAdmin, así que
   // sólo admins ven este switch. Cuando exista el rol ENCARGADO_PRODUCCION,
@@ -76,17 +85,26 @@ export default function Production() {
   );
 
   // Escribe la bandeja: crea una nueva o completa una existente (mismo sabor)
-  const commitTray = async (recipe, gramsToAdd, cost = null, subs = []) => {
+  const commitTray = async (recipe, gramsToAdd, cost = 0, subs = [], batch = {}) => {
     const today = moment().format('YYYY-MM-DD');
     const target = targetTrayId !== 'new' ? trays.find(t => t.id === targetTrayId) : null;
+    const batchFields = {
+      batch_multiplier: batch.batch_multiplier ?? null,
+      process_loss_grams: batch.process_loss_grams ?? null,
+      variegatos_used: batch.variegatos_used || [],
+      ingredient_variations: batch.ingredient_variations || [],
+    };
 
     if (target) {
-      // El contenido real de la bandeja = lo que quedaba + el helado nuevo (no acumula histórico)
-      const remainingBefore = target.remaining_grams || 0;
+      // Peso confirmado antes del relleno + peso neto añadido
+      const remainingBefore = refillBefore ?? (target.remaining_grams || 0);
       const content = remainingBefore + gramsToAdd;
       const batchCost = cost || 0;
       const batchCostPerGram = gramsToAdd > 0 ? batchCost / gramsToAdd : 0;
+      // Costo promedio ponderado por gramo de la bandeja
+      const weightedTotal = remainingBefore * (target.real_cost_per_gram || 0) + batchCost;
       await base44.entities.Tray.update(target.id, {
+        ...batchFields,
         remaining_grams: content,
         initial_grams: content,
         status: 'activa',
@@ -94,8 +112,8 @@ export default function Production() {
         first_production_date: target.first_production_date || target.production_date || today,
         refill_count: (target.refill_count || 0) + 1,
         last_refill_date: today,
-        real_cost_total: batchCost,
-        real_cost_per_gram: batchCostPerGram,
+        real_cost_total: weightedTotal,
+        real_cost_per_gram: content > 0 ? weightedTotal / content : 0,
         refill_log: [
           ...(target.refill_log || []),
           {
@@ -106,6 +124,9 @@ export default function Production() {
             remaining_before: remainingBefore,
             remaining_after: content,
             substitutions: subs,
+            process_loss_grams: batchFields.process_loss_grams,
+            variegatos_used: batchFields.variegatos_used,
+            ingredient_variations: batchFields.ingredient_variations,
           },
         ],
       });
@@ -114,6 +135,7 @@ export default function Production() {
     }
 
     const created = await base44.entities.Tray.create({
+      ...batchFields,
       recipe_id: recipe.id,
       recipe_name: recipe.name,
       remaining_grams: gramsToAdd,
@@ -158,17 +180,34 @@ export default function Production() {
   const ingredientPlan = React.useMemo(
     () => buildIngredientPlan({
       recipe: selectedRecipe,
-      grams,
+      multiplier,
       supplies,
       sourceLocation,
       substitutions,
+      variations,
       resolveSupply,
     }),
-    [selectedRecipe, grams, supplies, sourceLocation, substitutions, resolveSupply]
+    [selectedRecipe, multiplier, supplies, sourceLocation, substitutions, variations, resolveSupply]
   );
+  const varPlan = React.useMemo(
+    () => buildVariegatoPlan({ recipe: selectedRecipe, multiplier, overrides: varOverrides, extras: varExtras, sourceLocation, resolveSupply }),
+    [selectedRecipe, multiplier, varOverrides, varExtras, sourceLocation, resolveSupply]
+  );
+  const summary = React.useMemo(() => computeBatchSummary(ingredientPlan, varPlan, grams), [ingredientPlan, varPlan, grams]);
+  const missingIngredients = [...ingredientPlan.filter(i => i.missing), ...varPlan.filter(l => l.missing)];
+  const targetTray = targetTrayId !== 'new' ? trays.find(t => t.id === targetTrayId) : null;
+  const refillBeforeValue = refillBefore ?? (targetTray?.remaining_grams || 0);
 
-  const realCost = React.useMemo(() => computeRealCost(ingredientPlan), [ingredientPlan]);
-  const missingIngredients = ingredientPlan.filter(i => i.missing);
+  const resetBatch = () => {
+    setSubstitutions({}); setVariations({}); setVarOverrides({}); setVarExtras([]);
+    setMultiplier(1); setRefillBefore(null); setGrams(0);
+  };
+  const setVariation = (index, value) =>
+    setVariations(prev => { const next = { ...prev }; if (value) next[index] = value; else delete next[index]; return next; });
+  const addVarExtra = (supplyId) => {
+    const s = supplies.find(x => x.id === supplyId);
+    if (s) setVarExtras(prev => [...prev, { key: `x${Date.now()}`, supply_id: s.id, supply_name: s.name, unit: s.unit }]);
+  };
 
   const selectSubstitute = (index, supplyId) =>
     setSubstitutions(prev => ({ ...prev, [index]: { supply_id: supplyId, save_preferred: false } }));
@@ -177,7 +216,7 @@ export default function Production() {
   const togglePreferred = (index, value) =>
     setSubstitutions(prev => ({ ...prev, [index]: { ...prev[index], save_preferred: value } }));
   // En modo bypass (carga inicial) no se valida disponibilidad de materia prima.
-  const canProduce = recipeId && grams > 0 && (skipInventoryDeduction || missingIngredients.length === 0);
+  const canProduce = recipeId && grams > 0 && (skipInventoryDeduction || (multiplier > 0 && missingIngredients.length === 0));
 
   const produce = useMutation({
     mutationFn: async () => {
@@ -197,13 +236,18 @@ export default function Production() {
 
       // Final validation (defensive — UI already blocks this).
       // Validamos contra el stock de la ubicación de origen elegida.
-      const missing = plan
-        .filter(row => row.missing)
-        .map(row =>
+      const missing = [
+        ...plan.filter(row => row.missing).map(row =>
           row.effective
             ? `${row.effective.name}: faltan ${(row.needed - row.available).toFixed(0)}${row.unit} en ${LOCATION_LABEL[sourceLocation]}`
             : `${row.originalName} (no existe en inventario)`
-        );
+        ),
+        ...varPlan.filter(l => l.missing).map(l =>
+          l.supply
+            ? `${l.name}: faltan ${(l.quantity - l.available).toFixed(0)}${l.unit} en ${LOCATION_LABEL[sourceLocation]}`
+            : `${l.name} (no existe en inventario)`
+        ),
+      ];
       if (missing.length > 0) {
         throw new Error(`Insumos insuficientes — ${missing.join(' · ')}`);
       }
@@ -229,16 +273,20 @@ export default function Production() {
       }
 
       // Deduct supplies (skip infinite ones) from the SELECTED location.
-      for (const row of plan) {
-        if (!row.effective || row.effective.is_infinite) continue;
-        await base44.entities.Supply.update(
-          row.effective.id,
-          buildStockDelta(row.effective, sourceLocation, -row.needed)
-        );
+      // Solo cantidades reales (base + variegados), agrupadas por insumo.
+      const deductions = {};
+      const addDeduction = (supply, qty) => {
+        if (!supply || supply.is_infinite || !(qty > 0)) return;
+        deductions[supply.id] = { supply, qty: (deductions[supply.id]?.qty || 0) + qty };
+      };
+      plan.forEach(row => addDeduction(row.effective, row.needed));
+      varPlan.forEach(l => addDeduction(l.supply, l.quantity));
+      for (const { supply, qty } of Object.values(deductions)) {
+        await base44.entities.Supply.update(supply.id, buildStockDelta(supply, sourceLocation, -qty));
       }
 
       // Trazabilidad de cada sustitución aplicada
-      const subs = plan.filter(row => row.isSubstituted);
+      const subs = plan.filter(row => row.isSubstituted && row.needed > 0);
       if (subs.length > 0) {
         await base44.entities.InventoryAdjustment.bulkCreate(
           subs.map(row => ({
@@ -253,10 +301,32 @@ export default function Production() {
       }
 
       // Bandeja nueva o completar existente — 1:1 con el peso real procesado
+      const batch = {
+        batch_multiplier: multiplier,
+        process_loss_grams: summary.loss,
+        ingredient_variations: plan.filter(r => r.variation).map(r => ({
+          supply_id: r.effective?.id || r.ing.supply_id || '',
+          supply_name: r.isSubstituted ? r.substitute.name : r.originalName,
+          status: r.variation.status,
+          planned_quantity: r.planned,
+          actual_quantity: r.needed,
+          unit: r.unit,
+          reason: r.variation.reason || '',
+        })),
+        variegatos_used: varPlan.map(l => ({
+          supply_id: l.supply?.id || l.ing.supply_id || '',
+          supply_name: l.name,
+          planned_quantity: l.planned,
+          quantity: l.quantity,
+          unit: l.unit,
+          is_extra: l.isExtra,
+        })),
+      };
+
       return await commitTray(
         recipe,
         grams,
-        computeRealCost(plan),
+        summary.totalCost,
         subs.map(row => ({
           original_supply_id: row.original?.id || '',
           original_supply_name: row.originalName,
@@ -265,7 +335,8 @@ export default function Production() {
           quantity: row.needed,
           unit: row.unit,
           saved_as_preferred: row.savePreferred === true,
-        }))
+        })),
+        batch
       );
     },
     onSuccess: (result) => {
@@ -275,7 +346,7 @@ export default function Production() {
       setDialogOpen(false);
       setSkipInventoryDeduction(false);
       setTargetTrayId('new');
-      setSubstitutions({});
+      resetBatch();
       const base = result?.refilled
         ? `Bandeja de ${result.name} completada con ${grams}g nuevos.`
         : 'Bandeja nueva registrada.';
@@ -588,8 +659,8 @@ export default function Production() {
       </Dialog>
 
       {/* Produce Dialog */}
-      <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) { setSkipInventoryDeduction(false); setSubstitutions({}); } }}>
-        <DialogContent className="max-w-md">
+      <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) { setSkipInventoryDeduction(false); resetBatch(); } }}>
+        <DialogContent className="w-[calc(100vw-2rem)] max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Producir Bandeja de Helado</DialogTitle>
           </DialogHeader>
@@ -620,7 +691,7 @@ export default function Production() {
               <Label>Sabor (Receta)</Label>
               <SearchableCombobox
                 value={recipeId}
-                onChange={(v) => { setRecipeId(v); setTargetTrayId('new'); setSubstitutions({}); }}
+                onChange={(v) => { setRecipeId(v); setTargetTrayId('new'); resetBatch(); }}
                 options={iceRecipes.map(r => ({ value: r.id, label: r.name }))}
                 placeholder="Seleccionar sabor"
                 searchPlaceholder="Buscar sabor..."
@@ -631,7 +702,7 @@ export default function Production() {
             {recipeId && refillableTrays.length > 0 && (
               <div>
                 <Label>Destino de la producción</Label>
-                <Select value={targetTrayId} onValueChange={setTargetTrayId}>
+                <Select value={targetTrayId} onValueChange={(v) => { setTargetTrayId(v); setRefillBefore(null); }}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="new">Bandeja nueva</SelectItem>
@@ -644,7 +715,7 @@ export default function Production() {
                 </Select>
                 {targetTrayId !== 'new' && (
                   <p className="text-xs text-amber-700 mt-1">
-                    Se sumarán {grams || 0}g al helado que ya tiene esa bandeja y quedará marcada como rellenada.
+                    El peso neto añadido se sumará al helado que ya tiene esa bandeja y quedará marcada como rellenada.
                   </p>
                 )}
               </div>
@@ -654,21 +725,53 @@ export default function Production() {
               <StockLocationSelector value={sourceLocation} onChange={setSourceLocation} />
             )}
 
-            <div>
-              <Label>Peso Neto a producir (g)</Label>
-              <Input type="number" value={grams} onChange={e => setGrams(parseFloat(e.target.value) || 0)} />
-              <p className="text-xs text-muted-foreground mt-1">La bandeja se creará con exactamente {grams || 0}g (relación 1:1).</p>
+            {/* Pasos 1 y 2 — ocultos en modo bypass */}
+            {!skipInventoryDeduction && selectedRecipe && (
+              <>
+                <BatchMultiplierInput value={multiplier} onChange={setMultiplier} />
+                <IngredientCheckList
+                  plan={ingredientPlan}
+                  sourceLocation={sourceLocation}
+                  realCost={summary.baseCost}
+                  onSelectSubstitute={selectSubstitute}
+                  onClearSubstitute={clearSubstitute}
+                  onTogglePreferred={togglePreferred}
+                  onVariation={setVariation}
+                />
+                <VariegatosPanel
+                  lines={varPlan}
+                  supplies={supplies}
+                  onChangeQty={(key, qty) => setVarOverrides(prev => ({ ...prev, [key]: qty }))}
+                  onAddExtra={addVarExtra}
+                  onRemoveExtra={(key) => setVarExtras(prev => prev.filter(e => e.key !== key))}
+                />
+              </>
+            )}
+
+            {/* Paso 3 — Peso neto físico */}
+            <div className="space-y-3">
+              {targetTray && (
+                <div>
+                  <Label>Peso en bandeja antes del relleno (g)</Label>
+                  <Input type="number" value={refillBeforeValue} onChange={e => setRefillBefore(parseFloat(e.target.value) || 0)} />
+                </div>
+              )}
+              <div>
+                <Label>{targetTray ? 'Paso 3 · Peso Neto Añadido (g)' : 'Paso 3 · Peso Neto Físico Obtenido (g)'}</Label>
+                <Input type="number" value={grams || ''} onChange={e => setGrams(parseFloat(e.target.value) || 0)} />
+                <p className="text-xs text-muted-foreground mt-1">
+                  {targetTray
+                    ? `Total final en bandeja: ${(refillBeforeValue + (grams || 0)).toFixed(0)}g`
+                    : 'Helado ya veteado dentro de la bandeja, tara descontada.'}
+                </p>
+              </div>
             </div>
 
-            {/* Ingredient check — oculto en modo bypass */}
             {!skipInventoryDeduction && selectedRecipe && grams > 0 && (
-              <IngredientCheckList
-                plan={ingredientPlan}
-                sourceLocation={sourceLocation}
-                realCost={realCost}
-                onSelectSubstitute={selectSubstitute}
-                onClearSubstitute={clearSubstitute}
-                onTogglePreferred={togglePreferred}
+              <BatchSummary
+                summary={summary}
+                netGrams={grams}
+                refill={targetTray ? { before: refillBeforeValue, oldCpg: targetTray.real_cost_per_gram || 0 } : null}
               />
             )}
           </div>

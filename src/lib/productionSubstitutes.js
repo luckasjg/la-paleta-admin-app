@@ -42,14 +42,22 @@ export function buildIngredientPlan({
   supplies,
   sourceLocation,
   substitutions = {},
+  variations = {},
+  multiplier: batchMultiplier,
   resolveSupply,
 }) {
-  if (!recipe || !grams) return [];
-  const multiplier = grams / (recipe.yield_amount || 1);
+  if (!recipe) return [];
+  const multiplier = batchMultiplier ?? (grams ? grams / (recipe.yield_amount || 1) : 0);
+  if (!multiplier) return [];
 
   return (recipe.ingredients || []).map((ing, index) => {
     const original = resolveSupply(ing);
-    const needed = (ing.quantity || 0) * multiplier;
+    const planned = (ing.quantity || 0) * multiplier;
+    // Variación solo para este lote: omitido (0) o ajustado (cantidad real)
+    const variation = variations[index] || null;
+    const needed = variation?.status === 'omitted'
+      ? 0
+      : variation?.status === 'adjusted' ? (variation.actual_quantity || 0) : planned;
     const unit = original?.unit || ing.unit || '';
 
     const pick = substitutions[index];
@@ -58,11 +66,13 @@ export function buildIngredientPlan({
 
     const isInfinite = effective?.is_infinite === true;
     const available = effective ? getStockAt(effective, sourceLocation) : 0;
-    const missing = !effective || (!isInfinite && available < needed);
+    const missing = needed > 0 && (!effective || (!isInfinite && available < needed));
 
     return {
       index,
       ing,
+      planned,
+      variation,
       needed,
       unit,
       original,

@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
 import { Coffee, Search } from 'lucide-react';
+import { recipeTheoreticalCost, recipeTheoreticalYield } from '@/lib/recipeCost';
 
 const IVA_RATE = 0.16;
 
@@ -22,14 +23,7 @@ const isIceCreamProduct = (p) => {
   return ICE_CREAM_PRODUCT_CATEGORIES.has(cat);
 };
 
-function recipeCostTotal(recipe, supplies) {
-  if (!recipe?.ingredients?.length) return 0;
-  return recipe.ingredients.reduce((sum, ing) => {
-    const supply = supplies.find(s => s.id === ing.supply_id);
-    if (!supply || !supply.cost_per_unit) return sum;
-    return sum + (supply.cost_per_unit * (ing.quantity || 0));
-  }, 0);
-}
+const recipeCostTotal = (recipe, supplies) => recipeTheoreticalCost(recipe, supplies);
 
 export default function NonIceCreamProfitabilityTable({ products, recipes, supplies, fixedServiceCosts }) {
   const [search, setSearch] = useState('');
@@ -55,7 +49,7 @@ export default function NonIceCreamProfitabilityTable({ products, recipes, suppl
         const r = recipes.find(x => x.id === p.recipe_id);
         if (r) {
           const total = recipeCostTotal(r, supplies);
-          const yieldAmt = r.yield_amount || 1;
+          const yieldAmt = recipeTheoreticalYield(r, 1);
           // El producto representa 1 porción del rendimiento de la receta
           recipeCost = yieldAmt > 0 ? total / yieldAmt : total;
         }

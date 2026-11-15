@@ -26,6 +26,28 @@
     },
     "ingredients": {
       "type": "array",
+      "description": "Insumos de la mezcla base (licuadora y mantecadora)",
+      "items": {
+        "type": "object",
+        "properties": {
+          "supply_id": {
+            "type": "string"
+          },
+          "supply_name": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "number"
+          },
+          "unit": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "variegatos": {
+      "type": "array",
+      "description": "Variegados / inclusiones a\u00f1adidos despu\u00e9s de mantecar",
       "items": {
         "type": "object",
         "properties": {

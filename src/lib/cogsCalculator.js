@@ -8,19 +8,16 @@
  * Extraído del Dashboard para poder calcular también el mes anterior y así
  * comparar el resultado financiero entre periodos.
  */
+import { recipeTheoreticalCostPerGram } from '@/lib/recipeCost';
+
 export function computeCogs({ sales = [], supplies = [], recipes = [], trays = [], products = [] }) {
   const supplyCost = {};
   supplies.forEach(s => { supplyCost[s.id] = s.cost_per_unit || 0; });
 
   const recipeCostPerGram = {};
   recipes.forEach(recipe => {
-    if (!recipe.ingredients?.length) return;
-    const ingredientCost = recipe.ingredients.reduce(
-      (sum, ing) => sum + (supplyCost[ing.supply_id] || 0) * (ing.quantity || 0),
-      0
-    );
-    const yieldAmt = recipe.yield_amount || 1000;
-    recipeCostPerGram[recipe.id] = ingredientCost / yieldAmt;
+    if (!recipe.ingredients?.length && !recipe.variegatos?.length) return;
+    recipeCostPerGram[recipe.id] = recipeTheoreticalCostPerGram(recipe, supplies);
   });
 
   let total = 0;
