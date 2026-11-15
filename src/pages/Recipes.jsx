@@ -120,7 +120,7 @@ export default function Recipes() {
   };
 
   const addIngredient = () => {
-    setForm(f => ({ ...f, ingredients: [...f.ingredients, { supply_id: '', supply_name: '', quantity: 0, unit: 'g' }] }));
+    setForm(f => ({ ...f, ingredients: [...f.ingredients, { supply_id: '', supply_name: '', quantity: 0, percentage: 0, unit: 'g' }] }));
   };
 
   const updateIngredient = (idx, field, value) => {
@@ -179,7 +179,46 @@ export default function Recipes() {
     const pct = parseFloat(ing.percentage);
     return sum + (isNaN(pct) ? 0 : pct);
   }, 0);
-  const isBalanced = Math.abs(totalPercentage - 100) < 0.01;
+  const mixTarget = parseFloat(form.yield_amount) || 0;
+  const sumQty = form.ingredients.reduce((s, ing) => s + (parseFloat(ing.quantity) || 0), 0);
+  const diffQty = mixTarget - sumQty;
+  const isBalanced = Math.abs(totalPercentage - 100) <= 0.05 &&
+    (Math.abs(diffQty) <= 0.5 || (mixTarget > 0 && Math.abs(diffQty / mixTarget) * 100 <= 0.05));
+  const round4 = (n) => parseFloat(n.toFixed(4));
+  const withPct = (ings, mix) => ings.map(ing => ({
+    ...ing, percentage: mix > 0 ? round4(((parseFloat(ing.quantity) || 0) / mix) * 100) : 0,
+  }));
+
+  // Líquido principal: "Agua"; si no, la leche líquida de mayor cantidad
+  const liquidIdx = (() => {
+    const name = (ing) => (ing.supply_name || '').trim().toLowerCase();
+    const agua = form.ingredients.findIndex(ing => name(ing) === 'agua');
+    if (agua >= 0) return agua;
+    let best = -1;
+    form.ingredients.forEach((ing, i) => {
+      const n = name(ing);
+      if (n.startsWith('leche') && !/polvo|condensada|evaporada/.test(n)) {
+        if (best < 0 || (ing.quantity || 0) > (form.ingredients[best].quantity || 0)) best = i;
+      }
+    });
+    return best;
+  })();
+  const canCompensate = liquidIdx >= 0 && (form.ingredients[liquidIdx].quantity || 0) + diffQty >= 0;
+
+  const fitYieldToSum = () => setForm(f => {
+    const mix = round4(f.ingredients.reduce((s, ing) => s + (parseFloat(ing.quantity) || 0), 0));
+    return { ...f, yield_amount: mix, ingredients: withPct(f.ingredients, mix) };
+  });
+  const compensateLiquid = () => setForm(f => {
+    const ings = f.ingredients.map((ing, i) => i === liquidIdx ? { ...ing, quantity: round4((ing.quantity || 0) + diffQty) } : ing);
+    return { ...f, ingredients: withPct(ings, mixTarget) };
+  });
+  const rebalanceProportional = () => setForm(f => {
+    if (sumQty <= 0) return f;
+    const k = mixTarget / sumQty;
+    const ings = f.ingredients.map(ing => ({ ...ing, quantity: round4((parseFloat(ing.quantity) || 0) * k) }));
+    return { ...f, ingredients: withPct(ings, mixTarget) };
+  });
 
   const handleSave = () => {
     if (!form.name) return;
@@ -422,15 +461,34 @@ export default function Recipes() {
 
               {/* Balance totalizer */}
               {form.ingredients.length > 0 && (
-                <div className={`mt-3 rounded-lg border p-2.5 flex items-center justify-between text-sm ${
+                <div className={`mt-3 rounded-lg border p-2.5 text-sm space-y-2 ${
                   isBalanced
                     ? 'bg-green-50 border-green-300 text-green-700'
                     : 'bg-amber-50 border-amber-300 text-amber-700'
                 }`}>
-                  <span className="font-medium">
-                    {isBalanced ? '✓ Receta balanceada' : '⚠ La receta no suma 100%'}
-                  </span>
-                  <span className="font-mono font-bold">{totalPercentage.toFixed(2)}%</span>
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium">
+                      {isBalanced ? '✓ Receta balanceada' : `⚠ La receta no suma 100% (${sumQty.toFixed(1)}g de ${mixTarget}g)`}
+                    </span>
+                    <span className="font-mono font-bold">{isBalanced ? '100.00' : totalPercentage.toFixed(2)}%</span>
+                  </div>
+                  {!isBalanced && sumQty > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      <Button type="button" size="sm" className="h-7 text-xs" onClick={fitYieldToSum}>
+                        Ajustar rendimiento a {parseFloat(sumQty.toFixed(2))}g
+                      </Button>
+                      {canCompensate && (
+                        <Button type="button" size="sm" variant="outline" className="h-7 text-xs bg-background" onClick={compensateLiquid}>
+                          Compensar con {form.ingredients[liquidIdx].supply_name} ({diffQty > 0 ? '+' : ''}{diffQty.toFixed(1)})
+                        </Button>
+                      )}
+                      {mixTarget > 0 && (
+                        <Button type="button" size="sm" variant="outline" className="h-7 text-xs bg-background" onClick={rebalanceProportional}>
+                          Rebalancear proporcional a {mixTarget}g
+                        </Button>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
