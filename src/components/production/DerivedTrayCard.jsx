@@ -4,9 +4,12 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Trash2 } from 'lucide-react';
 import SearchableCombobox from '@/components/shared/SearchableCombobox';
+import StepLabel from '@/components/production/StepLabel';
+import ProcessDiffBadge from '@/components/production/ProcessDiffBadge';
 
 export default function DerivedTrayCard({ index, tray, options, recipe, lines, summary, onChange, onRemove }) {
   const set = (patch) => onChange({ ...tray, ...patch });
+  const addedGrams = lines.filter(l => l.unit === 'g').reduce((s, l) => s + (l.quantity || 0), 0);
   return (
     <div className="rounded-lg border bg-card p-3 space-y-3">
       <div className="flex items-start gap-2">
@@ -18,22 +21,19 @@ export default function DerivedTrayCard({ index, tray, options, recipe, lines, s
         <Button variant="ghost" size="icon" className="h-9 w-9" onClick={onRemove}><Trash2 className="h-4 w-4 text-destructive" /></Button>
       </div>
 
-      <div className="grid grid-cols-2 gap-2">
-        <div>
-          <Label className="text-xs">Gramos de base asignados</Label>
-          <Input type="number" value={tray.base_grams} onChange={e => set({ base_grams: parseFloat(e.target.value) || 0 })} />
-        </div>
-        <div>
-          <Label className="text-xs">Peso neto físico obtenido (g)</Label>
-          <Input type="number" value={tray.net || ''} onChange={e => set({ net: parseFloat(e.target.value) || 0 })} />
-        </div>
+      <div className="space-y-1.5">
+        <StepLabel n={1} title="Mezcla Base" />
+        <Label className="text-xs">Gramos de base asignados</Label>
+        <Input type="number" value={tray.base_grams} onChange={e => set({ base_grams: parseFloat(e.target.value) || 0 })} />
       </div>
 
-      {recipe && lines.length > 0 && (
+      {recipe && (
         <div className="space-y-1.5">
-          {recipe.base_quantity_grams > 0 ? null : (
+          <StepLabel n={2} title="Saborizantes y Variegados" extra={`+${addedGrams.toFixed(0)}g`} />
+          {!(recipe.base_quantity_grams > 0) && lines.length > 0 && (
             <p className="text-[11px] text-amber-700">Este sabor no tiene gramos de base estándar: ingresa las cantidades manualmente.</p>
           )}
+          {lines.length === 0 && <p className="text-xs text-muted-foreground">Sin insumos propios.</p>}
           {lines.map(l => (
             <div key={l.key} className="grid grid-cols-[1fr,110px] gap-2 items-center text-sm">
               <span className="truncate text-muted-foreground">
@@ -49,11 +49,18 @@ export default function DerivedTrayCard({ index, tray, options, recipe, lines, s
         </div>
       )}
 
+      <div className="space-y-2 rounded-md border-2 border-primary/20 bg-primary/5 p-2">
+        <StepLabel n={3} title="Peso Neto Físico en Bandeja" />
+        <Label className="text-xs font-semibold">Peso Neto Real Obtenido (g)</Label>
+        <Input type="number" className="text-base font-semibold" value={tray.net || ''} onChange={e => set({ net: parseFloat(e.target.value) || 0 })} />
+        <p className="text-[11px] text-muted-foreground">Tara descontada.</p>
+        <ProcessDiffBadge expected={summary.expected} net={tray.net} />
+      </div>
+
       {recipe && (
-        <div className="grid grid-cols-3 gap-2 rounded-md bg-muted/40 p-2 text-xs">
+        <div className="grid grid-cols-2 gap-2 rounded-md bg-muted/40 p-2 text-xs">
           <div><p className="text-muted-foreground">Costo total</p><p className="font-mono font-semibold">${summary.totalCost.toFixed(2)}</p></div>
           <div><p className="text-muted-foreground">Costo / g</p><p className="font-mono font-semibold">{tray.net > 0 ? `$${summary.costPerGram.toFixed(4)}` : '—'}</p></div>
-          <div><p className="text-muted-foreground">Merma</p><p className={`font-mono font-semibold ${summary.loss < 0 ? 'text-destructive' : ''}`}>{tray.net > 0 ? `${summary.loss.toFixed(1)}g` : '—'}</p></div>
         </div>
       )}
     </div>

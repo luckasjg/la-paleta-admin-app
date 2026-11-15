@@ -28,6 +28,8 @@ import BatchMultiplierInput from '@/components/production/BatchMultiplierInput';
 import VariegatosPanel from '@/components/production/VariegatosPanel';
 import BatchSummary from '@/components/production/BatchSummary';
 import MasterBatchDialog from '@/components/production/MasterBatchDialog';
+import StepLabel from '@/components/production/StepLabel';
+import ProcessDiffBadge from '@/components/production/ProcessDiffBadge';
 import { Layers } from 'lucide-react';
 
 export default function Production() {
@@ -736,6 +738,7 @@ export default function Production() {
             {!skipInventoryDeduction && selectedRecipe && (
               <>
                 <BatchMultiplierInput value={multiplier} onChange={setMultiplier} />
+                <StepLabel n={1} title="Mezcla Base" />
                 <IngredientCheckList
                   plan={ingredientPlan}
                   sourceLocation={sourceLocation}
@@ -745,6 +748,7 @@ export default function Production() {
                   onTogglePreferred={togglePreferred}
                   onVariation={setVariation}
                 />
+                <StepLabel n={2} title="Saborizantes y Variegados" extra={`+${varPlan.filter(l => l.unit === 'g').reduce((s, l) => s + (l.quantity || 0), 0).toFixed(0)}g`} />
                 <VariegatosPanel
                   lines={varPlan}
                   supplies={supplies}
@@ -756,7 +760,8 @@ export default function Production() {
             )}
 
             {/* Paso 3 — Peso neto físico */}
-            <div className="space-y-3">
+            <div className="space-y-3 rounded-lg border-2 border-primary/20 bg-primary/5 p-3">
+              <StepLabel n={3} title="Peso Neto Físico en Bandeja" />
               {targetTray && (
                 <div>
                   <Label>Peso en bandeja antes del relleno (g)</Label>
@@ -764,14 +769,15 @@ export default function Production() {
                 </div>
               )}
               <div>
-                <Label>{targetTray ? 'Paso 3 · Peso Neto Añadido (g)' : 'Paso 3 · Peso Neto Físico Obtenido (g)'}</Label>
-                <Input type="number" value={grams || ''} onChange={e => setGrams(parseFloat(e.target.value) || 0)} />
+                <Label className="font-semibold">{targetTray ? 'Peso Neto Real Añadido (g)' : 'Peso Neto Real Obtenido (g)'}</Label>
+                <Input type="number" className="text-base font-semibold" value={grams || ''} onChange={e => setGrams(parseFloat(e.target.value) || 0)} />
                 <p className="text-xs text-muted-foreground mt-1">
                   {targetTray
                     ? `Total final en bandeja: ${(refillBeforeValue + (grams || 0)).toFixed(0)}g`
                     : 'Helado ya veteado dentro de la bandeja, tara descontada.'}
                 </p>
               </div>
+              {!skipInventoryDeduction && selectedRecipe && <ProcessDiffBadge expected={summary.expected} net={grams} />}
             </div>
 
             {!skipInventoryDeduction && selectedRecipe && grams > 0 && (

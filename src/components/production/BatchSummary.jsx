@@ -25,11 +25,7 @@ export default function BatchSummary({ summary, netGrams, refill }) {
         <Row label="Costo real por gramo" value={`$${summary.costPerGram.toFixed(4)}`} />
         <Row label="Peso esperado (solo g)" value={`${summary.expected.toFixed(0)}g`} />
         <Row label="Peso neto" value={`${(netGrams || 0).toFixed(0)}g`} />
-        <Row
-          label="Merma de proceso"
-          value={`${summary.loss.toFixed(0)}g (${summary.lossPct.toFixed(1)}%)`}
-          strong
-        />
+
         {weighted !== null && <Row label="Costo/g ponderado bandeja" value={`$${weighted.toFixed(4)}`} strong />}
       </div>
     </div>

@@ -13,6 +13,7 @@ import IngredientCheckList from '@/components/production/IngredientCheckList';
 import BatchMultiplierInput from '@/components/production/BatchMultiplierInput';
 import DerivedTrayCard from '@/components/production/DerivedTrayCard';
 import BaseBalanceBar from '@/components/production/BaseBalanceBar';
+import MasterBatchTotals from '@/components/production/MasterBatchTotals';
 import { buildIngredientPlan, computeRealCost, SUBSTITUTION_REASON } from '@/lib/productionSubstitutes';
 import { buildStockDelta, LOCATION_LABEL } from '@/lib/stockHelpers';
 import { buildDerivedLines, derivedTraySummary, aggregateDeductions, splitEvenly, BALANCE_TOLERANCE_G } from '@/lib/masterBatch';
@@ -181,6 +182,7 @@ export default function MasterBatchDialog({ open, onOpenChange, recipes, supplie
                   onChange={(t) => setTrays(prev => prev.map(x => (x.key === t.key ? t : x)))} onRemove={() => removeTray(c.tray.key)} />
               ))}
               <Button variant="outline" onClick={addTray} className="w-full"><Plus className="h-4 w-4 mr-2" /> Agregar Bandeja Derivada</Button>
+              {computed.length > 0 && <MasterBatchTotals items={computed} />}
             </section>
           )}
 
