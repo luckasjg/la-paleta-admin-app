@@ -40,6 +40,32 @@
         }
       }
     },
+    "byproducts": {
+      "type": "array",
+      "default": [],
+      "description": "Subproductos reutilizables que ingresan a inventario",
+      "items": {
+        "type": "object",
+        "properties": {
+          "supply_id": {
+            "type": "string"
+          },
+          "supply_name": {
+            "type": "string"
+          },
+          "expected_yield": {
+            "type": "number"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "cost_allocation_pct": {
+            "type": "number",
+            "default": 0
+          }
+        }
+      }
+    },
     "linked_supply_id": {
       "type": "string"
     },

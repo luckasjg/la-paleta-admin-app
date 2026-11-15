@@ -17,6 +17,12 @@ import { toast } from 'sonner';
 import SearchableCombobox from '@/components/shared/SearchableCombobox';
 import StockLocationSelector from '@/components/shared/StockLocationSelector';
 import { getStockAt, buildStockDelta, LOCATION_LABEL } from '@/lib/stockHelpers';
+import ProcessBalanceCard from '@/components/preparations/ProcessBalanceCard';
+import ByproductsEditor from '@/components/preparations/ByproductsEditor';
+import BatchScalePanel from '@/components/preparations/BatchScalePanel';
+
+const fmt2 = (n) => (Math.round((n || 0) * 100) / 100).toLocaleString('es-VE', { maximumFractionDigits: 2 });
+const allocOf = (bps) => Math.min(100, (bps || []).reduce((s, b) => s + (parseFloat(b.cost_allocation_pct) || 0), 0));
 
 const emptyPrep = {
   name: '',
@@ -24,6 +30,7 @@ const emptyPrep = {
   yield_unit: 'g',
   process_percentage: 30,
   ingredients: [],
+  byproducts: [],
   is_active: true,
 };
 
@@ -73,15 +80,32 @@ export default function Preparations() {
     const processPct = parseFloat(formData.process_percentage) || 0;
     const totalCost = subtotal * (1 + processPct / 100);
     const yieldAmt = parseFloat(formData.yield_amount) || 0;
-    const costPerUnit = yieldAmt > 0 ? totalCost / yieldAmt : 0;
-    return { subtotal, totalCost, costPerUnit };
+    const principalCost = totalCost * (1 - allocOf(formData.byproducts) / 100);
+    const costPerUnit = yieldAmt > 0 ? principalCost / yieldAmt : 0;
+    return { subtotal, totalCost, principalCost, costPerUnit };
   };
 
   const costs = useMemo(() => computeCosts(form), [form, supplies]);
 
-  // ===== Balance =====
-  const totalPercentage = form.ingredients.reduce((s, i) => s + (parseFloat(i.percentage) || 0), 0);
-  const isBalanced = Math.abs(totalPercentage - 100) < 0.01;
+  // ===== Balance del proceso =====
+  const totalInput = form.ingredients.reduce((s, i) => s + (parseFloat(i.quantity) || 0), 0);
+  const byproductsTotal = (form.byproducts || []).reduce((s, b) => s + (parseFloat(b.expected_yield) || 0), 0);
+
+  // ===== Lote =====
+  const [batch, setBatch] = useState({ mode: 'mult', mult: 1, mainIdx: 0, mainQty: '', realYield: null, byReal: {} });
+  const batchFactor = useMemo(() => {
+    if (!produceDialog) return 1;
+    if (batch.mode === 'mult') return Math.max(parseFloat(batch.mult) || 0, 0);
+    const base = produceDialog.ingredients?.[batch.mainIdx]?.quantity || 0;
+    return base > 0 ? Math.max((parseFloat(batch.mainQty) || 0) / base, 0) : 0;
+  }, [produceDialog, batch]);
+
+  const openProduce = (p) => {
+    const ings = p.ingredients || [];
+    const mainIdx = ings.reduce((best, i, idx) => ((i.quantity || 0) > (ings[best]?.quantity || 0) ? idx : best), 0);
+    setBatch({ mode: 'mult', mult: 1, mainIdx, mainQty: ings[mainIdx]?.quantity || '', realYield: null, byReal: {} });
+    setProduceDialog(p);
+  };
 
   // ===== Mutations =====
   const close = () => { setDialogOpen(false); setEditing(null); setForm(emptyPrep); setLoadInitialStock(false); };
@@ -96,10 +120,8 @@ export default function Preparations() {
       yield_amount: mix,
       yield_unit: p.yield_unit || 'g',
       process_percentage: p.process_percentage || 0,
-      ingredients: (p.ingredients || []).map(i => ({
-        ...i,
-        percentage: mix > 0 ? parseFloat((((i.quantity || 0) / mix) * 100).toFixed(4)) : 0,
-      })),
+      ingredients: p.ingredients || [],
+      byproducts: p.byproducts || [],
       is_active: p.is_active !== false,
       linked_supply_id: p.linked_supply_id,
     });
@@ -147,6 +169,11 @@ export default function Preparations() {
         yield_unit: formData.yield_unit,
         process_percentage: parseFloat(formData.process_percentage) || 0,
         ingredients: cleanIngredients,
+        byproducts: (formData.byproducts || []).filter(b => b.supply_id).map(b => ({
+          ...b,
+          expected_yield: parseFloat(b.expected_yield) || 0,
+          cost_allocation_pct: parseFloat(b.cost_allocation_pct) || 0,
+        })),
         linked_supply_id: linkedSupplyId,
         computed_cost_total: parseFloat(totalCost.toFixed(4)),
         computed_cost_per_unit: parseFloat(costPerUnit.toFixed(6)),
@@ -186,17 +213,19 @@ export default function Preparations() {
     return (produceDialog.ingredients || []).map(ing => {
       const supply = supplies.find(s => s.id === ing.supply_id);
       if (!supply) return { name: ing.supply_name || 'Desconocido', needed: ing.quantity || 0, available: 0, unit: ing.unit || '', missing: true, notFound: true, isInfinite: false };
-      const needed = ing.quantity || 0;
+      const needed = (ing.quantity || 0) * batchFactor;
       // Disponibilidad medida en la ubicación de origen seleccionada.
       const available = getStockAt(supply, sourceLocation);
       const isInfinite = !!supply.is_infinite;
       return { name: supply.name, needed, available, unit: supply.unit, missing: !isInfinite && available < needed, notFound: false, isInfinite };
     });
-  }, [produceDialog, supplies, sourceLocation]);
+  }, [produceDialog, supplies, sourceLocation, batchFactor]);
 
   const missingIngredients = ingredientCheck.filter(i => i.missing);
   // En modo bypass no se requieren ingredientes ni stock — sólo suma rendimiento al insumo vinculado.
-  const canProduce = produceDialog && (
+  const expectedYield = (produceDialog?.yield_amount || 0) * batchFactor;
+  const realYield = batch.realYield === null ? expectedYield : (parseFloat(batch.realYield) || 0);
+  const canProduce = produceDialog && batchFactor > 0 && realYield > 0 && (
     skipInventoryDeduction
       ? true
       : ((produceDialog.ingredients || []).length > 0 && missingIngredients.length === 0)
@@ -235,7 +264,7 @@ export default function Preparations() {
             // Descontar de la ubicación de origen seleccionada.
             await base44.entities.Supply.update(
               supply.id,
-              buildStockDelta(supply, sourceLocation, -(ing.quantity || 0))
+              buildStockDelta(supply, sourceLocation, -((ing.quantity || 0) * batchFactor))
             );
           }
         }
@@ -244,15 +273,26 @@ export default function Preparations() {
       // Add yield to linked supply (siempre, también en carga inicial).
       // El preparado SIEMPRE se acumula en el Laboratorio de Producción,
       // independientemente de dónde se descontó la materia prima.
-      const yieldQty = parseFloat(prep.yield_amount) || 0;
-      // Releemos el linked supply en caso de que recién se haya creado.
+      const yieldQty = realYield;
       const linkedFresh = linked.id === linkedId ? linked : supplies.find(s => s.id === linkedId) || linked;
-      await base44.entities.Supply.update(
-        linkedId,
-        buildStockDelta(linkedFresh, 'production', yieldQty)
-      );
+      const { principalCost } = computeCosts(prep);
+      const supplyUpdate = buildStockDelta(linkedFresh, 'production', yieldQty);
+      if (!skipInventoryDeduction && yieldQty > 0) {
+        supplyUpdate.cost_per_unit = parseFloat(((principalCost * batchFactor) / yieldQty).toFixed(6));
+      }
+      await base44.entities.Supply.update(linkedId, supplyUpdate);
 
-      return { prep, skipped: skipInventoryDeduction };
+      // Subproductos reutilizables → inventario (Laboratorio)
+      for (const [idx, b] of (prep.byproducts || []).entries()) {
+        const sup = supplies.find(s => s.id === b.supply_id);
+        const raw = batch.byReal?.[idx];
+        const qty = raw === undefined ? (b.expected_yield || 0) * batchFactor : (parseFloat(raw) || 0);
+        if (sup && qty > 0 && !sup.is_infinite) {
+          await base44.entities.Supply.update(sup.id, buildStockDelta(sup, 'production', qty));
+        }
+      }
+
+      return { prep: { ...prep, yield_amount: fmt2(yieldQty) }, skipped: skipInventoryDeduction };
     },
     onSuccess: ({ prep, skipped }) => {
       qc.invalidateQueries({ queryKey: ['supplies'] });
@@ -278,21 +318,14 @@ export default function Preparations() {
   const updateIngredient = (idx, field, value) => {
     setForm(f => {
       const newIngs = [...f.ingredients];
-      const mix = parseFloat(f.yield_amount) || 0;
       const current = { ...newIngs[idx] };
 
       if (field === 'supply_id') {
         current.supply_id = value;
         const supply = supplies.find(s => s.id === value);
         if (supply) { current.supply_name = supply.name; current.unit = supply.unit; }
-      } else if (field === 'percentage') {
-        const pct = parseFloat(value) || 0;
-        current.percentage = value === '' ? '' : pct;
-        current.quantity = mix > 0 ? parseFloat(((pct / 100) * mix).toFixed(4)) : 0;
       } else if (field === 'quantity') {
-        const qty = parseFloat(value) || 0;
-        current.quantity = value === '' ? 0 : qty;
-        current.percentage = mix > 0 ? parseFloat(((qty / mix) * 100).toFixed(4)) : 0;
+        current.quantity = value === '' ? 0 : (parseFloat(value) || 0);
       } else {
         current[field] = value;
       }
@@ -302,18 +335,7 @@ export default function Preparations() {
   };
 
   const updateYieldAmount = (value) => {
-    const newMix = parseFloat(value) || 0;
-    setForm(f => ({
-      ...f,
-      yield_amount: newMix,
-      ingredients: f.ingredients.map(ing => {
-        const pct = parseFloat(ing.percentage);
-        if (!isNaN(pct) && newMix > 0) {
-          return { ...ing, quantity: parseFloat(((pct / 100) * newMix).toFixed(4)) };
-        }
-        return ing;
-      }),
-    }));
+    setForm(f => ({ ...f, yield_amount: value === '' ? '' : (parseFloat(value) || 0) }));
   };
 
   const removeIngredient = (idx) => {
@@ -354,15 +376,20 @@ export default function Preparations() {
                 const linked = supplies.find(s => s.id === p.linked_supply_id);
                 return (
                   <TableRow key={p.id}>
-                    <TableCell className="font-medium">{p.name}</TableCell>
-                    <TableCell className="text-right font-mono">{p.yield_amount} {p.yield_unit}</TableCell>
+                    <TableCell className="font-medium">
+                      {p.name}
+                      {(p.byproducts || []).map((b, i) => (
+                        <Badge key={i} variant="outline" className="ml-2 text-[10px] font-normal text-blue-700 border-blue-200">+ {b.supply_name}</Badge>
+                      ))}
+                    </TableCell>
+                    <TableCell className="text-right font-mono">{fmt2(p.yield_amount)} {p.yield_unit}</TableCell>
                     <TableCell className="text-right font-mono text-muted-foreground">{p.process_percentage || 0}%</TableCell>
                     <TableCell className="text-right font-mono">${(p.computed_cost_total || 0).toFixed(2)}</TableCell>
                     <TableCell className="text-right font-mono">${(p.computed_cost_per_unit || 0).toFixed(4)}</TableCell>
-                    <TableCell className="text-right font-mono">{linked ? `${linked.stock_current} ${linked.unit}` : '—'}</TableCell>
+                    <TableCell className="text-right font-mono">{linked ? `${fmt2(linked.stock_current)} ${linked.unit}` : '—'}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
-                        <Button variant="outline" size="sm" onClick={() => setProduceDialog(p)} disabled={produceMut.isPending}>
+                        <Button variant="outline" size="sm" onClick={() => openProduce(p)} disabled={produceMut.isPending}>
                           <Factory className="h-3.5 w-3.5 mr-1" /> Producir
                         </Button>
                         <Button variant="ghost" size="icon" onClick={() => openEdit(p)}><Pencil className="h-4 w-4" /></Button>
@@ -410,11 +437,7 @@ export default function Preparations() {
             )}
 
             <div className="grid grid-cols-3 gap-3">
-              <div>
-                <Label>Mix Deseado</Label>
-                <Input type="number" step="0.01" value={form.yield_amount} onChange={e => updateYieldAmount(e.target.value)} />
-              </div>
-              <div>
+              <div className="col-span-2">
                 <Label>Unidad</Label>
                 <Select value={form.yield_unit} onValueChange={v => setForm({ ...form, yield_unit: v })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
@@ -439,7 +462,7 @@ export default function Preparations() {
 
               {form.ingredients.length > 0 && (
                 <div className="grid grid-cols-[1fr,72px,90px,32px] gap-2 px-1 mb-1 text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">
-                  <span>Insumo</span><span className="text-right">%</span><span className="text-right">Cantidad</span><span></span>
+                  <span>Insumo</span><span className="text-right">% entrada</span><span className="text-right">Cantidad</span><span></span>
                 </div>
               )}
 
@@ -458,7 +481,7 @@ export default function Preparations() {
                       searchPlaceholder="Buscar insumo..."
                       emptyText="Sin insumos"
                     />
-                    <Input type="number" step="0.01" placeholder="%" value={ing.percentage ?? ''} onChange={e => updateIngredient(idx, 'percentage', e.target.value)} className="text-right" />
+                    <span className="text-right font-mono text-xs text-muted-foreground">{totalInput > 0 ? fmt2(((ing.quantity || 0) / totalInput) * 100) : 0}%</span>
                     <div className="relative">
                       <Input type="number" step="0.01" placeholder="0" value={ing.quantity || ''} onChange={e => updateIngredient(idx, 'quantity', e.target.value)} className="text-right pr-7" />
                       <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">{ing.unit}</span>
@@ -468,15 +491,12 @@ export default function Preparations() {
                 ))}
               </div>
 
-              {form.ingredients.length > 0 && (
-                <div className={`mt-3 rounded-lg border p-2.5 flex items-center justify-between text-sm ${
-                  isBalanced ? 'bg-green-50 border-green-300 text-green-700' : 'bg-amber-50 border-amber-300 text-amber-700'
-                }`}>
-                  <span className="font-medium">{isBalanced ? '✓ Receta balanceada' : '⚠ La receta no suma 100%'}</span>
-                  <span className="font-mono font-bold">{totalPercentage.toFixed(2)}%</span>
-                </div>
-              )}
             </div>
+
+            <ByproductsEditor byproducts={form.byproducts || []} supplies={supplies} onChange={bps => setForm(f => ({ ...f, byproducts: bps }))} />
+
+            <ProcessBalanceCard totalInput={totalInput} yieldAmount={form.yield_amount} byproductsTotal={byproductsTotal}
+              unit={form.yield_unit} onYieldChange={updateYieldAmount} />
 
             {/* Cost breakdown */}
             <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-1 text-sm">
@@ -492,6 +512,12 @@ export default function Preparations() {
                 <span>Costo Total:</span>
                 <span className="font-mono">${costs.totalCost.toFixed(2)}</span>
               </div>
+              {allocOf(form.byproducts) > 0 && (
+                <div className="flex justify-between text-muted-foreground">
+                  <span>Costo preparado principal ({(100 - allocOf(form.byproducts)).toFixed(2)}%):</span>
+                  <span className="font-mono">${costs.principalCost.toFixed(2)}</span>
+                </div>
+              )}
               <div className="flex justify-between font-semibold text-primary">
                 <span>Costo / {form.yield_unit}:</span>
                 <span className="font-mono">${costs.costPerUnit.toFixed(4)}</span>
@@ -509,7 +535,7 @@ export default function Preparations() {
 
       {/* Diálogo de producción con verificación de ingredientes */}
       <Dialog open={!!produceDialog} onOpenChange={(o) => { if (!o) { setProduceDialog(null); setSkipInventoryDeduction(false); setSourceLocation('production'); } }}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Producir Lote — {produceDialog?.name}</DialogTitle>
           </DialogHeader>
@@ -538,10 +564,12 @@ export default function Preparations() {
               <StockLocationSelector value={sourceLocation} onChange={setSourceLocation} />
             )}
 
+            {produceDialog && <BatchScalePanel prep={produceDialog} batch={batch} setBatch={setBatch} factor={batchFactor} />}
+
             <p className="text-sm text-muted-foreground">
               {skipInventoryDeduction
-                ? <>Se sumarán <strong className="text-foreground">{produceDialog?.yield_amount} {produceDialog?.yield_unit}</strong> al <strong className="text-foreground">Laboratorio de Producción</strong> como carga inicial, sin descontar insumos.</>
-                : <>Se producirán <strong className="text-foreground">{produceDialog?.yield_amount} {produceDialog?.yield_unit}</strong> que ingresan al <strong className="text-foreground">Laboratorio de Producción</strong>, descontando los insumos del origen seleccionado.</>
+                ? <>Se sumarán <strong className="text-foreground">{fmt2(realYield)} {produceDialog?.yield_unit}</strong> al <strong className="text-foreground">Laboratorio de Producción</strong> como carga inicial, sin descontar insumos.</>
+                : <>Se registrarán <strong className="text-foreground">{fmt2(realYield)} {produceDialog?.yield_unit}</strong> reales que ingresan al <strong className="text-foreground">Laboratorio de Producción</strong>, descontando los insumos del origen seleccionado.</>
               }
             </p>
 
