@@ -29,11 +29,11 @@ const isIceCreamProduct = (p) => {
   return ICE_CREAM_PRODUCT_CATEGORIES.has(cat);
 };
 
-const recipeCostPerGram = (recipe, supplies) => recipeTheoreticalCostPerGram(recipe, supplies);
+const recipeCostPerGram = (recipe, supplies, recipes) => recipeTheoreticalCostPerGram(recipe, supplies, recipes);
 
 export default function ProfitabilityMatrix({ recipes, products, supplies, fixedServiceCosts }) {
   const flavors = useMemo(
-    () => recipes.filter(r => r.is_active !== false && isIceCreamRecipe(r)),
+    () => recipes.filter(r => r.is_active !== false && !r.is_master_base && isIceCreamRecipe(r)),
     [recipes]
   );
 
@@ -53,7 +53,7 @@ export default function ProfitabilityMatrix({ recipes, products, supplies, fixed
 
   const recipeCosts = useMemo(() => {
     const map = {};
-    flavors.forEach(r => { map[r.id] = recipeCostPerGram(r, supplies); });
+    flavors.forEach(r => { map[r.id] = recipeCostPerGram(r, supplies, recipes); });
     return map;
   }, [flavors, supplies]);
 

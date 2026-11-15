@@ -66,6 +66,19 @@
         }
       }
     },
+    "is_master_base": {
+      "type": "boolean",
+      "default": false,
+      "description": "F\u00f3rmula estructural que sirve de base para otros sabores"
+    },
+    "base_recipe_id": {
+      "type": "string",
+      "description": "Base Maestra de la que deriva este sabor"
+    },
+    "base_quantity_grams": {
+      "type": "number",
+      "description": "Gramos de base maestra por bandeja est\u00e1ndar"
+    },
     "image_url": {
       "type": "string"
     },

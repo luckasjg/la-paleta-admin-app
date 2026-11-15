@@ -27,6 +27,8 @@ import { buildVariegatoPlan, computeBatchSummary } from '@/lib/batchProduction';
 import BatchMultiplierInput from '@/components/production/BatchMultiplierInput';
 import VariegatosPanel from '@/components/production/VariegatosPanel';
 import BatchSummary from '@/components/production/BatchSummary';
+import MasterBatchDialog from '@/components/production/MasterBatchDialog';
+import { Layers } from 'lucide-react';
 
 export default function Production() {
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -54,6 +56,7 @@ export default function Production() {
   const [consumableDialog, setConsumableDialog] = useState(false);
   const [mergeOpen, setMergeOpen] = useState(false);
   const [selectedUtensil, setSelectedUtensil] = useState('');
+  const [masterOpen, setMasterOpen] = useState(false);
   const qc = useQueryClient();
 
   const { data: trays = [] } = useQuery({
@@ -77,7 +80,7 @@ export default function Production() {
     queryFn: () => base44.entities.Supply.list(),
   });
 
-  const iceRecipes = recipes.filter(r => r.type === 'helado');
+  const iceRecipes = recipes.filter(r => r.type === 'helado' && !r.is_master_base);
 
   // Bandejas activas del mismo sabor que pueden completarse con el helado nuevo
   const refillableTrays = trays.filter(
@@ -478,6 +481,9 @@ export default function Production() {
             <Button variant="outline" onClick={() => setConsumableDialog(true)}>
               <Package className="h-4 w-4 mr-2" /> Registrar Paquete Gastado
             </Button>
+            <Button variant="outline" onClick={() => setMasterOpen(true)}>
+              <Layers className="h-4 w-4 mr-2" /> Lote de Base Maestra
+            </Button>
             <Button onClick={() => setDialogOpen(true)}>
               <Plus className="h-4 w-4 mr-2" /> Producir Bandeja
             </Button>
@@ -583,6 +589,7 @@ export default function Production() {
       )}
 
       <MergeTraysDialog open={mergeOpen} onOpenChange={setMergeOpen} trays={trays} />
+      <MasterBatchDialog open={masterOpen} onOpenChange={setMasterOpen} recipes={recipes} supplies={supplies} resolveSupply={resolveSupply} />
 
       {/* Edit Tray Dialog */}
       <Dialog open={!!editTray} onOpenChange={() => setEditTray(null)}>

@@ -18,6 +18,13 @@ import ImageUploadField from '@/components/shared/ImageUploadField';
 import { useRole } from '@/lib/useRole';
 import UnsavedFlag from '@/components/shared/UnsavedFlag';
 import VariegatosEditor from '@/components/recipes/VariegatosEditor';
+import FormulationSelector from '@/components/recipes/FormulationSelector';
+
+const KIND_FILTERS = [
+  { value: 'todas', label: 'Todas' },
+  { value: 'sabores', label: 'Sabores' },
+  { value: 'bases', label: 'Bases Maestras' },
+];
 
 const TYPES = [
   { value: 'helado', label: 'Helado' },
@@ -32,7 +39,7 @@ const emptyRecipe = {
   name: '', type: 'helado', yield_amount: 1000, yield_unit: 'ml',
   ingredients: [], variegatos: [], sale_price: 0, is_active: true,
   flavor_tag: 'Regular', ref_surcharge_amount: 0, ref_surcharge_grams: 0,
-  image_url: '',
+  image_url: '', is_master_base: false, base_recipe_id: '', base_quantity_grams: 0,
 };
 
 const normalize = (s) => (s || '').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
@@ -42,6 +49,7 @@ export default function Recipes() {
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(emptyRecipe);
   const [search, setSearch] = useState('');
+  const [kind, setKind] = useState('todas');
   const qc = useQueryClient();
   const { isAdmin } = useRole();
 
@@ -57,12 +65,15 @@ export default function Recipes() {
 
   const filteredRecipes = useMemo(() => {
     const q = normalize(search.trim());
-    if (!q) return recipes;
-    return recipes.filter(r => {
+    const byKind = recipes.filter(r => kind === 'todas' || (kind === 'bases' ? r.is_master_base : !r.is_master_base));
+    if (!q) return byKind;
+    return byKind.filter(r => {
       if (normalize(r.name).includes(q)) return true;
       return (r.ingredients || []).some(ing => normalize(ing.supply_name).includes(q));
     });
-  }, [recipes, search]);
+  }, [recipes, search, kind]);
+  const masterBases = recipes.filter(r => r.is_master_base && r.id !== editing?.id);
+  const isDerived = form._mode === 'derivado' || !!form.base_recipe_id;
 
   const createMut = useMutation({
     mutationFn: (d) => base44.entities.Recipe.create(d),
@@ -115,6 +126,10 @@ export default function Recipes() {
       ref_surcharge_amount: r.ref_surcharge_amount || 0,
       ref_surcharge_grams: r.ref_surcharge_grams || 0,
       image_url: r.image_url || '',
+      is_master_base: r.is_master_base === true,
+      base_recipe_id: r.base_recipe_id || '',
+      base_quantity_grams: r.base_quantity_grams || 0,
+      _mode: r.is_master_base ? 'base' : r.base_recipe_id ? 'derivado' : 'independiente',
     });
     setDialogOpen(true);
   };
@@ -228,8 +243,13 @@ export default function Recipes() {
     const grams = parseFloat(form.ref_surcharge_grams) || 0;
     const surchargePerGram = (tag !== 'Regular' && amt > 0 && grams > 0) ? (amt / grams) : 0;
 
+    if (isDerived && !form.base_recipe_id) { toast.error('Selecciona la Base Maestra del sabor derivado'); return; }
+    const { _mode, ...clean } = form;
     const payload = {
-      ...form,
+      ...clean,
+      is_master_base: clean.type === 'helado' && clean.is_master_base === true,
+      base_recipe_id: clean.type === 'helado' && !clean.is_master_base ? (clean.base_recipe_id || '') : '',
+      base_quantity_grams: clean.type === 'helado' && !clean.is_master_base && clean.base_recipe_id ? (parseFloat(clean.base_quantity_grams) || 0) : 0,
       ingredients: form.ingredients.map(({ percentage, ...rest }) => rest),
       flavor_tag: tag,
       ref_surcharge_amount: tag === 'Regular' ? 0 : amt,
@@ -276,6 +296,15 @@ export default function Recipes() {
         }
       />
 
+      <div className="flex gap-1.5">
+        {KIND_FILTERS.map(k => (
+          <button key={k.value} type="button" onClick={() => setKind(k.value)}
+            className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${kind === k.value ? 'bg-primary text-primary-foreground border-primary' : 'bg-background hover:bg-muted'}`}>
+            {k.label}
+          </button>
+        ))}
+      </div>
+
       <div className="relative max-w-md">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
@@ -292,6 +321,7 @@ export default function Recipes() {
             key={r.id}
             recipe={r}
             supplies={supplies}
+            recipes={recipes}
             onEdit={openEdit}
             onDelete={(id) => deleteMut.mutate(id)}
             onClone={(rec) => cloneMut.mutate(rec)}
@@ -333,11 +363,13 @@ export default function Recipes() {
                   <SelectContent>{TYPES.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
-              <div><Label>Precio Venta ($)</Label><Input type="number" step="0.01" value={form.sale_price} onChange={e => setForm({ ...form, sale_price: parseFloat(e.target.value) || 0 })} /></div>
+              {!form.is_master_base && <div><Label>Precio Venta ($)</Label><Input type="number" step="0.01" value={form.sale_price} onChange={e => setForm({ ...form, sale_price: parseFloat(e.target.value) || 0 })} /></div>}
             </div>
 
+            {form.type === 'helado' && <FormulationSelector form={form} setForm={setForm} bases={masterBases} />}
+
             {/* Clasificación de sabor y recargo proporcional */}
-            <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-3">
+            {!form.is_master_base && <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-3">
               <div className="grid grid-cols-2 gap-3 items-end">
                 <div>
                   <Label className="text-xs">Clasificación del sabor</Label>
@@ -386,7 +418,7 @@ export default function Recipes() {
                   </div>
                 </>
               )}
-            </div>
+            </div>}
 
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -409,7 +441,7 @@ export default function Recipes() {
             {/* Ingredients */}
             <div>
               <div className="flex items-center justify-between mb-2">
-                <Label className="text-sm font-semibold">Mezcla Base</Label>
+                <Label className="text-sm font-semibold">{isDerived ? 'Saborizantes propios' : 'Mezcla Base'}</Label>
                 <Button variant="outline" size="sm" onClick={addIngredient}><Plus className="h-3 w-3 mr-1" />Agregar</Button>
               </div>
 
@@ -460,7 +492,7 @@ export default function Recipes() {
               </div>
 
               {/* Balance totalizer */}
-              {form.ingredients.length > 0 && (
+              {form.ingredients.length > 0 && !isDerived && (
                 <div className={`mt-3 rounded-lg border p-2.5 text-sm space-y-2 ${
                   isBalanced
                     ? 'bg-green-50 border-green-300 text-green-700'

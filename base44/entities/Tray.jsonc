@@ -76,6 +76,18 @@
       "type": "number",
       "description": "Peso te\u00f3rico usado (solo g) \u2212 peso neto f\u00edsico obtenido"
     },
+    "master_batch_id": {
+      "type": "string",
+      "description": "Lote maestro com\u00fan a las bandejas nacidas de una misma base"
+    },
+    "master_base_name": {
+      "type": "string",
+      "description": "Nombre de la base maestra usada"
+    },
+    "base_grams_used": {
+      "type": "number",
+      "description": "Gramos de base maestra asignados a esta bandeja"
+    },
     "variegatos_used": {
       "type": "array",
       "items": {

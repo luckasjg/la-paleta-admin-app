@@ -10,7 +10,7 @@ const isIceCreamRecipe = (r) => {
   return t === 'helado' || t === 'sorbete' || c === 'helado' || c === 'sorbete';
 };
 
-const recipeCostPerGram = (recipe, supplies) => recipeTheoreticalCostPerGram(recipe, supplies);
+const recipeCostPerGram = (recipe, supplies, recipes) => recipeTheoreticalCostPerGram(recipe, supplies, recipes);
 
 /**
  * Calculates the average contribution margin (%) across all active ice cream
@@ -20,7 +20,7 @@ const recipeCostPerGram = (recipe, supplies) => recipeTheoreticalCostPerGram(rec
  */
 export function useAverageMargin({ recipes = [], products = [], supplies = [], fixedServiceCosts = 0 }) {
   return useMemo(() => {
-    const flavors = recipes.filter(r => r.is_active !== false && isIceCreamRecipe(r));
+    const flavors = recipes.filter(r => r.is_active !== false && !r.is_master_base && isIceCreamRecipe(r));
     const presentations = products.filter(p => p.grams_per_serving && p.is_active !== false && p.price > 0);
 
     if (flavors.length === 0 || presentations.length === 0) {
@@ -40,7 +40,7 @@ export function useAverageMargin({ recipes = [], products = [], supplies = [], f
     };
 
     const flavorCostPerGram = {};
-    flavors.forEach(r => { flavorCostPerGram[r.id] = recipeCostPerGram(r, supplies); });
+    flavors.forEach(r => { flavorCostPerGram[r.id] = recipeCostPerGram(r, supplies, recipes); });
 
     let marginSum = 0;
     let count = 0;

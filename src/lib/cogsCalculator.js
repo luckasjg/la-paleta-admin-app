@@ -17,7 +17,7 @@ export function computeCogs({ sales = [], supplies = [], recipes = [], trays = [
   const recipeCostPerGram = {};
   recipes.forEach(recipe => {
     if (!recipe.ingredients?.length && !recipe.variegatos?.length) return;
-    recipeCostPerGram[recipe.id] = recipeTheoreticalCostPerGram(recipe, supplies);
+    recipeCostPerGram[recipe.id] = recipeTheoreticalCostPerGram(recipe, supplies, recipes);
   });
 
   let total = 0;

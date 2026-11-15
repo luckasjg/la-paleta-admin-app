@@ -15,7 +15,8 @@ const TYPES = [
   { value: 'otro', label: 'Otro' },
 ];
 
-export default function RecipeDetailCard({ recipe, supplies, onEdit, onDelete, onClone }) {
+export default function RecipeDetailCard({ recipe, supplies, recipes = [], onEdit, onDelete, onClone }) {
+  const baseRecipe = recipe.base_recipe_id ? recipes.find(r => r.id === recipe.base_recipe_id) : null;
   const [mixDeseado, setMixDeseado] = useState('');
   const { isAdmin } = useRole();
 
@@ -28,7 +29,7 @@ export default function RecipeDetailCard({ recipe, supplies, onEdit, onDelete, o
   const variegatos = recipe.variegatos || [];
   const supplyCost = (ing) => (supplies.find(s => s.id === ing.supply_id)?.cost_per_unit || 0) * (ing.quantity || 0);
   const baseCost = isAdmin ? ingredients.reduce((s, ing) => s + supplyCost(ing), 0) : 0;
-  const cost = isAdmin ? recipeTheoreticalCost(recipe, supplies) : 0;
+  const cost = isAdmin ? recipeTheoreticalCost(recipe, supplies, recipes) : 0;
   const varGrams = variegatoGrams(recipe);
 
   return (
@@ -49,6 +50,12 @@ export default function RecipeDetailCard({ recipe, supplies, onEdit, onDelete, o
                 >
                   {recipe.flavor_tag}
                   {isAdmin && <> +${(recipe.surcharge_per_gram || 0).toFixed(4)}/g</>}
+                </Badge>
+              )}
+              {recipe.is_master_base && <Badge className="bg-violet-100 text-violet-700 border-violet-300">Base Maestra</Badge>}
+              {baseRecipe && (
+                <Badge variant="outline" className="text-violet-700 border-violet-300">
+                  {recipe.base_quantity_grams || 0}g de {baseRecipe.name}
                 </Badge>
               )}
               <span className="text-xs text-muted-foreground">
@@ -175,8 +182,8 @@ export default function RecipeDetailCard({ recipe, supplies, onEdit, onDelete, o
 
         {isAdmin && (
           <div className="flex justify-between items-center pt-1 border-t">
-            <span className="text-xs text-muted-foreground">Costo: ${cost.toFixed(2)}</span>
-            <span className="text-sm font-semibold text-primary">Precio: ${recipe.sale_price?.toFixed(2)}</span>
+            <span className="text-xs text-muted-foreground">Costo: ${cost.toFixed(2)}{baseRecipe && ' (incluye base)'}</span>
+            {!recipe.is_master_base && <span className="text-sm font-semibold text-primary">Precio: ${recipe.sale_price?.toFixed(2)}</span>}
           </div>
         )}
       </CardContent>
