@@ -36,6 +36,12 @@ export default function RefillHistoryDialog({ tray, open, onOpenChange }) {
                   </span>
                   <Badge variant="secondary">+{(r.grams_added || 0).toFixed(0)}g</Badge>
                 </div>
+                {r.master_base_name && (
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Badge className="bg-violet-100 text-violet-700">Origen: Lote Base {r.master_base_name}</Badge>
+                    {r.base_grams_used != null && <span className="text-xs text-muted-foreground">{r.base_grams_used.toFixed(0)}g de base</span>}
+                  </div>
+                )}
                 <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
                   <span className="text-muted-foreground">Restante antes</span>
                   <span className="font-mono text-right">{(r.remaining_before || 0).toFixed(0)}g</span>
@@ -47,7 +53,9 @@ export default function RefillHistoryDialog({ tray, open, onOpenChange }) {
                   <span className="font-mono text-right">${(r.cost_per_gram || 0).toFixed(4)}</span>
                 </div>
                 {r.process_loss_grams != null && (
-                  <p className="text-xs text-muted-foreground">Merma de proceso: <span className="font-mono">{r.process_loss_grams.toFixed(0)}g</span></p>
+                  <p className={`text-xs ${r.process_loss_grams < 0 ? 'text-sky-700' : 'text-muted-foreground'}`}>
+                    {r.process_loss_grams < 0 ? 'Arrastre de máquina' : 'Merma de proceso'}: <span className="font-mono">{Math.abs(r.process_loss_grams).toFixed(0)}g</span>
+                  </p>
                 )}
                 {(r.ingredient_variations || []).length > 0 && (
                   <div className="pt-1 border-t space-y-1">

@@ -7,6 +7,8 @@ import { Label } from '@/components/ui/label';
 import { Pencil, Trash2, Calculator, Copy } from 'lucide-react';
 import { useRole } from '@/lib/useRole';
 import { recipeTheoreticalCost, variegatoGrams } from '@/lib/recipeCost';
+import FormulationBadge from '@/components/recipes/FormulationBadge';
+import FormulationLinks from '@/components/recipes/FormulationLinks';
 
 const TYPES = [
   { value: 'helado', label: 'Helado' },
@@ -17,6 +19,7 @@ const TYPES = [
 
 export default function RecipeDetailCard({ recipe, supplies, recipes = [], onEdit, onDelete, onClone }) {
   const baseRecipe = recipe.base_recipe_id ? recipes.find(r => r.id === recipe.base_recipe_id) : null;
+  const derived = recipe.is_master_base ? recipes.filter(r => r.base_recipe_id === recipe.id) : [];
   const [mixDeseado, setMixDeseado] = useState('');
   const { isAdmin } = useRole();
 
@@ -52,12 +55,7 @@ export default function RecipeDetailCard({ recipe, supplies, recipes = [], onEdi
                   {isAdmin && <> +${(recipe.surcharge_per_gram || 0).toFixed(4)}/g</>}
                 </Badge>
               )}
-              {recipe.is_master_base && <Badge className="bg-violet-100 text-violet-700 border-violet-300">Base Maestra</Badge>}
-              {baseRecipe && (
-                <Badge variant="outline" className="text-violet-700 border-violet-300">
-                  {recipe.base_quantity_grams || 0}g de {baseRecipe.name}
-                </Badge>
-              )}
+              <FormulationBadge recipe={recipe} baseRecipe={baseRecipe} derivedCount={derived.length} />
               <span className="text-xs text-muted-foreground">
                 Rinde: {recipe.yield_amount}{recipe.yield_unit}{varGrams > 0 && ` + ${varGrams}g variegados`}
               </span>
@@ -82,6 +80,7 @@ export default function RecipeDetailCard({ recipe, supplies, recipes = [], onEdi
       </CardHeader>
 
       <CardContent className="space-y-4">
+        {recipe.type === 'helado' && <FormulationLinks recipe={recipe} baseRecipe={baseRecipe} derived={derived} />}
         {/* Calculadora de Producción */}
         <div className="bg-muted/40 rounded-lg p-3 border border-border/60">
           <div className="flex items-center gap-1.5 mb-2">

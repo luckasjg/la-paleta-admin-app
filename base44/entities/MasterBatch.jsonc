@@ -1,0 +1,154 @@
+{
+  "name": "MasterBatch",
+  "type": "object",
+  "properties": {
+    "batch_code": {
+      "type": "string",
+      "description": "C\u00f3digo del lote maestro (igual a master_batch_id en bandejas)"
+    },
+    "base_recipe_id": {
+      "type": "string"
+    },
+    "base_name": {
+      "type": "string"
+    },
+    "multiplier": {
+      "type": "number",
+      "description": "Cantidad de baches"
+    },
+    "base_weight_grams": {
+      "type": "number",
+      "description": "Peso total de base producida"
+    },
+    "base_cost": {
+      "type": "number"
+    },
+    "total_cost": {
+      "type": "number",
+      "description": "Costo total del lote (base + aditivos)"
+    },
+    "theoretical_grams": {
+      "type": "number"
+    },
+    "physical_grams": {
+      "type": "number"
+    },
+    "net_loss_grams": {
+      "type": "number",
+      "description": "Te\u00f3rico \u2212 f\u00edsico (negativo = arrastre)"
+    },
+    "date": {
+      "type": "string",
+      "format": "date"
+    },
+    "produced_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "operator": {
+      "type": "string"
+    },
+    "branches": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "tray_id": {
+            "type": "string"
+          },
+          "recipe_name": {
+            "type": "string"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "nueva",
+              "relleno"
+            ]
+          },
+          "base_grams": {
+            "type": "number"
+          },
+          "variegatos_grams": {
+            "type": "number"
+          },
+          "net_grams": {
+            "type": "number"
+          },
+          "expected_grams": {
+            "type": "number"
+          },
+          "loss_grams": {
+            "type": "number"
+          },
+          "cost_total": {
+            "type": "number"
+          },
+          "cost_per_gram": {
+            "type": "number"
+          },
+          "remaining_before": {
+            "type": "number"
+          },
+          "remaining_after": {
+            "type": "number"
+          }
+        }
+      }
+    }
+  },
+  "required": [
+    "batch_code",
+    "base_name"
+  ],
+  "rls": {
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "gerente"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "user"
+          }
+        }
+      ]
+    },
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "gerente"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "user"
+          }
+        }
+      ]
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

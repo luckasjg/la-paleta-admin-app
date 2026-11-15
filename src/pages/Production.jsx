@@ -591,7 +591,7 @@ export default function Production() {
       )}
 
       <MergeTraysDialog open={mergeOpen} onOpenChange={setMergeOpen} trays={trays} />
-      <MasterBatchDialog open={masterOpen} onOpenChange={setMasterOpen} recipes={recipes} supplies={supplies} resolveSupply={resolveSupply} />
+      <MasterBatchDialog open={masterOpen} onOpenChange={setMasterOpen} recipes={recipes} supplies={supplies} resolveSupply={resolveSupply} trays={trays} />
 
       {/* Edit Tray Dialog */}
       <Dialog open={!!editTray} onOpenChange={() => setEditTray(null)}>

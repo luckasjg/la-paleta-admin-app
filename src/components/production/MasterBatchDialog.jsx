@@ -17,8 +17,9 @@ import MasterBatchTotals from '@/components/production/MasterBatchTotals';
 import { buildIngredientPlan, computeRealCost, SUBSTITUTION_REASON } from '@/lib/productionSubstitutes';
 import { buildStockDelta, LOCATION_LABEL } from '@/lib/stockHelpers';
 import { buildDerivedLines, derivedTraySummary, aggregateDeductions, splitEvenly, BALANCE_TOLERANCE_G } from '@/lib/masterBatch';
+import { gramsOf } from '@/lib/productionHistory';
 
-export default function MasterBatchDialog({ open, onOpenChange, recipes, supplies, resolveSupply }) {
+export default function MasterBatchDialog({ open, onOpenChange, recipes, supplies, resolveSupply, trays: existingTrays = [] }) {
   const qc = useQueryClient();
   const [baseId, setBaseId] = useState('');
   const [multiplier, setMultiplier] = useState(1);
@@ -55,11 +56,14 @@ export default function MasterBatchDialog({ open, onOpenChange, recipes, supplie
     ...computed.flatMap(c => c.lines.map(l => ({ supply: l.supply, qty: l.quantity, name: l.name, unit: l.unit }))),
   ], sourceLocation);
 
-  const traysValid = trays.length > 0 && computed.every(c => c.recipe && c.tray.net > 0 && c.tray.base_grams > 0);
+  const activeFor = (recipeId) => existingTrays.filter(t => t.status === 'activa' && t.recipe_id === recipeId);
+  const targets = trays.filter(t => t.mode === 'relleno').map(t => t.target_tray_id);
+  const refillsValid = targets.every(Boolean) && new Set(targets).size === targets.length;
+  const traysValid = trays.length > 0 && refillsValid && computed.every(c => c.recipe && c.tray.net > 0 && c.tray.base_grams > 0);
   const canSave = base && multiplier > 0 && baseWeight > 0 && traysValid && balanced && deductions.missing.length === 0;
 
   const redistribute = (list, total = baseWeight) => list.map(t => ({ ...t, base_grams: splitEvenly(total, list.length) }));
-  const addTray = () => setTrays(prev => redistribute([...prev, { key: `t${Date.now()}`, recipe_id: '', base_grams: 0, net: 0, overrides: {} }]));
+  const addTray = () => setTrays(prev => redistribute([...prev, { key: `t${Date.now()}`, recipe_id: '', base_grams: 0, net: 0, overrides: {}, mode: 'nueva', target_tray_id: '', before: 0 }]));
   const removeTray = (key) => setTrays(prev => redistribute(prev.filter(t => t.key !== key)));
 
   const reset = () => { setBaseId(''); setMultiplier(1); setSubstitutions({}); setVariations({}); setTrays([]); };
@@ -81,26 +85,57 @@ export default function MasterBatchDialog({ open, onOpenChange, recipes, supplie
         status: r.variation.status, planned_quantity: r.planned, actual_quantity: r.needed, unit: r.unit, reason: r.variation.reason || '',
       }));
 
-      // 1. Crear todas las bandejas primero (si falla, no se tocó el inventario)
-      const created = await base44.entities.Tray.bulkCreate(computed.map(({ tray, recipe, lines, summary }) => ({
-        recipe_id: recipe.id, recipe_name: recipe.name,
+      const master = { master_batch_id: masterBatchId, master_base_name: base.name };
+      const details = computed.map(c => ({
+        ...c,
+        fields: {
+          ...master, batch_multiplier: multiplier, process_loss_grams: c.summary.loss, base_grams_used: c.tray.base_grams,
+          ingredient_variations: [
+            ...baseVariations,
+            ...c.lines.filter(l => l.kind === 'i' && Math.abs(l.quantity - l.planned) > 0.001).map(l => ({
+              supply_id: l.supply?.id || l.ing.supply_id || '', supply_name: l.name, status: l.quantity > 0 ? 'adjusted' : 'omitted',
+              planned_quantity: l.planned, actual_quantity: l.quantity, unit: l.unit, reason: 'Ajuste en lote maestro',
+            })),
+          ],
+          variegatos_used: c.lines.filter(l => l.kind === 'v').map(l => ({
+            supply_id: l.supply?.id || l.ing.supply_id || '', supply_name: l.name, planned_quantity: l.planned, quantity: l.quantity, unit: l.unit, is_extra: false,
+          })),
+        },
+      }));
+      const news = details.filter(d => d.tray.mode !== 'relleno');
+      const refills = details.filter(d => d.tray.mode === 'relleno');
+
+      // 1. Crear bandejas nuevas y aplicar rellenos (si falla, no se tocó el inventario)
+      const created = news.length ? await base44.entities.Tray.bulkCreate(news.map(({ tray, recipe, summary, fields }) => ({
+        ...fields, recipe_id: recipe.id, recipe_name: recipe.name,
         remaining_grams: tray.net, initial_grams: tray.net, status: 'activa',
         production_date: today, first_production_date: today, refill_count: 0,
         real_cost_total: summary.totalCost, real_cost_per_gram: summary.costPerGram,
-        batch_multiplier: multiplier, process_loss_grams: summary.loss,
-        master_batch_id: masterBatchId, master_base_name: base.name, base_grams_used: tray.base_grams,
-        ingredient_variations: [
-          ...baseVariations,
-          ...lines.filter(l => l.kind === 'i' && Math.abs(l.quantity - l.planned) > 0.001).map(l => ({
-            supply_id: l.supply?.id || l.ing.supply_id || '', supply_name: l.name, status: l.quantity > 0 ? 'adjusted' : 'omitted',
-            planned_quantity: l.planned, actual_quantity: l.quantity, unit: l.unit, reason: 'Ajuste en lote maestro',
-          })),
-        ],
-        variegatos_used: lines.filter(l => l.kind === 'v').map(l => ({
-          supply_id: l.supply?.id || l.ing.supply_id || '', supply_name: l.name, planned_quantity: l.planned, quantity: l.quantity, unit: l.unit, is_extra: false,
-        })),
         substitutions: subsLog, refill_log: [],
-      })));
+      }))) : [];
+      const createdList = Array.isArray(created) ? created : [];
+      news.forEach((d, i) => { d.trayId = createdList[i]?.id; d.before = 0; d.after = d.tray.net; });
+
+      for (const d of refills) {
+        const target = existingTrays.find(t => t.id === d.tray.target_tray_id);
+        if (!target) throw new Error(`La bandeja a rellenar de ${d.recipe.name} ya no existe.`);
+        const before = d.tray.before || 0;
+        const after = before + d.tray.net;
+        // Costo por gramo = el del lote nuevo; costo total = restante anterior + material añadido
+        const prevCost = before * (target.real_cost_per_gram || 0);
+        await base44.entities.Tray.update(target.id, {
+          ...d.fields,
+          remaining_grams: after, initial_grams: after, status: 'activa',
+          production_date: today, first_production_date: target.first_production_date || target.production_date || today,
+          refill_count: (target.refill_count || 0) + 1, last_refill_date: today,
+          real_cost_total: prevCost + d.summary.totalCost, real_cost_per_gram: d.summary.costPerGram,
+          refill_log: [...(target.refill_log || []), {
+            ...d.fields, date: today, grams_added: d.tray.net, cost: d.summary.totalCost, cost_per_gram: d.summary.costPerGram,
+            remaining_before: before, remaining_after: after, substitutions: subsLog,
+          }],
+        });
+        Object.assign(d, { trayId: target.id, before, after });
+      }
 
       // 2. Descontar inventario (base una sola vez + aditivos de cada bandeja), agrupado por insumo
       for (const { supply, qty } of deductions.list) {
@@ -123,21 +158,33 @@ export default function MasterBatchDialog({ open, onOpenChange, recipes, supplie
         });
       }
 
-      // 3. Eventos de producción
+      // 3. Eventos de producción + registro dedicado del lote
       const me = await base44.auth.me().catch(() => null);
-      const createdList = Array.isArray(created) ? created : [];
-      await base44.entities.TrayEvent.bulkCreate(computed.map((c, i) => ({
-        type: 'nueva', date: today, tray_id: createdList[i]?.id, recipe_name: c.recipe.name,
-        grams: c.tray.net, remaining_before: 0, remaining_after: c.tray.net, operator: me?.full_name || me?.email || '',
+      const operator = me?.full_name || me?.email || '';
+      await base44.entities.TrayEvent.bulkCreate(details.map(d => ({
+        ...master, type: d.tray.mode === 'relleno' ? 'relleno' : 'nueva', date: today, tray_id: d.trayId, recipe_name: d.recipe.name,
+        grams: d.tray.net, remaining_before: d.before, remaining_after: d.after, operator,
       })));
+      const theoretical = details.reduce((s, d) => s + d.summary.expected, 0);
+      const physical = details.reduce((s, d) => s + d.tray.net, 0);
+      await base44.entities.MasterBatch.create({
+        batch_code: masterBatchId, base_recipe_id: base.id, base_name: base.name, multiplier,
+        base_weight_grams: baseWeight, base_cost: baseCost, total_cost: details.reduce((s, d) => s + d.summary.totalCost, 0),
+        theoretical_grams: theoretical, physical_grams: physical, net_loss_grams: theoretical - physical,
+        date: today, produced_at: new Date().toISOString(), operator,
+        branches: details.map(d => ({
+          tray_id: d.trayId, recipe_name: d.recipe.name, mode: d.tray.mode === 'relleno' ? 'relleno' : 'nueva',
+          base_grams: d.tray.base_grams, variegatos_grams: gramsOf(d.fields.variegatos_used), net_grams: d.tray.net,
+          expected_grams: d.summary.expected, loss_grams: d.summary.loss, cost_total: d.summary.totalCost,
+          cost_per_gram: d.summary.costPerGram, remaining_before: d.before, remaining_after: d.after,
+        })),
+      });
       base44.functions.invoke('notifySlackProductionDay', { date: today }).catch(e => console.error('Slack producción:', e));
-      return computed.length;
+      return { nuevas: news.length, rellenos: refills.length };
     },
-    onSuccess: (n) => {
-      qc.invalidateQueries({ queryKey: ['trays'] });
-      qc.invalidateQueries({ queryKey: ['supplies'] });
-      qc.invalidateQueries({ queryKey: ['recipes'] });
-      toast.success(`Lote de ${base.name} registrado: ${n} bandeja(s) creadas.`);
+    onSuccess: ({ nuevas, rellenos }) => {
+      ['trays', 'supplies', 'recipes', 'tray_events', 'master_batches', 'trays_history'].forEach(k => qc.invalidateQueries({ queryKey: [k] }));
+      toast.success(`Lote de ${base.name} registrado: ${nuevas} bandeja(s) nueva(s), ${rellenos} relleno(s).`);
       close();
     },
     onError: (e) => toast.error(e.message, { duration: 8000 }),
@@ -179,9 +226,11 @@ export default function MasterBatchDialog({ open, onOpenChange, recipes, supplie
               <BaseBalanceBar produced={baseWeight} assigned={assigned} onSplit={trays.length ? () => setTrays(prev => redistribute(prev)) : null} />
               {computed.map((c, i) => (
                 <DerivedTrayCard key={c.tray.key} index={i} tray={c.tray} options={options} recipe={c.recipe} lines={c.lines} summary={c.summary}
+                  activeTrays={activeFor(c.tray.recipe_id)}
                   onChange={(t) => setTrays(prev => prev.map(x => (x.key === t.key ? t : x)))} onRemove={() => removeTray(c.tray.key)} />
               ))}
-              <Button variant="outline" onClick={addTray} className="w-full"><Plus className="h-4 w-4 mr-2" /> Agregar Bandeja Derivada</Button>
+              <Button variant="outline" onClick={addTray} className="w-full"><Plus className="h-4 w-4 mr-2" /> Agregar Salida / Bandeja</Button>
+              {!refillsValid && <p className="text-xs text-amber-700">Elige una bandeja activa distinta para cada relleno.</p>}
               {computed.length > 0 && <MasterBatchTotals items={computed} />}
             </section>
           )}
@@ -199,7 +248,7 @@ export default function MasterBatchDialog({ open, onOpenChange, recipes, supplie
         <DialogFooter>
           <Button variant="outline" onClick={close}>Cancelar</Button>
           <Button onClick={() => save.mutate()} disabled={!canSave || save.isPending}>
-            {save.isPending ? 'Registrando...' : 'Registrar Lote y Crear Bandejas'}
+            {save.isPending ? 'Registrando...' : 'Registrar Lote'}
           </Button>
         </DialogFooter>
       </DialogContent>

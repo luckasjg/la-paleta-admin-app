@@ -37,6 +37,13 @@
     "source_recipe_name": {
       "type": "string"
     },
+    "master_batch_id": {
+      "type": "string",
+      "description": "Lote maestro de origen, si aplica"
+    },
+    "master_base_name": {
+      "type": "string"
+    },
     "operator": {
       "type": "string"
     }

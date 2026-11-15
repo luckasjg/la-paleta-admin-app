@@ -22,9 +22,18 @@ import FormulationSelector from '@/components/recipes/FormulationSelector';
 
 const KIND_FILTERS = [
   { value: 'todas', label: 'Todas' },
-  { value: 'sabores', label: 'Sabores' },
   { value: 'bases', label: 'Bases Maestras' },
+  { value: 'derivados', label: 'Sabores Derivados' },
+  { value: 'independientes', label: 'Independientes' },
 ];
+
+const matchesKind = (r, kind) => {
+  if (kind === 'todas') return true;
+  if (r.type !== 'helado') return false;
+  if (kind === 'bases') return !!r.is_master_base;
+  if (kind === 'derivados') return !r.is_master_base && !!r.base_recipe_id;
+  return !r.is_master_base && !r.base_recipe_id;
+};
 
 const TYPES = [
   { value: 'helado', label: 'Helado' },
@@ -65,7 +74,7 @@ export default function Recipes() {
 
   const filteredRecipes = useMemo(() => {
     const q = normalize(search.trim());
-    const byKind = recipes.filter(r => kind === 'todas' || (kind === 'bases' ? r.is_master_base : !r.is_master_base));
+    const byKind = recipes.filter(r => matchesKind(r, kind));
     if (!q) return byKind;
     return byKind.filter(r => {
       if (normalize(r.name).includes(q)) return true;

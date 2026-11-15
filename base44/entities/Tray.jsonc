@@ -66,7 +66,7 @@
     },
     "real_cost_per_gram": {
       "type": "number",
-      "description": "Costo real por gramo (ponderado tras rellenos)"
+      "description": "Costo real por gramo"
     },
     "batch_multiplier": {
       "type": "number",
@@ -173,6 +173,15 @@
             "type": "number"
           },
           "process_loss_grams": {
+            "type": "number"
+          },
+          "master_batch_id": {
+            "type": "string"
+          },
+          "master_base_name": {
+            "type": "string"
+          },
+          "base_grams_used": {
             "type": "number"
           },
           "variegatos_used": {
