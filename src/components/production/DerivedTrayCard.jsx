@@ -8,7 +8,7 @@ import StepLabel from '@/components/production/StepLabel';
 import ProcessDiffBadge from '@/components/production/ProcessDiffBadge';
 import TrayDestinationPicker from '@/components/production/TrayDestinationPicker';
 
-export default function DerivedTrayCard({ index, tray, options, recipe, lines, summary, activeTrays = [], onChange, onRemove }) {
+export default function DerivedTrayCard({ index, tray, options, recipe, lines, summary, activeTrays = [], isPure = false, onChange, onRemove }) {
   const set = (patch) => onChange({ ...tray, ...patch });
   const addedGrams = lines.filter(l => l.unit === 'g').reduce((s, l) => s + (l.quantity || 0), 0);
   return (
@@ -17,7 +17,7 @@ export default function DerivedTrayCard({ index, tray, options, recipe, lines, s
         <span className="mt-2 text-xs font-semibold text-muted-foreground w-5">#{index + 1}</span>
         <div className="flex-1">
           <SearchableCombobox value={tray.recipe_id} onChange={v => set({ recipe_id: v, overrides: {}, mode: 'nueva', target_tray_id: '', before: 0 })}
-            options={options} placeholder="Sabor de la bandeja" searchPlaceholder="Buscar sabor..." emptyText="Sin sabores" />
+            options={options} keepOrder placeholder="Sabor de la bandeja" searchPlaceholder="Buscar sabor..." emptyText="Sin sabores" />
         </div>
         <Button variant="ghost" size="icon" className="h-9 w-9" onClick={onRemove}><Trash2 className="h-4 w-4 text-destructive" /></Button>
       </div>
@@ -30,7 +30,13 @@ export default function DerivedTrayCard({ index, tray, options, recipe, lines, s
         <Input type="number" value={tray.base_grams} onChange={e => set({ base_grams: parseFloat(e.target.value) || 0 })} />
       </div>
 
-      {recipe && (
+      {isPure && (
+        <p className="rounded-md bg-violet-50 border border-violet-200 px-2 py-1.5 text-[11px] text-violet-800">
+          Sabor puro de la Base Maestra: sin aditivos ni variegados. Costo = base asignada × costo/g de la base.
+        </p>
+      )}
+
+      {recipe && !isPure && (
         <div className="space-y-1.5">
           <StepLabel n={2} title="Saborizantes y Variegados" extra={`+${addedGrams.toFixed(0)}g`} />
           {!(recipe.base_quantity_grams > 0) && lines.length > 0 && (

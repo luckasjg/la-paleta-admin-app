@@ -36,15 +36,16 @@ export default function SearchableCombobox({
   className,
   triggerClassName,
   disabled = false,
+  keepOrder = false,
 }) {
   const [open, setOpen] = useState(false);
 
   const sortedOptions = useMemo(
     () =>
-      [...options].sort((a, b) =>
+      keepOrder ? options : [...options].sort((a, b) =>
         (a.label || '').localeCompare(b.label || '', undefined, { sensitivity: 'base' })
       ),
-    [options]
+    [options, keepOrder]
   );
 
   const selected = sortedOptions.find(o => o.value === value);

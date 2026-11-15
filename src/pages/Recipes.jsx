@@ -372,13 +372,13 @@ export default function Recipes() {
                   <SelectContent>{TYPES.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
-              {!form.is_master_base && <div><Label>Precio Venta ($)</Label><Input type="number" step="0.01" value={form.sale_price} onChange={e => setForm({ ...form, sale_price: parseFloat(e.target.value) || 0 })} /></div>}
+              {<div><Label>Precio Venta ($)</Label><Input type="number" step="0.01" value={form.sale_price} onChange={e => setForm({ ...form, sale_price: parseFloat(e.target.value) || 0 })} /></div>}
             </div>
 
             {form.type === 'helado' && <FormulationSelector form={form} setForm={setForm} bases={masterBases} />}
 
             {/* Clasificación de sabor y recargo proporcional */}
-            {!form.is_master_base && <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-3">
+            {<div className="rounded-lg border border-border bg-muted/30 p-3 space-y-3">
               <div className="grid grid-cols-2 gap-3 items-end">
                 <div>
                   <Label className="text-xs">Clasificación del sabor</Label>

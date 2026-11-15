@@ -82,7 +82,7 @@ export default function Production() {
     queryFn: () => base44.entities.Supply.list(),
   });
 
-  const iceRecipes = recipes.filter(r => r.type === 'helado' && !r.is_master_base);
+  const iceRecipes = recipes.filter(r => r.type === 'helado');
 
   // Bandejas activas del mismo sabor que pueden completarse con el helado nuevo
   const refillableTrays = trays.filter(

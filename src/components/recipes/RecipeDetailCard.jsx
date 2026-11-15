@@ -182,7 +182,7 @@ export default function RecipeDetailCard({ recipe, supplies, recipes = [], onEdi
         {isAdmin && (
           <div className="flex justify-between items-center pt-1 border-t">
             <span className="text-xs text-muted-foreground">Costo: ${cost.toFixed(2)}{baseRecipe && ' (incluye base)'}</span>
-            {!recipe.is_master_base && <span className="text-sm font-semibold text-primary">Precio: ${recipe.sale_price?.toFixed(2)}</span>}
+            {<span className="text-sm font-semibold text-primary">Precio: ${recipe.sale_price?.toFixed(2)}</span>}
           </div>
         )}
       </CardContent>

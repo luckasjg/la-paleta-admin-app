@@ -14,6 +14,7 @@ import BatchMultiplierInput from '@/components/production/BatchMultiplierInput';
 import DerivedTrayCard from '@/components/production/DerivedTrayCard';
 import BaseBalanceBar from '@/components/production/BaseBalanceBar';
 import MasterBatchTotals from '@/components/production/MasterBatchTotals';
+import RemnantActions from '@/components/production/RemnantActions';
 import { buildIngredientPlan, computeRealCost, SUBSTITUTION_REASON } from '@/lib/productionSubstitutes';
 import { buildStockDelta, LOCATION_LABEL } from '@/lib/stockHelpers';
 import { buildDerivedLines, derivedTraySummary, aggregateDeductions, splitEvenly, BALANCE_TOLERANCE_G } from '@/lib/masterBatch';
@@ -32,10 +33,11 @@ export default function MasterBatchDialog({ open, onOpenChange, recipes, supplie
   const base = bases.find(r => r.id === baseId);
   const flavors = recipes.filter(r => r.type === 'helado' && !r.is_master_base);
   const options = useMemo(() => {
-    const linked = flavors.filter(r => r.base_recipe_id === baseId).map(r => ({ value: r.id, label: `★ ${r.name}` }));
+    const pure = base ? [{ value: base.id, label: `★ ${base.name} — Sabor puro`, sublabel: 'Base Maestra sin aditivos' }] : [];
+    const linked = flavors.filter(r => r.base_recipe_id === baseId).map(r => ({ value: r.id, label: r.name, sublabel: 'Derivado' }));
     const others = flavors.filter(r => r.base_recipe_id !== baseId).map(r => ({ value: r.id, label: r.name, sublabel: '(otro)' }));
-    return [...linked, ...others];
-  }, [flavors, baseId]);
+    return [...pure, ...linked, ...others];
+  }, [flavors, baseId, base]);
 
   const plan = useMemo(() => buildIngredientPlan({ recipe: base, multiplier, supplies, sourceLocation, substitutions, variations, resolveSupply }),
     [base, multiplier, supplies, sourceLocation, substitutions, variations, resolveSupply]);
@@ -45,7 +47,8 @@ export default function MasterBatchDialog({ open, onOpenChange, recipes, supplie
 
   const computed = trays.map(t => {
     const recipe = recipes.find(r => r.id === t.recipe_id);
-    const lines = buildDerivedLines(recipe, t.base_grams, t.overrides, resolveSupply);
+    // La Base Maestra pura sale sin insumos propios: su costo es solo base × costo/g
+    const lines = recipe?.id === baseId ? [] : buildDerivedLines(recipe, t.base_grams, t.overrides, resolveSupply);
     return { tray: t, recipe, lines, summary: derivedTraySummary({ lines, baseGrams: t.base_grams, baseCpg, net: t.net }) };
   });
   const assigned = trays.reduce((s, t) => s + (t.base_grams || 0), 0);
@@ -64,6 +67,24 @@ export default function MasterBatchDialog({ open, onOpenChange, recipes, supplie
 
   const redistribute = (list, total = baseWeight) => list.map(t => ({ ...t, base_grams: splitEvenly(total, list.length) }));
   const addTray = () => setTrays(prev => redistribute([...prev, { key: `t${Date.now()}`, recipe_id: '', base_grams: 0, net: 0, overrides: {}, mode: 'nueva', target_tray_id: '', before: 0 }]));
+  const remaining = Math.max(0, Math.round((baseWeight - assigned) * 10) / 10);
+  const baseActiveTrays = base ? activeFor(base.id) : [];
+  // Salida pura de la base con todo el remanente; en relleno se preselecciona la primera bandeja activa
+  const addPureTray = (mode) => {
+    const target = mode === 'relleno' ? baseActiveTrays[0] : null;
+    setTrays(prev => [...prev, {
+      key: `t${Date.now()}`, recipe_id: base.id, base_grams: remaining, net: 0, overrides: {},
+      mode, target_tray_id: target?.id || '', before: target?.remaining_grams || 0,
+    }]);
+  };
+  const updateTray = (t) => setTrays(prev => prev.map(x => {
+    if (x.key !== t.key) return x;
+    if (t.recipe_id === baseId && x.recipe_id !== baseId) {
+      const others = prev.filter(o => o.key !== t.key).reduce((s, o) => s + (o.base_grams || 0), 0);
+      return { ...t, base_grams: Math.max(0, Math.round((baseWeight - others) * 10) / 10) };
+    }
+    return t;
+  }));
   const removeTray = (key) => setTrays(prev => redistribute(prev.filter(t => t.key !== key)));
 
   const reset = () => { setBaseId(''); setMultiplier(1); setSubstitutions({}); setVariations({}); setTrays([]); };
@@ -224,10 +245,14 @@ export default function MasterBatchDialog({ open, onOpenChange, recipes, supplie
             <section className="space-y-3">
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Paso 2 · Bandejas derivadas</p>
               <BaseBalanceBar produced={baseWeight} assigned={assigned} onSplit={trays.length ? () => setTrays(prev => redistribute(prev)) : null} />
+              {remaining > BALANCE_TOLERANCE_G && (
+                <RemnantActions baseName={base.name} remaining={remaining} canRefill={baseActiveTrays.length > 0} onAdd={addPureTray} />
+              )}
               {computed.map((c, i) => (
                 <DerivedTrayCard key={c.tray.key} index={i} tray={c.tray} options={options} recipe={c.recipe} lines={c.lines} summary={c.summary}
                   activeTrays={activeFor(c.tray.recipe_id)}
-                  onChange={(t) => setTrays(prev => prev.map(x => (x.key === t.key ? t : x)))} onRemove={() => removeTray(c.tray.key)} />
+                  isPure={c.tray.recipe_id === baseId}
+                  onChange={updateTray} onRemove={() => removeTray(c.tray.key)} />
               ))}
               <Button variant="outline" onClick={addTray} className="w-full"><Plus className="h-4 w-4 mr-2" /> Agregar Salida / Bandeja</Button>
               {!refillsValid && <p className="text-xs text-amber-700">Elige una bandeja activa distinta para cada relleno.</p>}
