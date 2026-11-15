@@ -35,8 +35,8 @@ export function computeBatchSummary(plan, varPlan, netGrams) {
   const varCost = varPlan.reduce((s, l) => s + l.quantity * (l.supply?.cost_per_unit || 0), 0);
   const totalCost = baseCost + varCost;
   const expected =
-    plan.filter((r) => r.unit === 'g').reduce((s, r) => s + r.needed, 0) +
-    varPlan.filter((l) => l.unit === 'g').reduce((s, l) => s + l.quantity, 0);
+    plan.filter((r) => (r.unit === 'g' || r.unit === 'ml') && r.variation?.status !== 'omitted').reduce((s, r) => s + r.needed, 0) +
+    varPlan.filter((l) => l.unit === 'g' || l.unit === 'ml').reduce((s, l) => s + l.quantity, 0);
   const loss = expected - (netGrams || 0);
   return {
     baseCost,

@@ -10,7 +10,7 @@ import TrayDestinationPicker from '@/components/production/TrayDestinationPicker
 
 export default function DerivedTrayCard({ index, tray, options, recipe, lines, summary, activeTrays = [], isPure = false, onChange, onRemove }) {
   const set = (patch) => onChange({ ...tray, ...patch });
-  const addedGrams = lines.filter(l => l.unit === 'g').reduce((s, l) => s + (l.quantity || 0), 0);
+  const addedGrams = lines.filter(l => l.unit === 'g' || l.unit === 'ml').reduce((s, l) => s + (l.quantity || 0), 0);
   return (
     <div className="rounded-lg border bg-card p-3 space-y-3">
       <div className="flex items-start gap-2">

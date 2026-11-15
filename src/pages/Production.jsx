@@ -748,7 +748,7 @@ export default function Production() {
                   onTogglePreferred={togglePreferred}
                   onVariation={setVariation}
                 />
-                <StepLabel n={2} title="Saborizantes y Variegados" extra={`+${varPlan.filter(l => l.unit === 'g').reduce((s, l) => s + (l.quantity || 0), 0).toFixed(0)}g`} />
+                <StepLabel n={2} title="Saborizantes y Variegados" extra={`+${varPlan.filter(l => l.unit === 'g' || l.unit === 'ml').reduce((s, l) => s + (l.quantity || 0), 0).toFixed(0)}g`} />
                 <VariegatosPanel
                   lines={varPlan}
                   supplies={supplies}

@@ -24,7 +24,7 @@ export function buildDerivedLines(recipe, baseGrams, overrides = {}, resolveSupp
 
 export function derivedTraySummary({ lines, baseGrams, baseCpg, net }) {
   const ownCost = lines.reduce((s, l) => s + (l.quantity || 0) * (l.supply?.cost_per_unit || 0), 0);
-  const ownGrams = lines.filter((l) => l.unit === 'g').reduce((s, l) => s + (l.quantity || 0), 0);
+  const ownGrams = lines.filter((l) => l.unit === 'g' || l.unit === 'ml').reduce((s, l) => s + (l.quantity || 0), 0);
   const totalCost = (baseGrams || 0) * baseCpg + ownCost;
   const expected = (baseGrams || 0) + ownGrams;
   return {

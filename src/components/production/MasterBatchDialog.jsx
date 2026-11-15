@@ -41,7 +41,7 @@ export default function MasterBatchDialog({ open, onOpenChange, recipes, supplie
 
   const plan = useMemo(() => buildIngredientPlan({ recipe: base, multiplier, supplies, sourceLocation, substitutions, variations, resolveSupply }),
     [base, multiplier, supplies, sourceLocation, substitutions, variations, resolveSupply]);
-  const baseWeight = plan.filter(r => r.unit === 'g').reduce((s, r) => s + r.needed, 0);
+  const baseWeight = plan.filter(r => (r.unit === 'g' || r.unit === 'ml') && r.variation?.status !== 'omitted').reduce((s, r) => s + r.needed, 0);
   const baseCost = computeRealCost(plan);
   const baseCpg = baseWeight > 0 ? baseCost / baseWeight : 0;
 
