@@ -31,6 +31,7 @@ import MasterBatchDialog from '@/components/production/MasterBatchDialog';
 import StepLabel from '@/components/production/StepLabel';
 import ProcessDiffBadge from '@/components/production/ProcessDiffBadge';
 import { Layers } from 'lucide-react';
+import SpentPackageDialog from '@/components/production/SpentPackageDialog';
 
 export default function Production() {
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -389,34 +390,7 @@ export default function Production() {
     },
   });
 
-  const registerConsumable = useMutation({
-    mutationFn: async () => {
-      const utensil = supplies.find(s => s.id === selectedUtensil);
-      if (!utensil) throw new Error('Utensilio no encontrado');
-      const avail = getStockAt(utensil, sourceLocation);
-      if (avail < 1) throw new Error(`Sin stock de ${utensil.name} en ${LOCATION_LABEL[sourceLocation]}`);
-      await base44.entities.Supply.update(
-        utensil.id,
-        buildStockDelta(utensil, sourceLocation, -1)
-      );
-      await base44.entities.InventoryAdjustment.create({
-        type: 'supply',
-        reference_id: utensil.id,
-        reference_name: utensil.name,
-        quantity_change: -1,
-        reason: 'paquete_gastado',
-        notes: `Paquete gastado en Producción · ${LOCATION_LABEL[sourceLocation]} · stock antes: ${avail}, después: ${avail - 1}`,
-      });
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['supplies'] });
-      qc.invalidateQueries({ queryKey: ['adjustments'] });
-      setConsumableDialog(false);
-      setSelectedUtensil('');
-      toast.success('Paquete registrado como gastado');
-    },
-    onError: (err) => toast.error(err.message),
-  });
+
 
   const openEditTray = (t) => {
     setEditTray(t);
@@ -625,47 +599,7 @@ export default function Production() {
         </DialogContent>
       </Dialog>
 
-      {/* Consumable Dialog */}
-      <Dialog open={consumableDialog} onOpenChange={setConsumableDialog}>
-        <DialogContent className="w-[calc(100vw-2rem)] max-w-md overflow-hidden">
-          <DialogHeader>
-            <DialogTitle>Registrar Paquete Gastado</DialogTitle>
-          </DialogHeader>
-          <div className="grid gap-4 py-2 min-w-0">
-            <p className="text-sm text-muted-foreground">Selecciona el paquete/caja que se acabó. Se descontará <strong>1 unidad de stock</strong> en la ubicación elegida y quedará registrado en Ajustes de inventario.</p>
-            <StockLocationSelector value={sourceLocation} onChange={setSourceLocation} />
-            <div>
-              <Label>Utensilio</Label>
-              <Select value={selectedUtensil} onValueChange={setSelectedUtensil}>
-                <SelectTrigger className="w-full min-w-0 [&>span]:truncate"><SelectValue placeholder="Seleccionar utensilio..." /></SelectTrigger>
-                <SelectContent className="max-w-[calc(100vw-2rem)]">
-                  {utensilios.map(s => (
-                    <SelectItem key={s.id} value={s.id}>
-                      {s.name} — {getStockAt(s, sourceLocation)} {s.unit}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            {selectedUtensil && (() => {
-              const u = supplies.find(s => s.id === selectedUtensil);
-              const avail = getStockAt(u, sourceLocation);
-              return (
-                <div className="rounded-lg bg-muted/50 p-3 text-sm flex justify-between gap-2">
-                  <span className="text-muted-foreground">Stock en {LOCATION_LABEL[sourceLocation]}</span>
-                  <span className="font-medium whitespace-nowrap">{avail} → {avail - 1} {u?.unit}</span>
-                </div>
-              );
-            })()}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setConsumableDialog(false)}>Cancelar</Button>
-            <Button onClick={() => registerConsumable.mutate()} disabled={!selectedUtensil || registerConsumable.isPending}>
-              {registerConsumable.isPending ? 'Registrando...' : 'Registrar Salida'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <SpentPackageDialog open={consumableDialog} onOpenChange={setConsumableDialog} utensilios={utensilios} />
 
       {/* Produce Dialog */}
       <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) { setSkipInventoryDeduction(false); resetBatch(); } }}>

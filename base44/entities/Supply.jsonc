@@ -59,6 +59,14 @@
       "format": "date-time",
       "description": "\u00daltima vez que se envi\u00f3 alerta de stock bajo por Slack"
     },
+    "package_type": {
+      "type": "string",
+      "description": "Tipo de empaque del utensilio (Paquete, Caja, Bolsa)"
+    },
+    "units_per_package": {
+      "type": "number",
+      "description": "Unidades base que trae 1 empaque"
+    },
     "package_format": {
       "type": "object",
       "properties": {

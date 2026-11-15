@@ -138,7 +138,8 @@ export default function Inventory() {
     setForm({
       name: s.name, sector: s.sector || 'materia_prima', category: s.category || '',
       unit: s.unit, stock_warehouse: wh, stock_production: pr, stock_minimum: s.stock_minimum,
-      cost_per_unit: s.cost_per_unit, supplier: s.supplier || '', is_infinite: s.is_infinite || false
+      cost_per_unit: s.cost_per_unit, supplier: s.supplier || '', is_infinite: s.is_infinite || false,
+      package_type: s.package_type || 'Paquete', units_per_package: s.units_per_package ?? ''
     });
     setCalc(emptyCalc);
 
@@ -236,6 +237,10 @@ export default function Inventory() {
       stock_minimum: finalStockMinimum,
       cost_per_unit, supplier, is_infinite,
       ...(packageFormatPayload ? { package_format: packageFormatPayload } : {}),
+      ...(sector === 'utensilio' ? {
+        package_type: form.package_type || 'Paquete',
+        units_per_package: Number(form.units_per_package) || null,
+      } : {}),
     };
     if (editing) {
       updateMut.mutate({ id: editing.id, data: payload });
@@ -669,6 +674,25 @@ export default function Inventory() {
                   <p className="text-xs text-muted-foreground mt-0.5">No descuenta del inventario al producir (ej. agua)</p>
                 </div>
                 <Switch checked={form.is_infinite} onCheckedChange={v => setForm(f => ({ ...f, is_infinite: v }))} />
+              </div>
+            )}
+
+            {form.sector === 'utensilio' && (
+              <div className="grid grid-cols-2 gap-3 rounded-lg border border-border bg-muted/20 p-3">
+                <div>
+                  <Label className="text-xs">Tipo de empaque (opcional)</Label>
+                  <Select value={form.package_type || 'Paquete'} onValueChange={v => setForm(f => ({ ...f, package_type: v }))}>
+                    <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {['Paquete', 'Caja', 'Bolsa'].map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs">Unidades por empaque (opcional)</Label>
+                  <Input type="number" min="0" className="mt-1" placeholder="Ej. 100" value={form.units_per_package ?? ''}
+                    onChange={e => setForm(f => ({ ...f, units_per_package: e.target.value }))} />
+                </div>
               </div>
             )}
 
