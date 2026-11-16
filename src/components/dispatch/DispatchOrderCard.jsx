@@ -4,6 +4,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Clock } from 'lucide-react';
+import ItemTags from './ItemTags';
 
 export default function DispatchOrderCard({ order, onServe }) {
   const waitTime = moment().diff(moment(order.sale_date), 'minutes');
@@ -25,13 +26,17 @@ export default function DispatchOrderCard({ order, onServe }) {
         {order.items?.map((item, idx) => {
           if (!item.pending_dispatch && !item.flavors?.length) {
             return (
-              <p key={idx} className="text-sm text-muted-foreground px-1">{item.quantity}x {item.product_name}</p>
+              <div key={idx} className="px-1">
+                <p className="text-sm text-muted-foreground">{item.quantity}x {item.product_name}</p>
+                <ItemTags item={item} />
+              </div>
             );
           }
           return (
             <div key={idx} className="p-2.5 rounded-lg border bg-card flex items-center justify-between gap-2">
               <div className="min-w-0">
                 <p className="font-semibold leading-tight">{item.quantity}x {item.product_name}</p>
+                <ItemTags item={item} />
                 <p className="text-xs text-muted-foreground">
                   {item.pending_dispatch
                     ? (item.flavor ? `Pidió: ${item.flavor}` : 'Sabores por servir')
