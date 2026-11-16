@@ -8,7 +8,6 @@ import SearchableCombobox from '@/components/shared/SearchableCombobox';
 import { invertSugarFormula, findSupplyByName } from '@/lib/productionSubstitutes';
 
 const isGlucosa = (n) => n.includes('glucosa');
-const isAzucar = (n) => (n.includes('azúcar') || n.includes('azucar') || n.includes('sacarosa')) && !n.includes('invertid');
 
 /** Diálogo para sustituir un ingrediente base por 1 (simple) o varios insumos (compuesta). */
 export default function SubstituteDialog({ row, supplies, onConfirm, onClear, onClose }) {
@@ -35,7 +34,7 @@ export default function SubstituteDialog({ row, supplies, onConfirm, onClear, on
 
   const applyFormula = () => {
     const r = invertSugarFormula(row.planned, div.glucosa, div.azucar);
-    const g = findSupplyByName(supplies, isGlucosa); const a = findSupplyByName(supplies, (n) => isAzucar(n) && !n.includes('glass') && !n.includes('impalpable')) || findSupplyByName(supplies, isAzucar);
+    const g = findSupplyByName(supplies, isGlucosa); const a = supplies.find((s) => (s.name || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim() === 'azucar');
     const next = [{ supply_id: g?.id || '', quantity: +r.glucosa.toFixed(1) }, { supply_id: a?.id || '', quantity: +r.azucar.toFixed(1) }];
     setFormulaUsed(true);
     setTargets(next);
