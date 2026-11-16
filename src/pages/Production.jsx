@@ -35,6 +35,7 @@ import SpentPackageDialog from '@/components/production/SpentPackageDialog';
 import { deductWithLog, makeProductionRef } from '@/lib/deductionLog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useRole } from '@/lib/useRole';
+import TraysCsvExport from '@/components/production/TraysCsvExport';
 import SupplyConsumptionReport from '@/components/consumption/SupplyConsumptionReport';
 
 export default function Production() {
@@ -460,6 +461,7 @@ export default function Production() {
                 <Link to="/produccion/historial"><History className="h-4 w-4 mr-2" /> Historial</Link>
               </Button>
             )}
+            {isAdmin && <TraysCsvExport />}
             <Button variant="outline" onClick={() => setMergeOpen(true)}>
               <Merge className="h-4 w-4 mr-2" /> Unir bandejas
             </Button>
