@@ -82,7 +82,7 @@ const AuthenticatedApp = () => {
           <Route path="/recetas" element={<RequirePermission module="recetas"><ModulePasswordGate module="recetas" title="Recetas"><Recipes /></ModulePasswordGate></RequirePermission>} />
           <Route path="/preparados" element={<RequirePermission module="preparados"><Preparations /></RequirePermission>} />
           <Route path="/produccion" element={<RequirePermission module="produccion"><Production /></RequirePermission>} />
-          <Route path="/produccion/historial" element={<RequirePermission module="produccion"><ProductionHistory /></RequirePermission>} />
+          <Route path="/produccion/historial" element={<RequireAdmin><ProductionHistory /></RequireAdmin>} />
           <Route path="/productos" element={<RequirePermission module="productos"><Products /></RequirePermission>} />
           <Route path="/pedidos" element={<RequirePermission module="pedidos"><Orders /></RequirePermission>} />
           <Route path="/caja" element={<RequirePermission module="caja"><CashRegister /></RequirePermission>} />

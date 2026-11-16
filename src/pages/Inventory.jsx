@@ -20,6 +20,7 @@ import SearchableCombobox from '@/components/shared/SearchableCombobox';
 import { getStockAt, getStockTotal } from '@/lib/stockHelpers';
 import { Warehouse as WarehouseIcon, FlaskConical, BarChart3 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useRole } from '@/lib/useRole';
 import UnsavedFlag from '@/components/shared/UnsavedFlag';
 
 const SECTORS = [
@@ -82,6 +83,7 @@ export default function Inventory() {
   const [catManagerOpen, setCatManagerOpen] = useState(false);
   const [customCategories, setCustomCategories] = useState(loadCategoriesFromStorage);
   const qc = useQueryClient();
+  const { isAdmin } = useRole();
 
   // Persist customCategories to localStorage whenever they change
   useEffect(() => {
@@ -322,9 +324,11 @@ export default function Inventory() {
         description="Gestión de insumos, productos de venta directa y utensilios"
         actions={
           <div className="flex gap-2">
-            <Button variant="outline" asChild>
-              <Link to="/produccion?tab=consumo"><BarChart3 className="h-4 w-4 mr-2" /> Consumo de Insumos</Link>
-            </Button>
+            {isAdmin && (
+              <Button variant="outline" asChild>
+                <Link to="/produccion?tab=consumo"><BarChart3 className="h-4 w-4 mr-2" /> Consumo de Insumos</Link>
+              </Button>
+            )}
             <Button onClick={openNew}>
               <Plus className="h-4 w-4 mr-2" /> Agregar Item
             </Button>

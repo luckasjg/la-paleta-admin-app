@@ -34,6 +34,7 @@ import { Layers } from 'lucide-react';
 import SpentPackageDialog from '@/components/production/SpentPackageDialog';
 import { deductWithLog, makeProductionRef } from '@/lib/deductionLog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useRole } from '@/lib/useRole';
 import SupplyConsumptionReport from '@/components/consumption/SupplyConsumptionReport';
 
 export default function Production() {
@@ -64,6 +65,7 @@ export default function Production() {
   const [selectedUtensil, setSelectedUtensil] = useState('');
   const [masterOpen, setMasterOpen] = useState(false);
   const qc = useQueryClient();
+  const { isAdmin } = useRole();
 
   const { data: trays = [] } = useQuery({
     queryKey: ['trays'],
@@ -453,9 +455,11 @@ export default function Production() {
         description="Registro de bandejas y control de producción"
         actions={
           <div className="flex gap-2">
-            <Button variant="outline" asChild>
-              <Link to="/produccion/historial"><History className="h-4 w-4 mr-2" /> Historial</Link>
-            </Button>
+            {isAdmin && (
+              <Button variant="outline" asChild>
+                <Link to="/produccion/historial"><History className="h-4 w-4 mr-2" /> Historial</Link>
+              </Button>
+            )}
             <Button variant="outline" onClick={() => setMergeOpen(true)}>
               <Merge className="h-4 w-4 mr-2" /> Unir bandejas
             </Button>
@@ -472,14 +476,18 @@ export default function Production() {
         }
       />
 
-      <Tabs defaultValue={new URLSearchParams(window.location.search).get('tab') === 'consumo' ? 'consumo' : 'bandejas'}>
-        <TabsList>
-          <TabsTrigger value="bandejas">Bandejas</TabsTrigger>
-          <TabsTrigger value="consumo">Consumo de Insumos</TabsTrigger>
-        </TabsList>
-        <TabsContent value="consumo" className="mt-4">
-          <SupplyConsumptionReport supplies={supplies} />
-        </TabsContent>
+      <Tabs defaultValue={isAdmin && new URLSearchParams(window.location.search).get('tab') === 'consumo' ? 'consumo' : 'bandejas'}>
+        {isAdmin && (
+          <TabsList>
+            <TabsTrigger value="bandejas">Bandejas</TabsTrigger>
+            <TabsTrigger value="consumo">Consumo de Insumos</TabsTrigger>
+          </TabsList>
+        )}
+        {isAdmin && (
+          <TabsContent value="consumo" className="mt-4">
+            <SupplyConsumptionReport supplies={supplies} />
+          </TabsContent>
+        )}
         <TabsContent value="bandejas" className="space-y-6 mt-4">
 
       {/* Vitrina — destacada */}
