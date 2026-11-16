@@ -4,17 +4,19 @@ import { base44 } from '@/api/base44Client';
 import { toast } from 'sonner';
 import MixedPaymentDialog from '@/components/pos/MixedPaymentDialog';
 import PremiumChargeCard from '@/components/pos/PremiumChargeCard';
-import { payPremiumCharge, chargeLabel } from '@/lib/premiumCharge';
+import { payPremiumCharge, chargeLabel, groupChargesBySale } from '@/lib/premiumCharge';
 
 export default function PremiumChargesPanel({ session, wallets, eurVes }) {
   const qc = useQueryClient();
   const [paying, setPaying] = useState(null);
 
-  const { data: charges = [] } = useQuery({
+  const { data: rawCharges = [] } = useQuery({
     queryKey: ['premium_charges', 'pendiente'],
     queryFn: async () => (await base44.entities.PremiumSurchargeCharge.filter({ status: 'pendiente' }, { sort: 'created_date', limit: 30 })).items,
     refetchInterval: 5000,
   });
+
+  const charges = groupChargesBySale(rawCharges);
 
   const refresh = () => {
     qc.invalidateQueries({ queryKey: ['premium_charges'] });
@@ -29,9 +31,13 @@ export default function PremiumChargesPanel({ session, wallets, eurVes }) {
   });
 
   const skip = useMutation({
-    mutationFn: (c) => base44.entities.PremiumSurchargeCharge.update(c.id, {
-      status: 'anulado', resolved_at: new Date().toISOString(), resolved_by: session.staff_name,
-    }),
+    mutationFn: async (g) => {
+      for (const c of g.charges) {
+        await base44.entities.PremiumSurchargeCharge.update(c.id, {
+          status: 'anulado', resolved_at: new Date().toISOString(), resolved_by: session.staff_name,
+        });
+      }
+    },
     onSuccess: () => { toast.success('Recargo omitido'); refresh(); },
   });
 
