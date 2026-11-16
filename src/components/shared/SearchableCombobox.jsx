@@ -97,7 +97,7 @@ export default function SearchableCombobox({
               {sortedOptions.map(opt => (
                 <CommandItem
                   key={opt.value}
-                  value={`${opt.label} ${opt.sublabel || ''}`}
+                  value={`${opt.label} ${opt.sublabel || ''} ${opt.value}`}
                   onSelect={() => {
                     onChange(opt.value);
                     setOpen(false);
