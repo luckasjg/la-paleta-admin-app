@@ -35,7 +35,7 @@ export default function SubstituteDialog({ row, supplies, onConfirm, onClear, on
 
   const applyFormula = () => {
     const r = invertSugarFormula(row.planned, div.glucosa, div.azucar);
-    const g = findSupplyByName(supplies, isGlucosa); const a = findSupplyByName(supplies, isAzucar);
+    const g = findSupplyByName(supplies, isGlucosa); const a = findSupplyByName(supplies, (n) => isAzucar(n) && !n.includes('glass') && !n.includes('impalpable')) || findSupplyByName(supplies, isAzucar);
     const next = [{ supply_id: g?.id || '', quantity: +r.glucosa.toFixed(1) }, { supply_id: a?.id || '', quantity: +r.azucar.toFixed(1) }];
     setFormulaUsed(true);
     setTargets(next);
