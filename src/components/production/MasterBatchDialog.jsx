@@ -15,7 +15,7 @@ import DerivedTrayCard from '@/components/production/DerivedTrayCard';
 import BaseBalanceBar from '@/components/production/BaseBalanceBar';
 import MasterBatchTotals from '@/components/production/MasterBatchTotals';
 import RemnantActions from '@/components/production/RemnantActions';
-import { buildIngredientPlan, computeRealCost, SUBSTITUTION_REASON } from '@/lib/productionSubstitutes';
+import { buildIngredientPlan, computeRealCost, SUBSTITUTION_REASON, toVariationRecord } from '@/lib/productionSubstitutes';
 import { buildStockDelta, LOCATION_LABEL } from '@/lib/stockHelpers';
 import { buildDerivedLines, derivedTraySummary, aggregateDeductions, splitEvenly, BALANCE_TOLERANCE_G } from '@/lib/masterBatch';
 import { gramsOf } from '@/lib/productionHistory';
@@ -101,10 +101,7 @@ export default function MasterBatchDialog({ open, onOpenChange, recipes, supplie
         substitute_supply_id: r.substitute.id, substitute_supply_name: r.substitute.name,
         quantity: r.needed, unit: r.unit, saved_as_preferred: r.savePreferred === true,
       }));
-      const baseVariations = plan.filter(r => r.variation).map(r => ({
-        supply_id: r.effective?.id || r.ing.supply_id || '', supply_name: r.isSubstituted ? r.substitute.name : r.originalName,
-        status: r.variation.status, planned_quantity: r.planned, actual_quantity: r.needed, unit: r.unit, reason: r.variation.reason || '',
-      }));
+      const baseVariations = plan.filter(r => r.variation).map(r => toVariationRecord(r, supplies));
 
       const master = { master_batch_id: masterBatchId, master_base_name: base.name };
       const details = computed.map(c => ({
@@ -227,7 +224,7 @@ export default function MasterBatchDialog({ open, onOpenChange, recipes, supplie
             {base && (
               <>
                 <BatchMultiplierInput value={multiplier} onChange={(m) => { setMultiplier(m); }} />
-                <IngredientCheckList plan={plan} sourceLocation={sourceLocation} realCost={baseCost}
+                <IngredientCheckList plan={plan} supplies={supplies} sourceLocation={sourceLocation} realCost={baseCost}
                   onSelectSubstitute={(i, id) => setSubstitutions(p => ({ ...p, [i]: { supply_id: id, save_preferred: false } }))}
                   onClearSubstitute={(i) => setSubstitutions(p => { const n = { ...p }; delete n[i]; return n; })}
                   onTogglePreferred={(i, v) => setSubstitutions(p => ({ ...p, [i]: { ...p[i], save_preferred: v } }))}

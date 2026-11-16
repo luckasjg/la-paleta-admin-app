@@ -22,7 +22,7 @@ import StockLocationSelector from '@/components/shared/StockLocationSelector';
 import SearchableCombobox from '@/components/shared/SearchableCombobox';
 import { getStockAt, buildStockDelta, LOCATION_LABEL } from '@/lib/stockHelpers';
 import IngredientCheckList from '@/components/production/IngredientCheckList';
-import { buildIngredientPlan, SUBSTITUTION_REASON } from '@/lib/productionSubstitutes';
+import { buildIngredientPlan, SUBSTITUTION_REASON, toVariationRecord } from '@/lib/productionSubstitutes';
 import { buildVariegatoPlan, computeBatchSummary } from '@/lib/batchProduction';
 import BatchMultiplierInput from '@/components/production/BatchMultiplierInput';
 import VariegatosPanel from '@/components/production/VariegatosPanel';
@@ -310,15 +310,7 @@ export default function Production() {
       const batch = {
         batch_multiplier: multiplier,
         process_loss_grams: summary.loss,
-        ingredient_variations: plan.filter(r => r.variation).map(r => ({
-          supply_id: r.effective?.id || r.ing.supply_id || '',
-          supply_name: r.isSubstituted ? r.substitute.name : r.originalName,
-          status: r.variation.status,
-          planned_quantity: r.planned,
-          actual_quantity: r.needed,
-          unit: r.unit,
-          reason: r.variation.reason || '',
-        })),
+        ingredient_variations: plan.filter(r => r.variation).map(r => toVariationRecord(r, supplies)),
         variegatos_used: varPlan.map(l => ({
           supply_id: l.supply?.id || l.ing.supply_id || '',
           supply_name: l.name,
@@ -675,6 +667,7 @@ export default function Production() {
                 <StepLabel n={1} title="Mezcla Base" />
                 <IngredientCheckList
                   plan={ingredientPlan}
+                  supplies={supplies}
                   sourceLocation={sourceLocation}
                   realCost={summary.baseCost}
                   onSelectSubstitute={selectSubstitute}

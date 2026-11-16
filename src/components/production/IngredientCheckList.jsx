@@ -1,13 +1,17 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { AlertTriangle, CheckCircle2 } from 'lucide-react';
 import IngredientRow from '@/components/production/IngredientRow';
+import SubstituteDialog from '@/components/production/SubstituteDialog';
+import ExtraSupplyAdder from '@/components/production/ExtraSupplyAdder';
 
 /**
  * Paso 1 — Mezcla base del lote: cada ingrediente puede omitirse, ajustarse
- * o sustituirse solo para este lote (la receta maestra no cambia).
+ * o sustituirse (simple o compuesta) solo para este lote; también se pueden
+ * agregar insumos extra puntuales. La receta maestra no cambia.
  */
 export default function IngredientCheckList({
   plan,
+  supplies = [],
   sourceLocation,
   realCost,
   onSelectSubstitute,
@@ -15,7 +19,9 @@ export default function IngredientCheckList({
   onTogglePreferred,
   onVariation,
 }) {
+  const [subRow, setSubRow] = useState(null);
   const missingCount = plan.filter((r) => r.missing).length;
+  const nameOf = (id) => supplies.find((s) => s.id === id)?.name || '?';
 
   return (
     <div className="border border-border rounded-lg overflow-hidden">
@@ -35,17 +41,41 @@ export default function IngredientCheckList({
           <IngredientRow
             key={row.index}
             row={row}
+            nameOf={nameOf}
             sourceLocation={sourceLocation}
             onSelectSubstitute={onSelectSubstitute}
             onClearSubstitute={onClearSubstitute}
             onTogglePreferred={onTogglePreferred}
             onVariation={onVariation}
+            onOpenSubstitute={setSubRow}
           />
         ))}
         {plan.length === 0 && (
           <p className="px-3 py-3 text-xs text-muted-foreground">Esta receta no tiene ingredientes base definidos.</p>
         )}
+        {plan.length > 0 && (
+          <ExtraSupplyAdder supplies={supplies} onAdd={(supplyId, qty) => {
+            const s = supplies.find((x) => x.id === supplyId);
+            onVariation(`x${Date.now()}`, { status: 'extra', supply_id: supplyId, supply_name: s?.name, actual_quantity: qty, reason: 'Insumo extra del lote' });
+          }} />
+        )}
       </div>
+
+      {subRow && (
+        <SubstituteDialog
+          row={subRow}
+          supplies={supplies}
+          onClose={() => setSubRow(null)}
+          onClear={() => { onVariation(subRow.index, null); setSubRow(null); }}
+          onConfirm={(targets, factors) => {
+            onVariation(subRow.index, {
+              status: 'substituted', actual_quantity: 0, targets, ...(factors ? { factors } : {}),
+              reason: `Sustituido por: ${targets.map((t) => `+${t.quantity}${subRow.unit} ${nameOf(t.supply_id)}`).join(', ')}`,
+            });
+            setSubRow(null);
+          }}
+        />
+      )}
     </div>
   );
 }

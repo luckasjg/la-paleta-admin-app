@@ -129,7 +129,10 @@
             "type": "string",
             "enum": [
               "omitted",
-              "adjusted"
+              "adjusted",
+              "substituted",
+              "added_substitute",
+              "extra"
             ]
           },
           "planned_quantity": {
@@ -143,6 +146,37 @@
           },
           "reason": {
             "type": "string"
+          },
+          "is_added_substitute": {
+            "type": "boolean"
+          },
+          "targets": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "supply_id": {
+                  "type": "string"
+                },
+                "supply_name": {
+                  "type": "string"
+                },
+                "quantity": {
+                  "type": "number"
+                }
+              }
+            }
+          },
+          "factors": {
+            "type": "object",
+            "properties": {
+              "divisor_glucosa": {
+                "type": "number"
+              },
+              "divisor_azucar": {
+                "type": "number"
+              }
+            }
           }
         }
       }
@@ -235,6 +269,37 @@
                 },
                 "reason": {
                   "type": "string"
+                },
+                "is_added_substitute": {
+                  "type": "boolean"
+                },
+                "targets": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "supply_id": {
+                        "type": "string"
+                      },
+                      "supply_name": {
+                        "type": "string"
+                      },
+                      "quantity": {
+                        "type": "number"
+                      }
+                    }
+                  }
+                },
+                "factors": {
+                  "type": "object",
+                  "properties": {
+                    "divisor_glucosa": {
+                      "type": "number"
+                    },
+                    "divisor_azucar": {
+                      "type": "number"
+                    }
+                  }
                 }
               }
             }

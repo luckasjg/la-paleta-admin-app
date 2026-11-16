@@ -50,14 +50,32 @@ export function buildIngredientPlan({
   const multiplier = batchMultiplier ?? (grams ? grams / (recipe.yield_amount || 1) : 0);
   if (!multiplier) return [];
 
-  return (recipe.ingredients || []).map((ing, index) => {
+  // Aportes de sustituciones compuestas: supply_id → [{ from, quantity }]
+  const contributions = {};
+  Object.entries(variations).forEach(([key, v]) => {
+    if (v?.status !== 'substituted') return;
+    const fromName = (recipe.ingredients || [])[key]?.supply_name || '';
+    (v.targets || []).forEach((t) => {
+      if (!t.supply_id || !(t.quantity > 0)) return;
+      (contributions[t.supply_id] ||= []).push({ from: key, fromName, quantity: t.quantity });
+    });
+  });
+  const used = new Set();
+
+  const rows = (recipe.ingredients || []).map((ing, index) => {
     const original = resolveSupply(ing);
     const planned = (ing.quantity || 0) * multiplier;
-    // Variación solo para este lote: omitido (0) o ajustado (cantidad real)
+    // Variación solo para este lote: omitido / sustituido (0) o ajustado (cantidad real)
     const variation = variations[index] || null;
-    const needed = variation?.status === 'omitted'
+    const ownQty = variation?.status === 'omitted' || variation?.status === 'substituted'
       ? 0
       : variation?.status === 'adjusted' ? (variation.actual_quantity || 0) : planned;
+    const pickId = substitutions[index]?.supply_id;
+    const effId = (pickId ? supplies.find((s) => s.id === pickId) : original)?.id;
+    const contrib = effId && !used.has(effId) ? (contributions[effId] || []) : [];
+    if (contrib.length) used.add(effId);
+    const subAdded = contrib.reduce((s, c) => s + c.quantity, 0);
+    const needed = ownQty + subAdded;
     const unit = original?.unit || ing.unit || '';
 
     const pick = substitutions[index];
@@ -74,6 +92,8 @@ export function buildIngredientPlan({
       planned,
       variation,
       needed,
+      ownQty,
+      subAdded,
       unit,
       original,
       originalName: original?.name || ing.supply_name || 'Insumo desconocido',
@@ -95,6 +115,61 @@ export function buildIngredientPlan({
       }),
     };
   });
+
+  // Filas agregadas solo a este lote: destinos de sustitución que no estaban en la
+  // receta (is_added_substitute) e insumos extra puntuales.
+  const addedRow = (index, supply, needed, variation) => {
+    const isInfinite = supply?.is_infinite === true;
+    const available = supply ? getStockAt(supply, sourceLocation) : 0;
+    return {
+      index, ing: { supply_id: supply?.id, supply_name: supply?.name }, planned: 0, variation,
+      needed, ownQty: needed, subAdded: 0, unit: supply?.unit || '', original: supply,
+      originalName: supply?.name || 'Insumo desconocido', substitute: null, effective: supply,
+      isSubstituted: false, savePreferred: false, available, isInfinite,
+      missing: needed > 0 && (!supply || (!isInfinite && available < needed)),
+      notFound: !supply, relinked: false, candidates: [], isAdded: true,
+    };
+  };
+  Object.entries(contributions).forEach(([supplyId, list]) => {
+    if (used.has(supplyId)) return;
+    const qty = list.reduce((s, c) => s + c.quantity, 0);
+    rows.push(addedRow(`s-${supplyId}`, supplies.find((s) => s.id === supplyId), qty, {
+      status: 'added_substitute', is_added_substitute: true, actual_quantity: qty,
+      reason: `Sustituye a ${list.map((c) => c.fromName).join(', ')}`,
+    }));
+  });
+  Object.entries(variations).forEach(([key, v]) => {
+    if (v?.status !== 'extra') return;
+    rows.push(addedRow(key, supplies.find((s) => s.id === v.supply_id), v.actual_quantity || 0, v));
+  });
+  return rows;
+}
+
+/** Registro de trazabilidad (Tray.ingredient_variations) de una fila con variación. */
+export function toVariationRecord(r, supplies) {
+  const v = r.variation;
+  return {
+    supply_id: r.effective?.id || r.ing.supply_id || '',
+    supply_name: r.isSubstituted ? r.substitute.name : r.originalName,
+    status: v.status,
+    planned_quantity: r.planned,
+    actual_quantity: r.needed,
+    unit: r.unit,
+    reason: v.reason || '',
+    ...(v.is_added_substitute || v.status === 'extra' ? { is_added_substitute: v.status !== 'extra' } : {}),
+    ...(v.targets ? { targets: v.targets.map((t) => ({ ...t, supply_name: supplies.find((s) => s.id === t.supply_id)?.name || '' })) } : {}),
+    ...(v.factors ? { factors: { divisor_glucosa: v.factors.glucosa, divisor_azucar: v.factors.azucar } } : {}),
+  };
+}
+
+/** Fórmula de equivalencia del azúcar invertido → glucosa + azúcar. */
+export function invertSugarFormula(planned, divGlucosa = 1.144, divAzucar = 1.43) {
+  const mitad = planned / 2;
+  return { glucosa: mitad / (divGlucosa || 1), azucar: mitad / (divAzucar || 1) };
+}
+
+export function findSupplyByName(supplies, test) {
+  return supplies.find((s) => test((s.name || '').toLowerCase()));
 }
 
 /**
