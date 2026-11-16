@@ -4,7 +4,9 @@ import { Button } from '@/components/ui/button';
 import { Copy } from 'lucide-react';
 import { toast } from 'sonner';
 
-export default function ServeFlavorsDialog({ order, item, maxFlavors, trays, isPending, onConfirm, onClose }) {
+import { traySurchargePerGram } from '@/lib/flavorSurcharge';
+
+export default function ServeFlavorsDialog({ order, item, maxFlavors, trays, recipes = [], isPending, onConfirm, onClose }) {
   const qty = item?.quantity || 1;
   const [unit, setUnit] = useState(0);
   const [units, setUnits] = useState([]);
@@ -59,6 +61,9 @@ export default function ServeFlavorsDialog({ order, item, maxFlavors, trays, isP
                 }`}
               >
                 <span className="font-semibold leading-tight line-clamp-2">{tray.recipe_name}</span>
+                {traySurchargePerGram(tray.id, trays, recipes) > 0 && (
+                  <span className="mt-1 self-start rounded bg-amber-400 text-amber-950 px-1.5 text-[10px] font-bold uppercase">Premium</span>
+                )}
                 <span className={`text-xs font-mono mt-1 ${isLow ? 'text-destructive font-bold' : 'text-muted-foreground'}`}>
                   {(tray.remaining_grams || 0).toFixed(0)}g
                 </span>

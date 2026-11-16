@@ -30,6 +30,7 @@ import OrderTicket from '@/components/pos/OrderTicket';
 import CustomerIdentifyGate from '@/components/pos/CustomerIdentifyGate';
 import LoyaltyBenefitAlert from '@/components/pos/LoyaltyBenefitAlert';
 import PrintRelayBadge from '@/components/pos/PrintRelayBadge';
+import PremiumChargesPanel from '@/components/pos/PremiumChargesPanel';
 import { printComanda, usePrintRelay } from '@/lib/printRelay';
 import { getActiveSession, setActiveSession, clearActiveSession } from '@/lib/cashSession';
 import { getPendingOrder, clearPendingOrder, buildCartFromOrder } from '@/lib/posHandoff';
@@ -285,9 +286,13 @@ export default function POS() {
     const portions = splitGramsEqually(totalGrams, productMaxFlavors(product));
     setEditingIndex(index);
     setFlavorDialog(product);
-    setSelectedFlavors(item.flavors?.length
-      ? item.flavors.map(f => ({ tray_id: f.tray_id, grams: f.grams }))
-      : portions.map(g => ({ tray_id: '', grams: g })));
+    if (item.flavors?.length) {
+      const chosen = item.flavors.map(f => ({ tray_id: f.tray_id, grams: f.grams }));
+      const rest = totalGrams - chosen.reduce((s, f) => s + (parseFloat(f.grams) || 0), 0);
+      setSelectedFlavors(rest > 0 ? [...chosen, { tray_id: '', grams: rest }] : chosen);
+    } else {
+      setSelectedFlavors(portions.map(g => ({ tray_id: '', grams: g })));
+    }
   };
 
   const addToCart = (product) => {
@@ -328,7 +333,9 @@ export default function POS() {
   const maxFlavors = flavorDialog ? productMaxFlavors(flavorDialog) : 1;
   const totalFlavorGrams = selectedFlavors.reduce((s, f) => s + (parseFloat(f.grams) || 0), 0);
   const flavorGramsOk = Math.abs(totalFlavorGrams - targetGrams) <= 1;
-  const allFlavorsFilled = selectedFlavors.every(f => f.tray_id);
+  // Basta con un sabor (ej. el premium); el resto se elige en Despacho.
+  const allFlavorsFilled = selectedFlavors.some(f => f.tray_id);
+  const pendingSlots = selectedFlavors.filter(f => !f.tray_id).length;
 
   // Adding/removing a slot re-divides grams equally so the cashier never has to do the math.
   const addFlavorSlot = () => {
@@ -360,10 +367,11 @@ export default function POS() {
   const addIceCreamToCart = () => {
     if (!flavorDialog || !allFlavorsFilled) return;
     const product = flavorDialog;
-    const flavorLabel = selectedFlavors.map(f => {
+    const chosen = selectedFlavors.filter(f => f.tray_id);
+    const flavorLabel = chosen.map(f => {
       const tray = trays.find(t => t.id === f.tray_id);
       return tray ? tray.recipe_name : '';
-    }).join(' + ');
+    }).join(' + ') + (chosen.length < selectedFlavors.length ? ' + por elegir en vitrina' : '');
 
     const surcharge = computeFlavorSurcharge(selectedFlavors);
     const finalPrice = +(product.price + surcharge).toFixed(2);
@@ -375,11 +383,11 @@ export default function POS() {
       recipe_id: product.recipe_id,
       pending_dispatch: true,
       flavor: flavorLabel,
-      flavors: selectedFlavors.map(f => {
+      flavors: chosen.map(f => {
         const tray = trays.find(t => t.id === f.tray_id);
         return { tray_id: f.tray_id, recipe_name: tray?.recipe_name || '', grams: parseFloat(f.grams) || 0 };
       }),
-      tray_id: selectedFlavors[0].tray_id,
+      tray_id: chosen[0].tray_id,
       utensil_supply_id: product.utensil_supply_id || '',
       linked_supplies: Array.isArray(product.linked_supplies) ? product.linked_supplies : [],
       grams: targetGrams,
@@ -739,6 +747,7 @@ export default function POS() {
     return (
       <>
         <PosTabs value={posTab} onChange={setPosTab} pendingRefunds={pendingRefundsCount} />
+        <PremiumChargesPanel session={activeSession} wallets={wallets} eurVes={eurVes} />
         <CustomerIdentifyGate onDone={setSaleCustomer} />
       </>
     );
@@ -747,6 +756,7 @@ export default function POS() {
   return (
     <>
     <PosTabs value={posTab} onChange={setPosTab} pendingRefunds={pendingRefundsCount} />
+    <PremiumChargesPanel session={activeSession} wallets={wallets} eurVes={eurVes} />
     <div className="mt-3 flex items-center gap-2 text-sm">
       <Badge variant={saleCustomer?.none ? 'outline' : 'secondary'}>
         {saleCustomer && !saleCustomer.none ? `Cliente: ${saleCustomer.full_name} · V-${saleCustomer.cedula}` : 'Venta sin datos de cliente'}
@@ -1010,10 +1020,11 @@ export default function POS() {
                     onChange={v => updateFlavorSlot(idx, 'tray_id', v)}
                     options={trays.filter(t => t.in_vitrine === true).map(t => {
                       const stock = t.remaining_grams || 0;
+                      const premium = traySurchargePerGram(t.id) > 0;
                       return {
                         value: t.id,
-                        label: t.recipe_name,
-                        sublabel: `${stock.toFixed(0)}g${stock < 200 ? ' ⚠️ bajo' : ''}`,
+                        label: premium ? `★ ${t.recipe_name}` : t.recipe_name,
+                        sublabel: `${premium ? 'Premium · ' : ''}${stock.toFixed(0)}g${stock < 200 ? ' ⚠️ bajo' : ''}`,
                       };
                     })}
                     placeholder={`Sabor ${idx + 1}`}
@@ -1052,6 +1063,10 @@ export default function POS() {
                 {totalFlavorGrams}g / {targetGrams}g
               </span>
             </div>
+
+            {pendingSlots > 0 && allFlavorsFilled && (
+              <p className="text-xs text-muted-foreground">{pendingSlots} sabor(es) sin elegir · se asignarán en Despacho</p>
+            )}
 
             {!flavorGramsOk && (
               <p className="text-xs text-destructive">Los gramos deben sumar exactamente {targetGrams}g</p>

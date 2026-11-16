@@ -70,7 +70,45 @@ export default async function (req) {
       });
     }));
 
-    return Response.json({ ok: true, dispatch_status: stillPending ? 'pendiente' : 'despachado' });
+    // Recargo premium: diferencia entre lo servido y lo ya cobrado en caja.
+    let surchargeDue = 0;
+    const premiumNames = new Set();
+    if (!item.is_courtesy) {
+      const recipes = await db.Recipe.list();
+      const rateOf = (t) => {
+        const r = recipes.find((x) => (t.recipe_id && x.id === t.recipe_id) || x.name === t.recipe_name);
+        if (!r || (r.flavor_tag || 'Regular') === 'Regular') return 0;
+        return r.surcharge_per_gram || 0;
+      };
+      const paidPerUnit = item.flavor_surcharge || 0;
+      newItems.forEach((ni) => {
+        const due = ni.flavors.reduce((s, f) => {
+          const t = list.find((x) => x.id === f.tray_id);
+          const rate = rateOf(t);
+          if (rate > 0) premiumNames.add(t.recipe_name);
+          return s + f.grams * rate;
+        }, 0);
+        surchargeDue += Math.max(0, due - paidPerUnit);
+      });
+      surchargeDue = +surchargeDue.toFixed(2);
+      if (surchargeDue > 0.005) {
+        await db.PremiumSurchargeCharge.create({
+          sale_id: sale.id,
+          ticket_number: sale.ticket_number,
+          customer_id: sale.customer_id,
+          customer_name: sale.customer_name,
+          customer_cedula: sale.customer_cedula,
+          product_name: item.product_name,
+          flavors_detail: [...premiumNames].join(' + '),
+          amount_usd: surchargeDue,
+          status: 'pendiente',
+          origin_cash_register_id: sale.cash_register_id,
+          dispatched_by: user.full_name || user.email,
+        });
+      } else surchargeDue = 0;
+    }
+
+    return Response.json({ ok: true, dispatch_status: stillPending ? 'pendiente' : 'despachado', surcharge_due: surchargeDue });
   } catch (error) {
     return Response.json({ error: error.message }, { status: 500 });
   }

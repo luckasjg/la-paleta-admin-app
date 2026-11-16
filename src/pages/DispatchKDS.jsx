@@ -37,6 +37,11 @@ export default function DispatchKDS() {
     queryFn: () => base44.entities.Product.list(),
   });
 
+  const { data: recipes = [] } = useQuery({
+    queryKey: ['recipes'],
+    queryFn: () => base44.entities.Recipe.list(),
+  });
+
   const item = selection ? selection.order.items?.[selection.index] : null;
   const product = item ? products.find(p => p.id === item.product_id) : null;
   const maxFlavors = Math.max(1, product?.max_flavors || product?.flavor_count || 1);
@@ -47,10 +52,14 @@ export default function DispatchKDS() {
       item_index: selection.index,
       units,
     }),
-    onSuccess: () => {
+    onSuccess: (res) => {
       qc.invalidateQueries({ queryKey: ['sales'] });
       qc.invalidateQueries({ queryKey: ['trays'] });
       toast.success('¡Helado despachado y gramos descontados!');
+      if (res?.data?.surcharge_due > 0) {
+        const o = selection.order;
+        toast.warning(`Recargo premium enviado a caja · ${o.customer_name || `Ticket #${o.ticket_number || o.id.slice(-4)}`}`);
+      }
       setSelection(null);
     },
     onError: (err) => toast.error('Error al despachar: ' + (err.response?.data?.error || err.message)),
@@ -94,6 +103,7 @@ export default function DispatchKDS() {
         item={item}
         maxFlavors={maxFlavors}
         trays={trays}
+        recipes={recipes}
         isPending={dispatch.isPending}
         onConfirm={(ids) => dispatch.mutate(ids)}
         onClose={() => setSelection(null)}
