@@ -9,6 +9,7 @@ import PageHeader from '@/components/shared/PageHeader';
 import HistoryFilters from '@/components/production/history/HistoryFilters';
 import MasterBatchHistoryCard from '@/components/production/history/MasterBatchHistoryCard';
 import SingleProductionCard from '@/components/production/history/SingleProductionCard';
+import WeeklyCsvExport from '@/components/production/history/WeeklyCsvExport';
 import HistoryAudit from '@/components/production/audit/HistoryAudit';
 import { buildHistory, filterHistory } from '@/lib/productionHistory';
 import { CONSUMPTION_REASON } from '@/lib/deductionLog';
@@ -44,7 +45,10 @@ export default function ProductionHistory() {
   return (
     <div className="space-y-6">
       <PageHeader title="Historial de producción" description="Lotes maestros con sus ramales y producciones independientes"
-        actions={<Button variant="outline" asChild><Link to="/produccion"><ArrowLeft className="h-4 w-4 mr-2" />Producción</Link></Button>} />
+        actions={<div className="flex gap-2">
+          <WeeklyCsvExport items={filterHistory(items, { ...filters, date: '' })} />
+          <Button variant="outline" asChild><Link to="/produccion"><ArrowLeft className="h-4 w-4 mr-2" />Producción</Link></Button>
+        </div>} />
       <HistoryFilters value={filters} onChange={setFilters} />
       {isLoading && <p className="text-sm text-muted-foreground">Cargando...</p>}
       {!isLoading && items.length === 0 && <Card className="p-8 text-center text-muted-foreground text-sm">Aún no hay registros.</Card>}
