@@ -60,7 +60,7 @@ export default function SpentPackageDialog({ open, onOpenChange, utensilios }) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[calc(100vw-2rem)] max-w-md overflow-hidden">
+      <DialogContent className="w-[calc(100vw-2rem)] max-w-md max-h-[90vh] overflow-y-auto overflow-x-hidden [&>*]:min-w-0">
         <DialogHeader><DialogTitle>Registrar Paquete Gastado</DialogTitle></DialogHeader>
         <div className="grid gap-4 py-2 min-w-0">
           <StockLocationSelector value={location} onChange={setLocation} />
@@ -84,12 +84,12 @@ export default function SpentPackageDialog({ open, onOpenChange, utensilios }) {
                 ))}
               </div>
               {mode === 'package' ? (
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 [&>*]:min-w-0">
                   <div>
                     <Label className="text-xs">Paquetes/cajas gastados</Label>
                     <div className="flex items-center gap-1 mt-1">
                       <Button type="button" size="icon" variant="outline" onClick={() => step(-1)}><Minus /></Button>
-                      <Input type="number" step="0.5" min="0" value={packs} onChange={e => setPacks(e.target.value)} className="text-center" />
+                      <Input type="number" step="0.5" min="0" value={packs} onChange={e => setPacks(e.target.value)} className="text-center min-w-0" />
                       <Button type="button" size="icon" variant="outline" onClick={() => step(1)}><Plus /></Button>
                     </div>
                   </div>
@@ -108,7 +108,7 @@ export default function SpentPackageDialog({ open, onOpenChange, utensilios }) {
               <div className="rounded-lg bg-muted/50 p-3 text-sm space-y-1.5">
                 <div className="flex justify-between gap-2"><span className="text-muted-foreground">Total a descontar</span><span className="font-semibold">-{total} {u.unit}</span></div>
                 <div className="flex justify-between gap-2"><span className="text-muted-foreground">Stock en {LOCATION_LABEL[location]}</span>
-                  <span className="font-medium whitespace-nowrap">{shortPackages(avail, per)} → {shortPackages(after, per)}</span></div>
+                  <span className="font-medium text-right">{shortPackages(avail, per)} → {shortPackages(after, per)}</span></div>
                 {error && <p className="text-xs text-destructive">{error}</p>}
               </div>
             </>
