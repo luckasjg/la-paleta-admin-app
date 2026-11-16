@@ -20,6 +20,7 @@ import { getStockAt, buildStockDelta, LOCATION_LABEL } from '@/lib/stockHelpers'
 import ProcessBalanceCard from '@/components/preparations/ProcessBalanceCard';
 import ByproductsEditor from '@/components/preparations/ByproductsEditor';
 import BatchScalePanel from '@/components/preparations/BatchScalePanel';
+import { deductWithLog, makeProductionRef, CONSUMPTION_REASON } from '@/lib/deductionLog';
 
 const fmt2 = (n) => (Math.round((n || 0) * 100) / 100).toLocaleString('es-VE', { maximumFractionDigits: 2 });
 const allocOf = (bps) => Math.min(100, (bps || []).reduce((s, b) => s + (parseFloat(b.cost_allocation_pct) || 0), 0));
@@ -258,16 +259,12 @@ export default function Preparations() {
       // BYPASS MODE — Carga Inicial / Ajuste de Saldo:
       // Omitir descuento de materia prima y sólo sumar el rendimiento al insumo vinculado.
       if (!skipInventoryDeduction) {
-        for (const ing of prep.ingredients) {
-          const supply = supplies.find(s => s.id === ing.supply_id);
-          if (supply && !supply.is_infinite) {
-            // Descontar de la ubicación de origen seleccionada.
-            await base44.entities.Supply.update(
-              supply.id,
-              buildStockDelta(supply, sourceLocation, -((ing.quantity || 0) * batchFactor))
-            );
-          }
-        }
+        // Descontar de la ubicación de origen seleccionada, con saldo antes/después.
+        const count = await base44.entities.InventoryAdjustment.count({ reason: CONSUMPTION_REASON, origin: 'preparados', reference_label: { $regex: `^Preparado: ${prep.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} #` } }).catch(() => 0);
+        await deductWithLog(
+          prep.ingredients.map(ing => ({ supply: supplies.find(s => s.id === ing.supply_id), qty: (ing.quantity || 0) * batchFactor })),
+          { location: sourceLocation, referenceId: makeProductionRef('PP'), origin: 'preparados', referenceLabel: `Preparado: ${prep.name} #${count + 1}` }
+        );
       }
 
       // Add yield to linked supply (siempre, también en carga inicial).

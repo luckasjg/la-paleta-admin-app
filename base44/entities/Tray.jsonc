@@ -88,6 +88,43 @@
       "type": "number",
       "description": "Gramos de base maestra asignados a esta bandeja"
     },
+    "production_ref": {
+      "type": "string",
+      "description": "Referencia de movimientos de inventario de la primera producci\u00f3n"
+    },
+    "deduction_log": {
+      "type": "array",
+      "description": "Insumos descontados en la primera producci\u00f3n de la bandeja",
+      "items": {
+        "type": "object",
+        "properties": {
+          "supply_id": {
+            "type": "string"
+          },
+          "supply_name": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "number"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "location": {
+            "type": "string"
+          },
+          "stock_before": {
+            "type": "number"
+          },
+          "stock_after": {
+            "type": "number"
+          },
+          "verified": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
     "variegatos_used": {
       "type": "array",
       "items": {
@@ -217,6 +254,44 @@
           },
           "base_grams_used": {
             "type": "number"
+          },
+          "batch_multiplier": {
+            "type": "number"
+          },
+          "production_ref": {
+            "type": "string"
+          },
+          "deduction_log": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "supply_id": {
+                  "type": "string"
+                },
+                "supply_name": {
+                  "type": "string"
+                },
+                "quantity": {
+                  "type": "number"
+                },
+                "unit": {
+                  "type": "string"
+                },
+                "location": {
+                  "type": "string"
+                },
+                "stock_before": {
+                  "type": "number"
+                },
+                "stock_after": {
+                  "type": "number"
+                },
+                "verified": {
+                  "type": "boolean"
+                }
+              }
+            }
           },
           "variegatos_used": {
             "type": "array",

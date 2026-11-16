@@ -23,7 +23,7 @@ export function buildHistory({ events, trays, batches }) {
     if (b) {
       return {
         kind: 'master', id: code, legacy: false, date: b.date, at: b.produced_at || b.created_date,
-        base_name: b.base_name, multiplier: b.multiplier, base_grams: b.base_weight_grams,
+        base_name: b.base_name, base_recipe_id: b.base_recipe_id, deduction_log: b.deduction_log || [], multiplier: b.multiplier, base_grams: b.base_weight_grams,
         total_cost: b.total_cost, net_loss: b.net_loss_grams, physical: b.physical_grams, branches: b.branches || [],
       };
     }

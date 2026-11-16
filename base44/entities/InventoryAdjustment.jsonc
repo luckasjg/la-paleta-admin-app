@@ -6,7 +6,8 @@
       "type": "string",
       "enum": [
         "supply",
-        "tray"
+        "tray",
+        "production_consumption"
       ]
     },
     "reference_id": {
@@ -31,6 +32,53 @@
     },
     "original_quantity_change": {
       "type": "number"
+    },
+    "supply_id": {
+      "type": "string"
+    },
+    "supply_name": {
+      "type": "string"
+    },
+    "unit": {
+      "type": "string"
+    },
+    "category": {
+      "type": "string"
+    },
+    "location": {
+      "type": "string",
+      "enum": [
+        "production",
+        "warehouse"
+      ]
+    },
+    "origin": {
+      "type": "string",
+      "enum": [
+        "helados",
+        "preparados"
+      ],
+      "description": "Origen del consumo de producci\u00f3n"
+    },
+    "stock_before": {
+      "type": "number"
+    },
+    "stock_after": {
+      "type": "number"
+    },
+    "reference_label": {
+      "type": "string",
+      "description": "Origen legible: Bandeja, Relleno, Lote Maestro, Preparado"
+    },
+    "unit_cost": {
+      "type": "number"
+    },
+    "total_cost": {
+      "type": "number"
+    },
+    "is_correction": {
+      "type": "boolean",
+      "default": false
     }
   },
   "required": [

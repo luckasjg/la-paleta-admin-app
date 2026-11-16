@@ -32,6 +32,9 @@ import StepLabel from '@/components/production/StepLabel';
 import ProcessDiffBadge from '@/components/production/ProcessDiffBadge';
 import { Layers } from 'lucide-react';
 import SpentPackageDialog from '@/components/production/SpentPackageDialog';
+import { deductWithLog, makeProductionRef } from '@/lib/deductionLog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import SupplyConsumptionReport from '@/components/consumption/SupplyConsumptionReport';
 
 export default function Production() {
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -100,6 +103,9 @@ export default function Production() {
       variegatos_used: batch.variegatos_used || [],
       ingredient_variations: batch.ingredient_variations || [],
     };
+    const ref = batch.production_ref || '';
+    const deductionLog = batch.deduction_log || [];
+    const eventExtra = { production_ref: ref, inventory_bypass: !ref };
 
     if (target) {
       // Peso confirmado antes del relleno + peso neto añadido
@@ -133,10 +139,13 @@ export default function Production() {
             process_loss_grams: batchFields.process_loss_grams,
             variegatos_used: batchFields.variegatos_used,
             ingredient_variations: batchFields.ingredient_variations,
+            batch_multiplier: batchFields.batch_multiplier,
+            production_ref: ref,
+            deduction_log: deductionLog,
           },
         ],
       });
-      await logEvent({ type: 'relleno', tray_id: target.id, recipe_name: target.recipe_name, grams: gramsToAdd, remaining_before: remainingBefore, remaining_after: content });
+      await logEvent({ ...eventExtra, type: 'relleno', tray_id: target.id, recipe_name: target.recipe_name, grams: gramsToAdd, remaining_before: remainingBefore, remaining_after: content });
       return { refilled: true, name: target.recipe_name };
     }
 
@@ -154,8 +163,10 @@ export default function Production() {
       real_cost_per_gram: gramsToAdd > 0 ? (cost || 0) / gramsToAdd : 0,
       substitutions: subs,
       refill_log: [],
+      production_ref: ref,
+      deduction_log: deductionLog,
     });
-    await logEvent({ type: 'nueva', tray_id: created?.id, recipe_name: recipe.name, grams: gramsToAdd, remaining_before: 0, remaining_after: gramsToAdd });
+    await logEvent({ ...eventExtra, type: 'nueva', tray_id: created?.id, recipe_name: recipe.name, grams: gramsToAdd, remaining_before: 0, remaining_after: gramsToAdd });
     return { refilled: false, name: recipe.name };
   };
 
@@ -278,18 +289,16 @@ export default function Production() {
         await base44.entities.Recipe.update(recipe.id, { ingredients: fixedIngredients });
       }
 
-      // Deduct supplies (skip infinite ones) from the SELECTED location.
-      // Solo cantidades reales (base + variegados), agrupadas por insumo.
-      const deductions = {};
-      const addDeduction = (supply, qty) => {
-        if (!supply || supply.is_infinite || !(qty > 0)) return;
-        deductions[supply.id] = { supply, qty: (deductions[supply.id]?.qty || 0) + qty };
-      };
-      plan.forEach(row => addDeduction(row.effective, row.needed));
-      varPlan.forEach(l => addDeduction(l.supply, l.quantity));
-      for (const { supply, qty } of Object.values(deductions)) {
-        await base44.entities.Supply.update(supply.id, buildStockDelta(supply, sourceLocation, -qty));
-      }
+      // Deduct supplies (skip infinite ones) from the SELECTED location, con saldo antes/después.
+      const productionRef = makeProductionRef('P');
+      const refillTarget = targetTrayId !== 'new' ? trays.find(t => t.id === targetTrayId) : null;
+      const deductionLog = await deductWithLog(
+        [...plan.map(row => ({ supply: row.effective, qty: row.needed })), ...varPlan.map(l => ({ supply: l.supply, qty: l.quantity }))],
+        {
+          location: sourceLocation, referenceId: productionRef, origin: 'helados',
+          referenceLabel: refillTarget ? `Relleno: ${recipe.name}` : `Bandeja: ${recipe.name}`,
+        }
+      );
 
       // Trazabilidad de cada sustitución aplicada
       const subs = plan.filter(row => row.isSubstituted && row.needed > 0);
@@ -308,6 +317,8 @@ export default function Production() {
 
       // Bandeja nueva o completar existente — 1:1 con el peso real procesado
       const batch = {
+        production_ref: productionRef,
+        deduction_log: deductionLog,
         batch_multiplier: multiplier,
         process_loss_grams: summary.loss,
         ingredient_variations: plan.filter(r => r.variation).map(r => toVariationRecord(r, supplies)),
@@ -341,6 +352,8 @@ export default function Production() {
       qc.invalidateQueries({ queryKey: ['trays'] });
       qc.invalidateQueries({ queryKey: ['supplies'] });
       qc.invalidateQueries({ queryKey: ['recipes'] });
+      qc.invalidateQueries({ queryKey: ['consumption_report'] });
+      qc.invalidateQueries({ queryKey: ['consumption_adjustments'] });
       setDialogOpen(false);
       setSkipInventoryDeduction(false);
       setTargetTrayId('new');
@@ -459,6 +472,16 @@ export default function Production() {
         }
       />
 
+      <Tabs defaultValue={new URLSearchParams(window.location.search).get('tab') === 'consumo' ? 'consumo' : 'bandejas'}>
+        <TabsList>
+          <TabsTrigger value="bandejas">Bandejas</TabsTrigger>
+          <TabsTrigger value="consumo">Consumo de Insumos</TabsTrigger>
+        </TabsList>
+        <TabsContent value="consumo" className="mt-4">
+          <SupplyConsumptionReport supplies={supplies} />
+        </TabsContent>
+        <TabsContent value="bandejas" className="space-y-6 mt-4">
+
       {/* Vitrina — destacada */}
       <div className="rounded-xl border-l-4 border-primary bg-primary/5 p-4">
         <div className="flex items-center justify-between mb-3">
@@ -555,6 +578,9 @@ export default function Production() {
           </div>
         </div>
       )}
+
+        </TabsContent>
+      </Tabs>
 
       <MergeTraysDialog open={mergeOpen} onOpenChange={setMergeOpen} trays={trays} />
       <MasterBatchDialog open={masterOpen} onOpenChange={setMasterOpen} recipes={recipes} supplies={supplies} resolveSupply={resolveSupply} trays={trays} />

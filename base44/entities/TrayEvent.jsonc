@@ -46,6 +46,15 @@
     },
     "operator": {
       "type": "string"
+    },
+    "production_ref": {
+      "type": "string",
+      "description": "Referencia de los movimientos de inventario de esta producci\u00f3n"
+    },
+    "inventory_bypass": {
+      "type": "boolean",
+      "default": false,
+      "description": "Carga inicial sin descuento de materia prima"
     }
   },
   "required": [

@@ -19,6 +19,7 @@ import { buildIngredientPlan, computeRealCost, SUBSTITUTION_REASON, toVariationR
 import { buildStockDelta, LOCATION_LABEL } from '@/lib/stockHelpers';
 import { buildDerivedLines, derivedTraySummary, aggregateDeductions, splitEvenly, BALANCE_TOLERANCE_G } from '@/lib/masterBatch';
 import { gramsOf } from '@/lib/productionHistory';
+import { deductWithLog } from '@/lib/deductionLog';
 
 export default function MasterBatchDialog({ open, onOpenChange, recipes, supplies, resolveSupply, trays: existingTrays = [] }) {
   const qc = useQueryClient();
@@ -156,9 +157,10 @@ export default function MasterBatchDialog({ open, onOpenChange, recipes, supplie
       }
 
       // 2. Descontar inventario (base una sola vez + aditivos de cada bandeja), agrupado por insumo
-      for (const { supply, qty } of deductions.list) {
-        await base44.entities.Supply.update(supply.id, buildStockDelta(supply, sourceLocation, -qty));
-      }
+      const deductionLog = await deductWithLog(deductions.list, {
+        location: sourceLocation, referenceId: masterBatchId, origin: 'helados',
+        referenceLabel: `Lote Maestro: ${base.name}`,
+      });
       if (subs.length > 0) {
         await base44.entities.InventoryAdjustment.bulkCreate(subs.map(r => ({
           type: 'supply', reference_id: r.substitute.id, reference_name: r.substitute.name, quantity_change: -r.needed,
@@ -189,7 +191,7 @@ export default function MasterBatchDialog({ open, onOpenChange, recipes, supplie
         batch_code: masterBatchId, base_recipe_id: base.id, base_name: base.name, multiplier,
         base_weight_grams: baseWeight, base_cost: baseCost, total_cost: details.reduce((s, d) => s + d.summary.totalCost, 0),
         theoretical_grams: theoretical, physical_grams: physical, net_loss_grams: theoretical - physical,
-        date: today, produced_at: new Date().toISOString(), operator,
+        date: today, produced_at: new Date().toISOString(), operator, deduction_log: deductionLog,
         branches: details.map(d => ({
           tray_id: d.trayId, recipe_name: d.recipe.name, mode: d.tray.mode === 'relleno' ? 'relleno' : 'nueva',
           base_grams: d.tray.base_grams, variegatos_grams: gramsOf(d.fields.variegatos_used), net_grams: d.tray.net,

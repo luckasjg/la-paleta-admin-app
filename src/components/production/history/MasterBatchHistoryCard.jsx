@@ -7,7 +7,7 @@ import { formatVET } from '@/lib/vetTime';
 import BranchRow from '@/components/production/history/BranchRow';
 import { fmtG, fmtUsd, lossLabel, lossCls } from '@/components/production/history/fmt';
 
-export default function MasterBatchHistoryCard({ item }) {
+export default function MasterBatchHistoryCard({ item, audit }) {
   const [open, setOpen] = useState(true);
   const loss = item.net_loss || 0;
   const pct = item.physical > 0 ? (loss / item.physical) * 100 : 0;
@@ -35,6 +35,7 @@ export default function MasterBatchHistoryCard({ item }) {
           <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${open ? 'rotate-180' : ''}`} />
         </div>
       </button>
+      {audit && <div className="px-4 pb-3 pl-12">{audit}</div>}
       {open && (
         <div className="px-4 pb-3 pl-12 divide-y divide-border/60">
           {item.branches.length === 0 && <p className="py-2 text-xs text-muted-foreground">Sin ramales registrados.</p>}

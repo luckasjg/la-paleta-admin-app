@@ -11,11 +11,12 @@ const MODE = {
   transferencia: { label: 'Unión', cls: 'bg-yellow-100 text-yellow-700' },
 };
 
-export default function SingleProductionCard({ item }) {
+export default function SingleProductionCard({ item, audit }) {
   const e = item.event;
   const mode = MODE[e.type] || MODE.nueva;
   return (
-    <Card className="p-4 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-sm">
+    <Card className="p-4 space-y-3 text-sm">
+    <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
       <div className="flex items-center gap-2 flex-wrap flex-1 min-w-0">
         {e.type !== 'transferencia' && <Badge variant="outline">Producción Independiente</Badge>}
         <Badge className={mode.cls}>{mode.label}</Badge>
@@ -29,6 +30,8 @@ export default function SingleProductionCard({ item }) {
         {item.at ? `${formatVET(item.at)} (hora VE)` : moment(e.date).format('DD/MM/YYYY')}
         {e.operator ? ` · ${e.operator}` : ''}
       </span>
+    </div>
+    {audit}
     </Card>
   );
 }

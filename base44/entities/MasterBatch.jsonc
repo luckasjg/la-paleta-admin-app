@@ -48,6 +48,39 @@
     "operator": {
       "type": "string"
     },
+    "deduction_log": {
+      "type": "array",
+      "description": "Insumos descontados del inventario por el lote",
+      "items": {
+        "type": "object",
+        "properties": {
+          "supply_id": {
+            "type": "string"
+          },
+          "supply_name": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "number"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "location": {
+            "type": "string"
+          },
+          "stock_before": {
+            "type": "number"
+          },
+          "stock_after": {
+            "type": "number"
+          },
+          "verified": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
     "branches": {
       "type": "array",
       "items": {
