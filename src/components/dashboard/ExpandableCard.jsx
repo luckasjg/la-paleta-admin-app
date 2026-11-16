@@ -1,5 +1,6 @@
 import React from 'react';
 import { Maximize2 } from 'lucide-react';
+import { useRole } from '@/lib/useRole';
 
 /**
  * Envuelve una tarjeta del dashboard y añade un botón discreto para abrir su
@@ -7,7 +8,8 @@ import { Maximize2 } from 'lucide-react';
  * no se dibuja y la tarjeta queda exactamente como antes.
  */
 export default function ExpandableCard({ label, onExpand, className, corner = 'top', children }) {
-  if (!onExpand) return <>{children}</>;
+  const { isAdmin } = useRole();
+  if (!onExpand || !isAdmin) return <>{children}</>;
   const cornerClass = corner === 'bottom' ? 'bottom-2 right-2' : 'top-2 right-2';
   return (
     <div className={`relative group ${className || ''}`}>
@@ -30,7 +32,8 @@ export default function ExpandableCard({ label, onExpand, className, corner = 't
  * tiene controles en su esquina superior derecha.
  */
 export function ExpandButton({ label, onExpand }) {
-  if (!onExpand) return null;
+  const { isAdmin } = useRole();
+  if (!onExpand || !isAdmin) return null;
   return (
     <button
       type="button"
@@ -48,7 +51,9 @@ export function ExpandButton({ label, onExpand }) {
  * Cabecera fina para grupos de tarjetas (rejillas de KPIs), donde no hay una
  * esquina libre: muestra el título de la sección y el botón de expandir.
  */
-export function ExpandableSection({ title, label, onExpand, children }) {
+export function ExpandableSection({ title, label, onExpand: rawOnExpand, children }) {
+  const { isAdmin } = useRole();
+  const onExpand = isAdmin ? rawOnExpand : undefined;
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between gap-2">

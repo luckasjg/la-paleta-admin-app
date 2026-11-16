@@ -19,6 +19,7 @@ import { buildDashboardAnalytics, buildPaymentLabelMap } from '@/lib/dashboardAn
 import { computeCogs } from '@/lib/cogsCalculator';
 import { computeCourtesyStats } from '@/lib/courtesyAnalytics';
 import moment from 'moment';
+import { useRole } from '@/lib/useRole';
 
 const MONTH_NAMES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 
@@ -159,7 +160,10 @@ export default function Dashboard() {
   const monthLabel = `${MONTH_NAMES[selectedMonth]} ${selectedYear}`;
 
   // ── Vista ampliada de KPIs ────────────────────────────────────────────
-  const [expandedKpi, setExpandedKpi] = useState(null);
+  const { isAdmin } = useRole();
+  const [expandedKpiRaw, setExpandedKpiRaw] = useState(null);
+  const expandedKpi = isAdmin ? expandedKpiRaw : null;
+  const setExpandedKpi = setExpandedKpiRaw;
 
   // Contexto compartido por las vistas ampliadas y el PDF: reutiliza lo ya
   // calculado en esta página, sin volver a consultar la base de datos.
