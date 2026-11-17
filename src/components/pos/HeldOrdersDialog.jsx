@@ -35,6 +35,9 @@ export default function HeldOrdersDialog({ open, onOpenChange, heldOrders, activ
                     {o.name
                       ? <p className="text-sm font-medium truncate">{o.name}</p>
                       : <p className="text-sm text-muted-foreground italic">Sin nombre</p>}
+                    <p className={`text-xs truncate ${o.customer ? 'font-medium text-primary' : 'text-muted-foreground'}`}>
+                      {o.customer ? `${o.customer.customer_name} · V-${o.customer.customer_cedula}` : 'Sin cliente asignado'}
+                    </p>
                     <p className="text-[11px] text-muted-foreground truncate">
                       {(o.cart || []).map(i => `${i.quantity}× ${i.product_name}`).join(', ')}
                     </p>

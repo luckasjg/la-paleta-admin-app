@@ -6,10 +6,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { UserCheck, UserX, Search, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { touchRecentCustomer } from '@/lib/recentCustomers';
+import RecentCustomers from '@/components/pos/RecentCustomers';
 
 const clean = (v) => (v || '').replace(/\D/g, '');
 
-export default function CustomerIdentifyGate({ onDone }) {
+export default function CustomerIdentifyGate({ onDone: done, sessionId, bare = false }) {
+  const onDone = (c) => { touchRecentCustomer(c, sessionId); done(c); };
   const [cedula, setCedula] = useState('');
   const [searched, setSearched] = useState(false);
   const [existing, setExisting] = useState(null);
@@ -52,7 +55,7 @@ export default function CustomerIdentifyGate({ onDone }) {
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
 
   return (
-    <div className="flex items-center justify-center min-h-[calc(100vh-10rem)] p-4">
+    <div className={bare ? '' : 'flex items-center justify-center min-h-[calc(100vh-10rem)] p-4'}>
       <Card className="w-full max-w-md p-6 space-y-5">
         <div className="text-center space-y-1">
           <h2 className="text-xl font-bold">Nueva facturación</h2>
@@ -82,6 +85,7 @@ export default function CustomerIdentifyGate({ onDone }) {
             </Button>
           </div>
         )}
+        {!searched && <RecentCustomers sessionId={sessionId} onPick={onDone} />}
         <button type="button" onClick={() => onDone({ none: true })}
           className="w-full flex items-center justify-center gap-2 text-sm text-muted-foreground hover:text-foreground pt-2 border-t">
           <UserX className="h-4 w-4" /> Continuar sin datos (excepción)

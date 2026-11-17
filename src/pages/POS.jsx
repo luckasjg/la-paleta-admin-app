@@ -28,6 +28,8 @@ import PosTabs from '@/components/pos/PosTabs';
 import RefundQueue from '@/components/pos/RefundQueue';
 import OrderTicket from '@/components/pos/OrderTicket';
 import CustomerIdentifyGate from '@/components/pos/CustomerIdentifyGate';
+import CustomerPickerDialog from '@/components/pos/CustomerPickerDialog';
+import { touchRecentCustomer } from '@/lib/recentCustomers';
 import LoyaltyBenefitAlert from '@/components/pos/LoyaltyBenefitAlert';
 import PrintRelayBadge from '@/components/pos/PrintRelayBadge';
 import PremiumChargesPanel from '@/components/pos/PremiumChargesPanel';
@@ -64,6 +66,7 @@ import {
 export default function POS() {
   const [cart, setCart] = useState([]);
   const [saleCustomer, setSaleCustomer] = useState(null);
+  const [customerPicker, setCustomerPicker] = useState(false);
   const [bonusStaff, setBonusStaff] = useState(null);
   const { data: bonusBalance } = useQuery({
     queryKey: ['staff_bonus_balance', bonusStaff?.id],
@@ -218,9 +221,15 @@ export default function POS() {
       eur_ves: eurVes,
       cash_register_id: activeSession?.id || null,
       staff_name: activeSession?.staff_name || '',
+      customer: saleCustomer && !saleCustomer.none ? {
+        customer_id: saleCustomer.id, customer_name: saleCustomer.full_name,
+        customer_cedula: saleCustomer.cedula, customer_phone: saleCustomer.phone,
+      } : null,
     });
+    touchRecentCustomer(saleCustomer, activeSession?.id);
     setCart([]);
     setLinkedOrder(null);
+    setSaleCustomer(null);
     clearPosDraft();
     setHoldDialog(false);
     toast.success(`Pedido guardado en espera (turno #${nextTurn})`);
@@ -230,6 +239,13 @@ export default function POS() {
     setCart(order.cart || []);
     setSourceLocation(order.sourceLocation || 'production');
     setLinkedOrder(order.linkedOrder || null);
+    const hc = order.customer;
+    setSaleCustomer(hc?.customer_id
+      ? { id: hc.customer_id, full_name: hc.customer_name, cedula: hc.customer_cedula, phone: hc.customer_phone }
+      : { none: true });
+    if (hc?.customer_id) {
+      base44.entities.Customer.filter({ id: hc.customer_id }).then((r) => { if (r[0]) setSaleCustomer(r[0]); });
+    }
     discard(order.id);
     setHeldListDialog(false);
     setPendingResume(null);
@@ -863,7 +879,7 @@ export default function POS() {
       <>
         <PosTabs value={posTab} onChange={setPosTab} pendingRefunds={pendingRefundsCount} />
         <PremiumChargesPanel session={activeSession} wallets={wallets} eurVes={eurVes} />
-        <CustomerIdentifyGate onDone={setSaleCustomer} />
+        <CustomerIdentifyGate sessionId={activeSession?.id} onDone={setSaleCustomer} />
       </>
     );
   }
@@ -876,8 +892,12 @@ export default function POS() {
       <Badge variant={saleCustomer?.none ? 'outline' : 'secondary'}>
         {saleCustomer && !saleCustomer.none ? `Cliente: ${saleCustomer.full_name} · V-${saleCustomer.cedula}` : 'Venta sin datos de cliente'}
       </Badge>
-      <button type="button" className="text-xs underline text-muted-foreground" onClick={() => setSaleCustomer(null)}>Cambiar</button>
+      <button type="button" className="text-xs underline text-muted-foreground" onClick={() => setCustomerPicker(true)}>
+        {saleCustomer && !saleCustomer.none ? 'Cambiar cliente' : 'Asignar cliente'}
+      </button>
     </div>
+    <CustomerPickerDialog open={customerPicker} onOpenChange={setCustomerPicker}
+      sessionId={activeSession?.id} onDone={setSaleCustomer} />
     {saleCustomer && !saleCustomer.none && <LoyaltyBenefitAlert key={saleCustomer.id} customer={saleCustomer} />}
     <div className="flex flex-col md:flex-row gap-3 lg:gap-4 h-[calc(100vh-8rem)] mt-3">
       {/* Product Grid */}

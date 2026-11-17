@@ -40,6 +40,7 @@ export function useHeldOrders() {
       eur_ves: data.eur_ves || 0,
       cash_register_id: data.cash_register_id || null,
       staff_name: data.staff_name || '',
+      customer: data.customer || null,
       saved_at: new Date().toISOString(),
     };
     const next = [...list, entry];
