@@ -42,6 +42,13 @@ export default async function (req) {
     // Recargo ya cobrado en caja por cada unidad (por unidad si existe, si no el promedio legado).
     const paidFor = (i) => (Array.isArray(item.unit_surcharges) && item.unit_surcharges[i] != null
       ? item.unit_surcharges[i] : (item.flavor_surcharge || 0));
+    // Toppings de cada unidad viajan con ella (y su cupo pendiente, si queda).
+    const unitToppingFields = (idx) => {
+      if (!Array.isArray(item.unit_toppings)) return {};
+      const ut = item.unit_toppings[idx] || [];
+      const pend = Math.max(0, (item.included_toppings_count || 0) - ut.filter((t) => t.included).length);
+      return { unit_toppings: [ut], unit_topping_extras: [item.unit_topping_extras?.[idx] || 0], pending_toppings: pend > 0, pending_included_toppings: pend };
+    };
     const newItems = unitList.map((ids, idx) => {
       const g = +(gramsPerUnit / ids.length).toFixed(2);
       const ordered = ids.map((id) => list.find((t) => t.id === id));
@@ -58,12 +65,15 @@ export default async function (req) {
         unit_surcharges: [paidFor(idx)],
         tray_id: ordered[0].id,
         flavor: ordered.map((t) => t.recipe_name).join(' + '),
+        ...unitToppingFields(idx),
+        ...(item.toppings_cost ? { toppings_cost: +(item.toppings_cost / qty).toFixed(4) } : {}),
+        ...(item.promo_discount ? { promo_discount: +(item.promo_discount / qty).toFixed(2) } : {}),
       };
     });
 
     // Marcar la venta primero evita doble descuento si se reintenta.
     items.splice(item_index, 1, ...newItems);
-    const stillPending = items.some((i) => i.pending_dispatch === true);
+    const stillPending = items.some((i) => i.pending_dispatch === true || i.pending_toppings === true);
     await db.Sale.update(sale.id, { items, dispatch_status: stillPending ? 'pendiente' : 'despachado' });
 
     await Promise.all(list.map((tray) => {

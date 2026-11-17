@@ -8,7 +8,7 @@ import { normalizeUnit, pendingIn } from '@/lib/toppings';
 // Elige los toppings de una unidad en caja: los primeros van incluidos ($0.00), el resto se cobra.
 export default function ToppingsDialog({ target, toppings, fmt, onSave, onClose }) {
   const [list, setList] = useState([]);
-  useEffect(() => { setList(target ? target.current.filter(t => !t.deducted || true) : []); }, [target]);
+  useEffect(() => { setList(target ? target.current : []); }, [target]);
   const inc = target?.included || 0;
   const norm = normalizeUnit(list, inc);
   const pending = pendingIn(norm, inc);

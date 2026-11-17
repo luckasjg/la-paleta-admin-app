@@ -36,6 +36,14 @@ import { getActiveSession, setActiveSession, clearActiveSession } from '@/lib/ca
 import { getPendingOrder, clearPendingOrder, buildCartFromOrder } from '@/lib/posHandoff';
 import { getUnitFlavors, unitsLabel } from '@/lib/unitFlavors';
 import CartUnitFlavors from '@/components/pos/CartUnitFlavors';
+import CartUnitToppings from '@/components/pos/CartUnitToppings';
+import ToppingsDialog from '@/components/pos/ToppingsDialog';
+import PromoSummary from '@/components/pos/PromoSummary';
+import {
+  hasToppings, toppingFields, resizeToppings, withToppings, getUnitToppings,
+  toppingsExtraTotal, allowedToppings, deductToppings,
+} from '@/lib/toppings';
+import { applyPromotions, promosTouchingCart } from '@/lib/promotions';
 import { usePosDraft, clearPosDraft } from '@/lib/usePosDraft';
 import { useHeldOrders } from '@/lib/useHeldOrders';
 import HoldOrderDialog from '@/components/pos/HoldOrderDialog';
@@ -65,6 +73,10 @@ export default function POS() {
   const [editingIndex, setEditingIndex] = useState(null);
   const [editingUnit, setEditingUnit] = useState(0);
   const [selectedFlavors, setSelectedFlavors] = useState([]);
+  // Toppings de una unidad en edición: { index, unit, name, qty, included, current }
+  const [toppingTarget, setToppingTarget] = useState(null);
+  // Promociones quitadas manualmente en esta venta
+  const [disabledPromos, setDisabledPromos] = useState([]);
   const [payDialog, setPayDialog] = useState(false);
   // Pestañas del POS: cobro de ventas y cola de devoluciones por pago móvil.
   const [posTab, setPosTab] = useState('vender');
@@ -145,6 +157,11 @@ export default function POS() {
   const { data: wallets = [] } = useQuery({
     queryKey: ['wallets'],
     queryFn: () => base44.entities.Wallet.list(),
+  });
+
+  const { data: promotions = [] } = useQuery({
+    queryKey: ['promotions', 'active'],
+    queryFn: () => base44.entities.Promotion.filter({ active: true }),
   });
 
   // Devoluciones por pago móvil aún no enviadas — alimenta el badge de la pestaña.
@@ -261,9 +278,15 @@ export default function POS() {
         i.product_id === product.id && !i.tray_id && !i.is_courtesy && (i.vessel || null) === vessel
       );
       if (existing) {
-        return prev.map(i => i === existing ? { ...i, quantity: i.quantity + 1, subtotal: (i.quantity + 1) * i.unit_price } : i);
+        return prev.map(i => {
+          if (i !== existing) return i;
+          if (hasToppings(i)) return repriceSimple(resizeToppings({ ...i, quantity: i.quantity + 1 }, i.quantity + 1));
+          return { ...i, quantity: i.quantity + 1, subtotal: (i.quantity + 1) * i.unit_price };
+        });
       }
-      return [...prev, {
+      return [...prev, resizeToppings({
+        ...toppingFields(product),
+        ...(product.included_toppings_count > 0 ? { base_price: product.price } : {}),
         product_id: product.id,
         product_name: product.name,
         category: product.category,
@@ -276,8 +299,38 @@ export default function POS() {
         subtotal: product.price,
         is_courtesy: false,
         vessel, // 'taza' | 'vaso' | null
-      }];
+      }, 1)];
     });
+  };
+
+  // Precio de un ítem sin sabores: base × cantidad + toppings extra cobrados.
+  const repriceSimple = (it) => {
+    const qty = it.quantity || 1;
+    const full = qty * (it.base_price ?? it.unit_price) + toppingsExtraTotal(it);
+    return { ...it, unit_price: +(full / qty).toFixed(4), subtotal: it.is_courtesy ? 0 : +full.toFixed(2) };
+  };
+
+  const openToppings = (index, unit = 0) => {
+    const item = cart[index];
+    if (!item) return;
+    setToppingTarget({
+      index, unit, name: item.product_name, qty: item.quantity || 1,
+      included: item.included_toppings_count || 0,
+      allowed: item.allowed_topping_ids || [],
+      current: getUnitToppings(item)[unit] || [],
+    });
+  };
+
+  const saveUnitToppings = (list) => {
+    const { index, unit } = toppingTarget;
+    setCart(prev => prev.map((it, i) => {
+      if (i !== index) return it;
+      const units = getUnitToppings(it);
+      units[unit] = list;
+      const next = withToppings(it, units);
+      return it.pending_dispatch ? applyUnits(next, getUnitFlavors(next)) : repriceSimple(next);
+    }));
+    setToppingTarget(null);
   };
 
   // Abre el selector de sabores para un ítem pendiente ya en el carrito.
@@ -303,7 +356,8 @@ export default function POS() {
   const addToCart = (product) => {
     if (productNeedsFlavor(product)) {
       // Entra directo al carrito sin sabores; el heladero despacha en vitrina.
-      setCart(prev => [...prev, {
+      setCart(prev => [...prev, resizeToppings({
+        ...toppingFields(product),
         product_id: product.id,
         product_name: product.name,
         category: product.category,
@@ -319,7 +373,7 @@ export default function POS() {
         unit_price: product.price,
         subtotal: product.price,
         is_courtesy: false,
-      }]);
+      }, 1)]);
     } else if (product.vessel_optional) {
       // Pide elección de recipiente antes de añadir
       setVesselDialog(product);
@@ -372,12 +426,13 @@ export default function POS() {
   // Recalcula un helado a partir de sus sabores por unidad: cada unidad lleva
   // su propio recargo; el precio unitario es el promedio para que
   // cantidad × precio siga dando el total exacto.
-  const applyUnits = (item, units, incomplete = false) => {
+  const applyUnits = (rawItem, units, incomplete = false) => {
     const qty = units.length;
+    const item = resizeToppings(rawItem, qty);
     const base = item.base_price ?? item.unit_price;
     const surcharges = units.map(u => +computeFlavorSurcharge(u).toFixed(2));
     const totalSurcharge = surcharges.reduce((s, x) => s + x, 0);
-    const full = qty * base + totalSurcharge;
+    const full = qty * base + totalSurcharge + toppingsExtraTotal(item);
     const label = unitsLabel(units);
     const pendingUnit = qty === 1 && incomplete;
     return {
@@ -415,6 +470,7 @@ export default function POS() {
     const finalPrice = +(product.price + surcharge).toFixed(2);
 
     const newItem = {
+      ...toppingFields(product),
       product_id: product.id,
       product_name: product.name,
       category: product.category,
@@ -445,7 +501,7 @@ export default function POS() {
           return applyUnits({ ...it, base_price: product.price }, units, chosen.length < selectedFlavors.length);
         });
       }
-      return [...prev, { ...newItem, unit_flavors: [newItem.flavors], unit_surcharges: [newItem.flavor_surcharge] }];
+      return [...prev, resizeToppings({ ...newItem, unit_flavors: [newItem.flavors], unit_surcharges: [newItem.flavor_surcharge] }, 1)];
     });
 
     setEditingIndex(null);
@@ -468,6 +524,7 @@ export default function POS() {
       if (i !== index) return item;
       const newQty = Math.max(0, item.quantity + delta);
       if (newQty === 0) return null;
+      if (hasToppings(item)) return repriceSimple(resizeToppings({ ...item, quantity: newQty }, newQty));
       const price = item.is_courtesy ? 0 : item.unit_price;
       return { ...item, quantity: newQty, subtotal: newQty * price };
     }).filter(Boolean));
@@ -489,8 +546,11 @@ export default function POS() {
     }));
   };
 
-  const pricedCart = applyStaffBonus(cart, bonusStaff, bonusBalance);
-  const total = pricedCart.reduce((sum, i) => sum + i.subtotal, 0);
+  // Promociones: se evalúan sobre el precio ya ajustado por el bono del colaborador.
+  const promo = applyPromotions(applyStaffBonus(cart, bonusStaff, bonusBalance), promotions, disabledPromos);
+  const pricedCart = promo.items;
+  const removedPromos = promosTouchingCart(cart, promotions).filter(p => disabledPromos.includes(p.id));
+  const total = +pricedCart.reduce((sum, i) => sum + i.subtotal, 0).toFixed(2);
   // Orden totalmente gratuita (todos los ítems marcados como cortesía)
   const isCourtesyOrder = cart.length > 0 && total === 0 && pricedCart.every(i => i.is_courtesy);
 
@@ -583,6 +643,15 @@ export default function POS() {
         }
       }
 
+      // (4) Toppings: si ya no quedan cupos pendientes se descuentan ahora; si
+      // quedan, se descuentan todos al completarlos en Despacho (nunca dos veces).
+      const saleItems = pricedCart.map(i => {
+        if (!hasToppings(i) || i.pending_toppings) return i;
+        const r = deductToppings(i, products, supplies);
+        r.lines.forEach(l => addDemand(l.supply_id, l.quantity));
+        return r.item;
+      });
+
       // Aplicar descuentos UNA sola vez por insumo desde la ubicación de origen elegida.
       for (const [supplyId, qtyToDeduct] of Object.entries(supplyDemand)) {
         const supply = supplies.find(s => s.id === supplyId);
@@ -640,7 +709,7 @@ export default function POS() {
 
       // Correlativo del turno (sesión de caja activa)
       const shiftSalesCount = await base44.entities.Sale.count({ cash_register_id: activeSession.id });
-      const hasPendingDispatchItems = cart.some(i => i.pending_dispatch);
+      const hasPendingDispatchItems = cart.some(i => i.pending_dispatch || i.pending_toppings);
 
       const sale = await base44.entities.Sale.create({
         dispatch_status: hasPendingDispatchItems ? 'pendiente' : 'despachado',
@@ -649,12 +718,14 @@ export default function POS() {
           ? { customer_id: credit.id, customer_name: credit.full_name, customer_cedula: credit.cedula }
           : saleCustomer && !saleCustomer.none ? { customer_id: saleCustomer.id, customer_name: saleCustomer.full_name, customer_cedula: saleCustomer.cedula } : {}),
         ...(bonusStaff ? { benefit_staff_id: bonusStaff.id, benefit_staff_name: bonusStaff.full_name } : {}),
-        items: pricedCart.map(i => ({
+        items: saleItems.map(i => ({
           ...i,
           unit_price_eur: +((i.unit_price || 0) * EUR_PER_USD).toFixed(2),
           subtotal_eur: +((i.subtotal || 0) * EUR_PER_USD).toFixed(2),
         })),
         total,
+        discount_amount: promo.discount,
+        applied_promotions: promo.applied,
         total_eur: +(total * EUR_PER_USD).toFixed(2),
         exchange_rate,
         exchange_rate_eur_ves: exchange_rate,
@@ -736,6 +807,7 @@ export default function POS() {
       setCart([]);
       setSaleCustomer(null);
       setBonusStaff(null);
+      setDisabledPromos([]);
       qc.invalidateQueries({ queryKey: ['staff_bonus_balance'] });
       clearPosDraft();
       setResumedFromOtherSession(null);
@@ -934,6 +1006,14 @@ export default function POS() {
                       : <span className="text-amber-700 font-medium">Sabores pendientes · tocar para elegir</span>}
                   </button>
                 ) : item.flavor && <p className="text-xs text-muted-foreground">{item.flavor} · {item.grams}g</p>}
+                {hasToppings(item) && (
+                  <CartUnitToppings item={item} onEditUnit={(u) => openToppings(idx, u)} fmt={(v) => formatEUR(toEur(v))} />
+                )}
+                {item.promo_discount > 0 && (
+                  <span className="mt-1 inline-flex rounded-full bg-emerald-100 text-emerald-800 px-2 py-0.5 text-[10px] font-semibold">
+                    {item.promo_names?.join(' + ')} · -{formatEUR(toEur(item.promo_discount))}
+                  </span>
+                )}
                 {item.vessel && (
                   <p className="text-[11px] text-muted-foreground flex items-center gap-1">
                     {item.vessel === 'taza'
@@ -961,6 +1041,7 @@ export default function POS() {
                 </Button>
               </div>
               <div className={`flex-1 text-right ${item.is_courtesy ? 'text-amber-600' : ''}`}>
+                {item.promo_discount > 0 && <div className="text-[10px] text-muted-foreground line-through">{formatEUR(toEur(item.subtotal_before_promo))}</div>}
                 <div className="text-sm font-semibold">{formatEUR(toEur(item.subtotal))}</div>
                 <div className="text-[10px] text-muted-foreground font-mono">{formatVES(toEur(item.subtotal) * eurVes)}</div>
               </div>
@@ -1004,6 +1085,14 @@ export default function POS() {
               </p>
             </div>
           )}
+          <PromoSummary
+            applied={promo.applied}
+            disabled={removedPromos}
+            discount={promo.discount}
+            fmt={(v) => formatEUR(toEur(v))}
+            onRemove={(id) => setDisabledPromos(prev => [...prev, id])}
+            onRestore={(id) => setDisabledPromos(prev => prev.filter(x => x !== id))}
+          />
           <div className="flex items-end justify-between">
             <span className="text-lg font-bold">Total</span>
             <div className="text-right">
@@ -1142,6 +1231,14 @@ export default function POS() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ToppingsDialog
+        target={toppingTarget}
+        toppings={toppingTarget ? allowedToppings(toppingTarget.allowed, products) : []}
+        fmt={(v) => formatEUR(toEur(v))}
+        onSave={saveUnitToppings}
+        onClose={() => setToppingTarget(null)}
+      />
 
       {/* Vessel choice dialog (taza vs vaso) */}
       <Dialog open={!!vesselDialog} onOpenChange={() => setVesselDialog(null)}>

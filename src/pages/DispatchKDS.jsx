@@ -8,10 +8,12 @@ import { toast } from 'sonner';
 import moment from 'moment';
 import DispatchOrderCard from '@/components/dispatch/DispatchOrderCard';
 import ServeFlavorsDialog from '@/components/dispatch/ServeFlavorsDialog';
+import ServeToppingsDialog from '@/components/dispatch/ServeToppingsDialog';
 
 export default function DispatchKDS() {
   const qc = useQueryClient();
   const [selection, setSelection] = useState(null); // { order, index }
+  const [toppingSel, setToppingSel] = useState(null); // { order, index }
 
   // Ventas pendientes de despacho de las últimas 24h, la más antigua primero (FIFO)
   const { data: orders = [], isLoading } = useQuery({
@@ -65,6 +67,22 @@ export default function DispatchKDS() {
     onError: (err) => toast.error('Error al despachar: ' + (err.response?.data?.error || err.message)),
   });
 
+  const toppingItem = toppingSel ? toppingSel.order.items?.[toppingSel.index] : null;
+  const completeToppings = useMutation({
+    mutationFn: (choices) => base44.functions.invoke('completeSaleToppings', {
+      sale_id: toppingSel.order.id,
+      item_index: toppingSel.index,
+      choices,
+    }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['sales'] });
+      qc.invalidateQueries({ queryKey: ['supplies'] });
+      toast.success('Toppings registrados y descontados del inventario');
+      setToppingSel(null);
+    },
+    onError: (err) => toast.error('Error con los toppings: ' + (err.response?.data?.error || err.message)),
+  });
+
   return (
     <div className="max-w-7xl mx-auto space-y-4">
       <div className="flex items-center justify-between border-b pb-3">
@@ -93,7 +111,7 @@ export default function DispatchKDS() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {orders.map(order => (
-            <DispatchOrderCard key={order.id} order={order} onServe={(o, index) => setSelection({ order: o, index })} />
+            <DispatchOrderCard key={order.id} order={order} onServe={(o, index) => setSelection({ order: o, index })} onToppings={(o, index) => setToppingSel({ order: o, index })} />
           ))}
         </div>
       )}
@@ -107,6 +125,15 @@ export default function DispatchKDS() {
         isPending={dispatch.isPending}
         onConfirm={(ids) => dispatch.mutate(ids)}
         onClose={() => setSelection(null)}
+      />
+
+      <ServeToppingsDialog
+        order={toppingSel?.order}
+        item={toppingItem}
+        products={products}
+        isPending={completeToppings.isPending}
+        onConfirm={(choices) => completeToppings.mutate(choices)}
+        onClose={() => setToppingSel(null)}
       />
     </div>
   );

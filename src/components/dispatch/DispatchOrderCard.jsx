@@ -6,8 +6,29 @@ import { Badge } from '@/components/ui/badge';
 import { Clock } from 'lucide-react';
 import ItemTags from './ItemTags';
 import { getUnitFlavors, unitNames } from '@/lib/unitFlavors';
+import { getUnitToppings, hasToppings, pendingIn, toppingNames } from '@/lib/toppings';
 
-export default function DispatchOrderCard({ order, onServe }) {
+function ToppingLines({ item }) {
+  if (!hasToppings(item)) return null;
+  const inc = item.included_toppings_count || 0;
+  const units = getUnitToppings(item);
+  return (
+    <ul className="mt-1 space-y-0.5">
+      {units.map((u, i) => {
+        const pending = pendingIn(u, inc);
+        return (
+          <li key={i} className="text-xs text-muted-foreground">
+            <span className="font-semibold text-foreground">{units.length > 1 ? `U${i + 1} toppings` : 'Toppings'}</span>
+            {' · '}{toppingNames(u) || ''}
+            {pending > 0 && <span className="text-amber-700 font-medium">{u.length ? ' · ' : ''}{pending} incluido(s) por elegir</span>}
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+export default function DispatchOrderCard({ order, onServe, onToppings }) {
   const waitTime = moment().diff(moment(order.sale_date), 'minutes');
   return (
     <Card className="border-2 border-primary/20 shadow-sm flex flex-col">
@@ -25,7 +46,7 @@ export default function DispatchOrderCard({ order, onServe }) {
       </CardHeader>
       <CardContent className="pt-3 space-y-2 flex-1">
         {order.items?.map((item, idx) => {
-          if (!item.pending_dispatch && !item.flavors?.length) {
+          if (!item.pending_dispatch && !item.flavors?.length && !hasToppings(item)) {
             return (
               <div key={idx} className="px-1">
                 <p className="text-sm text-muted-foreground">{item.quantity}x {item.product_name}</p>
@@ -33,12 +54,14 @@ export default function DispatchOrderCard({ order, onServe }) {
               </div>
             );
           }
+          const isFlavorItem = item.pending_dispatch || item.flavors?.length > 0;
+          const done = !item.pending_dispatch && !item.pending_toppings;
           return (
             <div key={idx} className="p-2.5 rounded-lg border bg-card flex items-center justify-between gap-2">
               <div className="min-w-0">
                 <p className="font-semibold leading-tight">{item.quantity}x {item.product_name}</p>
                 <ItemTags item={item} />
-                {item.pending_dispatch && item.quantity > 1 ? (
+                {isFlavorItem && (item.pending_dispatch && item.quantity > 1 ? (
                   <ul className="mt-1 space-y-0.5">
                     {getUnitFlavors(item).map((u, i) => (
                       <li key={i} className="text-xs text-muted-foreground">
@@ -53,15 +76,18 @@ export default function DispatchOrderCard({ order, onServe }) {
                       ? (item.flavor ? `Pidió: ${item.flavor}` : 'Sabores por servir')
                       : `Servido: ${item.flavor}`}
                   </p>
-                )}
+                ))}
+                <ToppingLines item={item} />
               </div>
-              {item.pending_dispatch ? (
-                <Button onClick={() => onServe(order, idx)} className="h-12 px-5 text-base font-bold shrink-0">
-                  Servir
-                </Button>
-              ) : (
-                <Badge variant="outline" className="text-emerald-700 bg-emerald-50 border-emerald-200">Servido</Badge>
-              )}
+              <div className="flex flex-col gap-1.5 shrink-0">
+                {item.pending_dispatch && (
+                  <Button onClick={() => onServe(order, idx)} className="h-12 px-5 text-base font-bold">Servir</Button>
+                )}
+                {item.pending_toppings && (
+                  <Button variant={item.pending_dispatch ? 'outline' : 'default'} onClick={() => onToppings(order, idx)} className="h-12 px-5 text-base font-bold">Toppings</Button>
+                )}
+                {done && <Badge variant="outline" className="text-emerald-700 bg-emerald-50 border-emerald-200">Servido</Badge>}
+              </div>
             </div>
           );
         })}

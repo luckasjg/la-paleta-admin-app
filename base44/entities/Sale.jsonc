@@ -88,6 +88,80 @@
               "type": "number"
             }
           },
+          "included_toppings_count": {
+            "type": "number",
+            "description": "Toppings incluidos por unidad"
+          },
+          "allowed_topping_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "unit_toppings": {
+            "type": "array",
+            "description": "Toppings por unidad (incluidos y extras)",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "product_id": {
+                    "type": "string"
+                  },
+                  "product_name": {
+                    "type": "string"
+                  },
+                  "list_price": {
+                    "type": "number"
+                  },
+                  "price": {
+                    "type": "number"
+                  },
+                  "included": {
+                    "type": "boolean"
+                  },
+                  "none": {
+                    "type": "boolean"
+                  },
+                  "deducted": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          },
+          "unit_topping_extras": {
+            "type": "array",
+            "description": "Monto cobrado por toppings extra en cada unidad (USD base)",
+            "items": {
+              "type": "number"
+            }
+          },
+          "pending_toppings": {
+            "type": "boolean",
+            "description": "Quedan cupos de toppings incluidos por elegir en Despacho"
+          },
+          "pending_included_toppings": {
+            "type": "number"
+          },
+          "toppings_cost": {
+            "type": "number",
+            "description": "Costo real de los toppings descontados (COGS)"
+          },
+          "promo_discount": {
+            "type": "number",
+            "description": "Descuento promocional aplicado al \u00edtem (USD base)"
+          },
+          "promo_names": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "subtotal_before_promo": {
+            "type": "number"
+          },
           "tray_id": {
             "type": "string"
           },
@@ -140,7 +214,28 @@
     },
     "total": {
       "type": "number",
-      "description": "Total en USD (base contable)"
+      "description": "Total en USD (base contable), neto de promociones"
+    },
+    "discount_amount": {
+      "type": "number",
+      "description": "Descuento promocional total (USD base)"
+    },
+    "applied_promotions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "promotion_id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "number"
+          }
+        }
+      }
     },
     "total_eur": {
       "type": "number",

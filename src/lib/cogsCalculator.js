@@ -23,6 +23,8 @@ export function computeCogs({ sales = [], supplies = [], recipes = [], trays = [
   let total = 0;
   sales.forEach(sale => {
     (sale.items || []).forEach(item => {
+      // Costo real de los toppings descontados (incluidos y extras)
+      total += item.toppings_cost || 0;
       if (item.tray_id) {
         const tray = trays.find(t => t.id === item.tray_id);
         const recipeId = tray?.recipe_id;
