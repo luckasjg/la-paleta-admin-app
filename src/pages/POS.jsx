@@ -39,6 +39,8 @@ import CartUnitFlavors from '@/components/pos/CartUnitFlavors';
 import CartUnitToppings from '@/components/pos/CartUnitToppings';
 import ToppingsDialog from '@/components/pos/ToppingsDialog';
 import PromoSummary from '@/components/pos/PromoSummary';
+import VesselChoiceDialog from '@/components/pos/VesselChoiceDialog';
+import StockWarningsPanel from '@/components/pos/StockWarningsPanel';
 import {
   hasToppings, toppingFields, resizeToppings, withToppings, getUnitToppings,
   toppingsExtraTotal, allowedToppings, deductToppings,
@@ -1068,23 +1070,7 @@ export default function POS() {
               <span>Inventario se descuenta igual</span>
             </div>
           )}
-          {stockWarnings.length > 0 && (
-            <div className="rounded-lg border-2 border-amber-400 bg-amber-50 p-2.5 space-y-1.5">
-              <div className="flex items-center gap-1.5 text-amber-800 font-semibold text-xs">
-                <AlertTriangle className="h-4 w-4" /> ¡Atención! Stock insuficiente
-              </div>
-              {stockWarnings.map(w => (
-                <div key={w.tray_id} className="text-[11px] text-amber-900 leading-tight">
-                  <span className="font-semibold">{w.name}</span>: faltan{' '}
-                  <span className="font-mono font-bold">{w.missing.toFixed(0)}g</span>
-                  <span className="text-amber-700"> (disponible {w.available.toFixed(0)}g / pedido {w.demanded.toFixed(0)}g)</span>
-                </div>
-              ))}
-              <p className="text-[10px] text-amber-700 italic pt-1 border-t border-amber-200">
-                Puedes continuar la venta. Verifica el inventario físico al cierre.
-              </p>
-            </div>
-          )}
+          <StockWarningsPanel warnings={stockWarnings} />
           <PromoSummary
             applied={promo.applied}
             disabled={removedPromos}
@@ -1240,46 +1226,7 @@ export default function POS() {
         onClose={() => setToppingTarget(null)}
       />
 
-      {/* Vessel choice dialog (taza vs vaso) */}
-      <Dialog open={!!vesselDialog} onOpenChange={() => setVesselDialog(null)}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>
-              ¿Cómo se sirve? — {vesselDialog?.name}
-              <p className="text-sm font-normal text-muted-foreground mt-0.5">
-                Elige el recipiente para esta orden
-              </p>
-            </DialogTitle>
-          </DialogHeader>
-          <div className="grid grid-cols-2 gap-3 py-2">
-            <button
-              type="button"
-              onClick={() => confirmVesselChoice('taza')}
-              className="flex flex-col items-center gap-2 p-5 rounded-xl border-2 border-border hover:border-primary hover:bg-primary/5 transition-all active:scale-95"
-            >
-              <Coffee className="h-10 w-10 text-primary" />
-              <span className="font-semibold">Taza</span>
-              <span className="text-[11px] text-muted-foreground text-center leading-tight">
-                Cerámica<br />(no descuenta vaso)
-              </span>
-            </button>
-            <button
-              type="button"
-              onClick={() => confirmVesselChoice('vaso')}
-              className="flex flex-col items-center gap-2 p-5 rounded-xl border-2 border-border hover:border-primary hover:bg-primary/5 transition-all active:scale-95"
-            >
-              <GlassWater className="h-10 w-10 text-primary" />
-              <span className="font-semibold">Vaso</span>
-              <span className="text-[11px] text-muted-foreground text-center leading-tight">
-                Desechable<br />(descuenta del stock)
-              </span>
-            </button>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setVesselDialog(null)}>Cancelar</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <VesselChoiceDialog product={vesselDialog} onChoose={confirmVesselChoice} onClose={() => setVesselDialog(null)} />
 
       {/* Mixed Payment dialog */}
       <MixedPaymentDialog

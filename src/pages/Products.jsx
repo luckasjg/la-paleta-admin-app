@@ -17,18 +17,22 @@ import LinkedSuppliesEditor from '@/components/products/LinkedSuppliesEditor';
 import SearchableCombobox from '@/components/shared/SearchableCombobox';
 import { applyCategoryOrder } from '@/lib/categoryOrder';
 import UnsavedFlag from '@/components/shared/UnsavedFlag';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import IncludedToppingsSection from '@/components/products/IncludedToppingsSection';
+import PromotionsManager from '@/components/products/PromotionsManager';
 
 const DEFAULT_CATEGORIES = ['helado', 'cafe', 'merengada', 'adicional', 'otro'];
 const HIDDEN_CATS_KEY = 'pos_hidden_categories';
 const EXTRA_CATS_KEY = 'pos_extra_categories';
 
-const emptyProduct = { name: '', category: '', size_label: '', grams_per_serving: 0, recipe_id: '', linked_supplies: [], price: 0, is_active: true, requires_flavor: false, max_flavors: 1, vessel_optional: false, disponible_para_delivery: false };
+const emptyProduct = { name: '', category: '', size_label: '', grams_per_serving: 0, recipe_id: '', linked_supplies: [], price: 0, is_active: true, requires_flavor: false, max_flavors: 1, vessel_optional: false, disponible_para_delivery: false, included_toppings_count: 0, allowed_topping_ids: [] };
 
 export default function Products() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(emptyProduct);
   const [catManagerOpen, setCatManagerOpen] = useState(false);
+  const [tab, setTab] = useState('productos');
   const [hiddenCats, setHiddenCats] = useState(() => {
     try { return JSON.parse(localStorage.getItem(HIDDEN_CATS_KEY) || '[]'); } catch { return []; }
   });
@@ -169,6 +173,8 @@ export default function Products() {
       max_flavors: p?.max_flavors ?? p?.flavor_count ?? 1,
       vessel_optional: p?.vessel_optional === true,
       disponible_para_delivery: p?.disponible_para_delivery === true,
+      included_toppings_count: p?.included_toppings_count ?? 0,
+      allowed_topping_ids: Array.isArray(p?.allowed_topping_ids) ? p.allowed_topping_ids : [],
     });
     setDialogOpen(true);
   };
@@ -217,7 +223,7 @@ export default function Products() {
       <PageHeader
         title="Productos"
         description="Catálogo del punto de venta"
-        actions={
+        actions={tab === 'productos' &&
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => setCatManagerOpen(true)}>
               <Settings className="h-4 w-4 mr-2" /> Categorías
@@ -229,7 +235,16 @@ export default function Products() {
         }
       />
 
-      {grouped.map(({ cat, products: ps }) => (
+      <Tabs value={tab} onValueChange={setTab}>
+        <TabsList>
+          <TabsTrigger value="productos">Productos</TabsTrigger>
+          <TabsTrigger value="promociones">Promociones</TabsTrigger>
+        </TabsList>
+      </Tabs>
+
+      {tab === 'promociones' && <PromotionsManager products={products} />}
+
+      {tab === 'productos' && grouped.map(({ cat, products: ps }) => (
         <div key={cat}>
           <h2 className="text-lg font-semibold mb-3 capitalize">{cat}</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
@@ -304,7 +319,7 @@ export default function Products() {
         </div>
       ))}
 
-      {products.length === 0 && (
+      {tab === 'productos' && products.length === 0 && (
         <Card className="p-12 flex flex-col items-center text-center">
           <Package className="h-10 w-10 text-muted-foreground/50 mb-3" />
           <p className="text-muted-foreground">No hay productos creados aún</p>
@@ -406,6 +421,8 @@ export default function Products() {
                 </div>
               )}
             </div>
+
+            <IncludedToppingsSection form={form} setForm={setForm} products={products} />
 
             {/* Opción de recipiente (taza vs vaso desechable) */}
             <div className="border border-border rounded-lg p-3 space-y-2 bg-secondary/30">
