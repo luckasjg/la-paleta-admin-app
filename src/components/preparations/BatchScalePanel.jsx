@@ -1,7 +1,7 @@
 import React from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import SearchableCombobox from '@/components/shared/SearchableCombobox';
 
 // Controles de escala del lote + confirmación de rendimientos reales.
 export default function BatchScalePanel({ prep, batch, setBatch, factor }) {
@@ -24,10 +24,8 @@ export default function BatchScalePanel({ prep, batch, setBatch, factor }) {
         ) : (
           <div className="grid grid-cols-2 gap-2">
             <div><Label className="text-xs">Insumo principal</Label>
-              <Select value={String(batch.mainIdx)} onValueChange={v => set({ mainIdx: parseInt(v) })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>{ings.map((i, idx) => <SelectItem key={idx} value={String(idx)}>{i.supply_name}</SelectItem>)}</SelectContent>
-              </Select></div>
+              <SearchableCombobox value={String(batch.mainIdx)} onChange={v => set({ mainIdx: parseInt(v) })} keepOrder
+                options={ings.map((i, idx) => ({ value: String(idx), label: i.supply_name }))} /></div>
             <div><Label className="text-xs">Peso real a procesar ({ings[batch.mainIdx]?.unit})</Label>
               <Input type="number" step="0.01" value={batch.mainQty} onChange={e => set({ mainQty: e.target.value })} /></div>
           </div>

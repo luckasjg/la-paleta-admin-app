@@ -3,7 +3,7 @@ import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import SearchableCombobox from '@/components/shared/SearchableCombobox';
 import { Button } from '@/components/ui/button';
 import { Ban, CheckCircle2, Repeat2, Undo2, X } from 'lucide-react';
 import { LOCATION_LABEL } from '@/lib/stockHelpers';
@@ -120,16 +120,16 @@ export default function IngredientRow({ row, nameOf, sourceLocation, onSelectSub
           {row.candidates.length > 0 ? (
             <>
               <Label className="text-xs text-amber-900">Sustituir por otro insumo con stock en {LOCATION_LABEL[sourceLocation]}</Label>
-              <Select value={row.substitute?.id || ''} onValueChange={(val) => onSelectSubstitute(row.index, val)}>
-                <SelectTrigger className="h-8 text-xs bg-background"><SelectValue placeholder="Elegir insumo sustituto..." /></SelectTrigger>
-                <SelectContent>
-                  {row.candidates.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.name} — {c.isInfinite ? 'ilimitado' : `${c.available.toFixed(1)}${c.unit}`}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableCombobox
+                value={row.substitute?.id || ''}
+                onChange={(val) => onSelectSubstitute(row.index, val)}
+                triggerClassName="text-xs bg-background"
+                placeholder="Elegir insumo sustituto..."
+                options={row.candidates.map((c) => ({
+                  value: c.id,
+                  label: `${c.name} — ${c.isInfinite ? 'ilimitado' : `${c.available.toFixed(1)}${c.unit}`}`,
+                }))}
+              />
             </>
           ) : (
             <p className="text-xs text-amber-900">

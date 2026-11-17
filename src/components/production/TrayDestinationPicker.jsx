@@ -1,6 +1,6 @@
 import React from 'react';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import SearchableCombobox from '@/components/shared/SearchableCombobox';
 import moment from 'moment';
 
 /** Elige si la salida del lote crea una bandeja nueva o rellena una activa del mismo sabor. */
@@ -20,16 +20,17 @@ export default function TrayDestinationPicker({ tray, activeTrays, onChange }) {
       {isRefill && (
         <div>
           <Label className="text-xs">Bandeja a rellenar</Label>
-          <Select value={tray.target_tray_id} onValueChange={(id) => onChange({ target_tray_id: id, before: activeTrays.find(t => t.id === id)?.remaining_grams || 0 })}>
-            <SelectTrigger><SelectValue placeholder="Seleccionar bandeja activa" /></SelectTrigger>
-            <SelectContent>
-              {activeTrays.map(t => (
-                <SelectItem key={t.id} value={t.id}>
-                  Quedan {(t.remaining_grams || 0).toFixed(0)}g · prod. {t.production_date ? moment(t.production_date).format('DD/MM') : '—'}{t.in_vitrine ? ' · vitrina' : ''}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <SearchableCombobox
+            value={tray.target_tray_id}
+            onChange={(id) => onChange({ target_tray_id: id, before: activeTrays.find(t => t.id === id)?.remaining_grams || 0 })}
+            keepOrder
+            placeholder="Seleccionar bandeja activa"
+            searchPlaceholder="Buscar bandeja..."
+            options={activeTrays.map(t => ({
+              value: t.id,
+              label: `Quedan ${(t.remaining_grams || 0).toFixed(0)}g · prod. ${t.production_date ? moment(t.production_date).format('DD/MM') : '—'}${t.in_vitrine ? ' · vitrina' : ''}`,
+            }))}
+          />
           {tray.target_tray_id && (
             <p className="text-[11px] text-muted-foreground mt-1">
               Restante antes: {(tray.before || 0).toFixed(0)}g → después: {((tray.before || 0) + (tray.net || 0)).toFixed(0)}g

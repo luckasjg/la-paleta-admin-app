@@ -5,7 +5,6 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -436,13 +435,8 @@ export default function Preparations() {
             <div className="grid grid-cols-3 gap-3">
               <div className="col-span-2">
                 <Label>Unidad</Label>
-                <Select value={form.yield_unit} onValueChange={v => setForm({ ...form, yield_unit: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="g">Gramos</SelectItem>
-                    <SelectItem value="ml">Mililitros</SelectItem>
-                  </SelectContent>
-                </Select>
+                <SearchableCombobox value={form.yield_unit} onChange={v => setForm({ ...form, yield_unit: v })} keepOrder searchPlaceholder="Buscar unidad..."
+                  options={[{ value: 'g', label: 'Gramos' }, { value: 'ml', label: 'Mililitros' }]} />
               </div>
               <div>
                 <Label>% Proceso</Label>

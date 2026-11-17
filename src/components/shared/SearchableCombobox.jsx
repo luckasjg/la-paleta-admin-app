@@ -31,7 +31,7 @@ export default function SearchableCombobox({
   onChange,
   options = [],
   placeholder = 'Seleccionar...',
-  searchPlaceholder = 'Buscar...',
+  searchPlaceholder = 'Buscar sabor o insumo...',
   emptyText = 'Sin resultados',
   className,
   triggerClassName,
@@ -51,7 +51,7 @@ export default function SearchableCombobox({
   const selected = sortedOptions.find(o => o.value === value);
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={setOpen} modal>
       <PopoverTrigger asChild>
         <Button
           type="button"
@@ -89,8 +89,9 @@ export default function SearchableCombobox({
         <Command className="overflow-hidden">
           <CommandInput placeholder={searchPlaceholder} />
           <CommandList
-            className="max-h-60 overflow-y-auto overscroll-contain"
+            className="max-h-60 overflow-y-auto overscroll-contain touch-pan-y"
             onWheel={(e) => e.stopPropagation()}
+            onTouchMove={(e) => e.stopPropagation()}
           >
             <CommandEmpty>{emptyText}</CommandEmpty>
             <CommandGroup>

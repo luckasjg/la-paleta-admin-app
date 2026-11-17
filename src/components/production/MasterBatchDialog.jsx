@@ -36,8 +36,7 @@ export default function MasterBatchDialog({ open, onOpenChange, recipes, supplie
   const options = useMemo(() => {
     const pure = base ? [{ value: base.id, label: `★ ${base.name} — Sabor puro`, sublabel: 'Base Maestra sin aditivos' }] : [];
     const linked = flavors.filter(r => r.base_recipe_id === baseId).map(r => ({ value: r.id, label: r.name, sublabel: 'Derivado' }));
-    const others = flavors.filter(r => r.base_recipe_id !== baseId).map(r => ({ value: r.id, label: r.name, sublabel: '(otro)' }));
-    return [...pure, ...linked, ...others];
+    return [...pure, ...linked];
   }, [flavors, baseId, base]);
 
   const plan = useMemo(() => buildIngredientPlan({ recipe: base, multiplier, supplies, sourceLocation, substitutions, variations, resolveSupply }),

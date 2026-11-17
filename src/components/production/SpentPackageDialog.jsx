@@ -4,7 +4,7 @@ import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import SearchableCombobox from '@/components/shared/SearchableCombobox';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Minus, Plus } from 'lucide-react';
 import { toast } from 'sonner';
@@ -66,14 +66,12 @@ export default function SpentPackageDialog({ open, onOpenChange, utensilios }) {
           <StockLocationSelector value={location} onChange={setLocation} />
           <div>
             <Label>Utensilio</Label>
-            <Select value={id} onValueChange={setId}>
-              <SelectTrigger className="w-full min-w-0 [&>span]:truncate"><SelectValue placeholder="Seleccionar utensilio..." /></SelectTrigger>
-              <SelectContent className="max-w-[calc(100vw-2rem)]">
-                {utensilios.map(s => (
-                  <SelectItem key={s.id} value={s.id}>{s.name} — {formatPackages(getStockAt(s, location), s)}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SearchableCombobox
+              value={id}
+              onChange={setId}
+              placeholder="Seleccionar utensilio..."
+              options={utensilios.map(s => ({ value: s.id, label: `${s.name} — ${formatPackages(getStockAt(s, location), s)}` }))}
+            />
           </div>
           {u && (
             <>

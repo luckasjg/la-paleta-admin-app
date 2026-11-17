@@ -5,7 +5,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Plus, Trash2, Pencil, BookOpen, Search, FileSpreadsheet } from 'lucide-react';
@@ -367,10 +366,7 @@ export default function Recipes() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label>Tipo</Label>
-                <Select value={form.type} onValueChange={v => setForm({ ...form, type: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>{TYPES.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}</SelectContent>
-                </Select>
+                <SearchableCombobox value={form.type} onChange={v => setForm({ ...form, type: v })} options={TYPES} keepOrder searchPlaceholder="Buscar tipo..." />
               </div>
               {<div><Label>Precio Venta ($)</Label><Input type="number" step="0.01" value={form.sale_price} onChange={e => setForm({ ...form, sale_price: parseFloat(e.target.value) || 0 })} /></div>}
             </div>
@@ -382,15 +378,13 @@ export default function Recipes() {
               <div className="grid grid-cols-2 gap-3 items-end">
                 <div>
                   <Label className="text-xs">Clasificación del sabor</Label>
-                  <Select
+                  <SearchableCombobox
                     value={form.flavor_tag || 'Regular'}
-                    onValueChange={v => setForm({ ...form, flavor_tag: v })}
-                  >
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {FLAVOR_TAGS.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                    onChange={v => setForm({ ...form, flavor_tag: v })}
+                    options={FLAVOR_TAGS.map(t => ({ value: t, label: t }))}
+                    keepOrder
+                    searchPlaceholder="Buscar clasificación..."
+                  />
                 </div>
                 <p className="text-[11px] text-muted-foreground leading-tight">
                   Premium/Sorbete aplican un recargo proporcional automático en el POS según los gramos servidos.
@@ -437,13 +431,8 @@ export default function Recipes() {
               </div>
               <div>
                 <Label>Unidad</Label>
-                <Select value={form.yield_unit} onValueChange={v => setForm({ ...form, yield_unit: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ml">Mililitros</SelectItem>
-                    <SelectItem value="unidad">Unidad</SelectItem>
-                  </SelectContent>
-                </Select>
+                <SearchableCombobox value={form.yield_unit} onChange={v => setForm({ ...form, yield_unit: v })} keepOrder searchPlaceholder="Buscar unidad..."
+                  options={[{ value: 'ml', label: 'Mililitros' }, { value: 'unidad', label: 'Unidad' }]} />
               </div>
             </div>
 

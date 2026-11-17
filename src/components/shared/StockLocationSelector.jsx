@@ -1,7 +1,6 @@
 import React from 'react';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Warehouse, FlaskConical } from 'lucide-react';
+import SearchableCombobox from '@/components/shared/SearchableCombobox';
 import { LOCATIONS } from '@/lib/stockHelpers';
 
 /**
@@ -17,25 +16,14 @@ export default function StockLocationSelector({
   return (
     <div>
       <Label>{label}</Label>
-      <Select value={value} onValueChange={onChange} disabled={disabled}>
-        <SelectTrigger>
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {LOCATIONS.map((loc) => (
-            <SelectItem key={loc.value} value={loc.value}>
-              <span className="flex items-center gap-2">
-                {loc.value === 'production' ? (
-                  <FlaskConical className="h-3.5 w-3.5 text-primary" />
-                ) : (
-                  <Warehouse className="h-3.5 w-3.5 text-primary" />
-                )}
-                {loc.label}
-              </span>
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <SearchableCombobox
+        value={value}
+        onChange={onChange}
+        disabled={disabled}
+        keepOrder
+        searchPlaceholder="Buscar ubicación..."
+        options={LOCATIONS.map(loc => ({ value: loc.value, label: loc.label }))}
+      />
     </div>
   );
 }

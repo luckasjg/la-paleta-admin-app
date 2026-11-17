@@ -5,7 +5,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -90,6 +89,8 @@ export default function Production() {
   });
 
   const iceRecipes = recipes.filter(r => r.type === 'helado');
+  // Producción individual: solo recetas independientes (derivados y bases van por Lote de Base Maestra)
+  const independentRecipes = iceRecipes.filter(r => !r.base_recipe_id && !r.is_master_base);
 
   // Bandejas activas del mismo sabor que pueden completarse con el helado nuevo
   const refillableTrays = trays.filter(
@@ -604,10 +605,13 @@ export default function Production() {
           <div className="grid gap-4 py-2">
             <div>
               <Label>Sabor (Receta)</Label>
-              <Select value={editForm.recipe_id} onValueChange={v => setEditForm(f => ({ ...f, recipe_id: v }))}>
-                <SelectTrigger><SelectValue placeholder="Seleccionar sabor" /></SelectTrigger>
-                <SelectContent>{iceRecipes.map(r => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}</SelectContent>
-              </Select>
+              <SearchableCombobox
+                value={editForm.recipe_id}
+                onChange={v => setEditForm(f => ({ ...f, recipe_id: v }))}
+                options={iceRecipes.map(r => ({ value: r.id, label: r.name }))}
+                placeholder="Seleccionar sabor"
+                emptyText="Ningún sabor coincide"
+              />
             </div>
             <div>
               <Label>Gramos restantes</Label>
@@ -663,27 +667,33 @@ export default function Production() {
               <SearchableCombobox
                 value={recipeId}
                 onChange={(v) => { setRecipeId(v); setTargetTrayId('new'); resetBatch(); }}
-                options={iceRecipes.map(r => ({ value: r.id, label: r.name }))}
-                placeholder="Seleccionar sabor"
-                searchPlaceholder="Buscar sabor..."
-                emptyText="Ningún sabor coincide"
+                options={independentRecipes.map(r => ({ value: r.id, label: r.name }))}
+                placeholder={independentRecipes.length ? 'Seleccionar sabor' : 'Sin recetas independientes'}
+                emptyText="Sin coincidencias. Los sabores derivados y bases se producen desde «Lote de Base Maestra»."
               />
+              <p className="text-[11px] text-muted-foreground mt-1">
+                {independentRecipes.length
+                  ? 'Solo recetas independientes. Los sabores derivados se producen desde «Lote de Base Maestra».'
+                  : 'No hay recetas independientes. Los sabores derivados se producen desde «Lote de Base Maestra».'}
+              </p>
             </div>
 
             {recipeId && refillableTrays.length > 0 && (
               <div>
                 <Label>Destino de la producción</Label>
-                <Select value={targetTrayId} onValueChange={(v) => { setTargetTrayId(v); setRefillBefore(null); }}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="new">Bandeja nueva</SelectItem>
-                    {refillableTrays.map(t => (
-                      <SelectItem key={t.id} value={t.id}>
-                        Completar bandeja — quedan {(t.remaining_grams || 0).toFixed(0)}g (prod. {t.production_date ? moment(t.production_date).format('DD/MM') : '—'})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <SearchableCombobox
+                  value={targetTrayId}
+                  onChange={(v) => { setTargetTrayId(v); setRefillBefore(null); }}
+                  keepOrder
+                  searchPlaceholder="Buscar bandeja..."
+                  options={[
+                    { value: 'new', label: 'Bandeja nueva' },
+                    ...refillableTrays.map(t => ({
+                      value: t.id,
+                      label: `Completar bandeja — quedan ${(t.remaining_grams || 0).toFixed(0)}g (prod. ${t.production_date ? moment(t.production_date).format('DD/MM') : '—'})`,
+                    })),
+                  ]}
+                />
                 {targetTrayId !== 'new' && (
                   <p className="text-xs text-amber-700 mt-1">
                     El peso neto añadido se sumará al helado que ya tiene esa bandeja y quedará marcada como rellenada.
