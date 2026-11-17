@@ -126,6 +126,25 @@
                   },
                   "deducted": {
                     "type": "boolean"
+                  },
+                  "deducted_location": {
+                    "type": "string",
+                    "description": "Ubicaci\u00f3n de la que se descontaron sus insumos"
+                  },
+                  "deducted_supplies": {
+                    "type": "array",
+                    "description": "Insumos descontados por este topping",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "supply_id": {
+                          "type": "string"
+                        },
+                        "quantity": {
+                          "type": "number"
+                        }
+                      }
+                    }
                   }
                 }
               }
@@ -416,6 +435,10 @@
     "void_reason": {
       "type": "string"
     },
+    "void_inventory_restored": {
+      "type": "boolean",
+      "description": "Si al anular se reintegraron insumos y toppings al inventario"
+    },
     "cash_register_id": {
       "type": "string",
       "description": "ID de la sesi\u00f3n de caja activa al momento de la venta"
@@ -456,6 +479,11 @@
         "green"
       ],
       "default": "despachado"
+    },
+    "dispatched_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Momento en que Despacho complet\u00f3 la orden (solo ventas con despacho diferido)"
     },
     "ticket_number": {
       "type": "number",

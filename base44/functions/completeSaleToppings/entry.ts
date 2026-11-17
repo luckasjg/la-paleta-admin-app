@@ -61,7 +61,11 @@ export default async function (req) {
     const done = { ...item, unit_toppings: units, pending_toppings: false, pending_included_toppings: 0 };
     items[item_index] = done;
     const stillPending = items.some((i) => i.pending_dispatch === true || i.pending_toppings === true);
-    await db.Sale.update(sale.id, { items, dispatch_status: stillPending ? 'pendiente' : 'despachado' });
+    await db.Sale.update(sale.id, {
+      items,
+      dispatch_status: stillPending ? 'pendiente' : 'despachado',
+      ...(stillPending ? {} : { dispatched_at: new Date().toISOString() }),
+    });
 
     const deducted = await deductItemToppings(db, done);
     items[item_index] = deducted;

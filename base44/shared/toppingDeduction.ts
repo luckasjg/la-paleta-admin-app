@@ -34,7 +34,14 @@ export async function deductItemToppings(db, item) {
 
   return {
     ...item,
-    unit_toppings: units.map((u) => (u || []).map((t) => (t.none || t.deducted ? t : { ...t, deducted: true }))),
+    unit_toppings: units.map((u) => (u || []).map((t) => {
+      if (t.none || t.deducted) return t;
+      const p = products.find((x) => x.id === t.product_id);
+      const own = (p?.linked_supplies || [])
+        .filter((ls) => ls.supply_id && ls.quantity > 0)
+        .map((ls) => ({ supply_id: ls.supply_id, quantity: ls.quantity }));
+      return { ...t, deducted: true, deducted_location: 'production', deducted_supplies: own };
+    })),
     toppings_cost: +((item.toppings_cost || 0) + cost).toFixed(4),
   };
 }

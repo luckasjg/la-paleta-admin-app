@@ -2,6 +2,7 @@ import { base44 } from '@/api/base44Client';
 import { cancelPendingRefundsForSale } from '@/lib/cancelRefund';
 import { reverseSaleWalletMovements } from '@/lib/reverseSaleWallets';
 import { getTrayPortions } from '@/lib/trayDeduction';
+import { restoreSaleToppings } from '@/lib/restoreSaleToppings';
 
 /**
  * Anula una venta y revierte todo el inventario asociado.
@@ -13,10 +14,28 @@ import { getTrayPortions } from '@/lib/trayDeduction';
  *
  * Marca la venta como status='voided' y guarda auditoría (voided_at, voided_by, void_reason).
  */
-export async function voidSale({ sale, reason = '', operatorEmail = '', reversePaidRefundIds = [] }) {
+export async function voidSale({ sale, reason = '', operatorEmail = '', reversePaidRefundIds = [], restoreInventory = true }) {
   if (!sale) throw new Error('Venta no encontrada');
   if (sale.status === 'voided') throw new Error('Esta venta ya fue anulada');
 
+  if (restoreInventory) await restoreSaleInventory(sale);
+
+  // Revertir consumo de bono de colaborador asociado a la venta
+  if (sale.benefit_staff_id) await base44.entities.StaffBonusConsumption.deleteMany({ sale_id: sale.id });
+
+  // 4) Marcar la venta como anulada
+  await base44.entities.Sale.update(sale.id, {
+    status: 'voided',
+    voided_at: new Date().toISOString(),
+    voided_by: operatorEmail || '',
+    void_reason: reason || '',
+    void_inventory_restored: restoreInventory,
+  });
+
+  await finishVoid(sale, reason, reversePaidRefundIds);
+}
+
+async function restoreSaleInventory(sale) {
   // Carga fresca de bandejas, recetas e insumos para no depender de caché obsoleta
   const [trays, recipes, supplies] = await Promise.all([
     base44.entities.Tray.list('-created_date', 200),
@@ -70,17 +89,11 @@ export async function voidSale({ sale, reason = '', operatorEmail = '', reverseP
     }
   }
 
-  // Revertir consumo de bono de colaborador asociado a la venta
-  if (sale.benefit_staff_id) await base44.entities.StaffBonusConsumption.deleteMany({ sale_id: sale.id });
+  // 3b) Reintegrar insumos de toppings efectivamente descontados
+  await restoreSaleToppings(sale);
+}
 
-  // 4) Marcar la venta como anulada
-  await base44.entities.Sale.update(sale.id, {
-    status: 'voided',
-    voided_at: new Date().toISOString(),
-    voided_by: operatorEmail || '',
-    void_reason: reason || '',
-  });
-
+async function finishVoid(sale, reason, reversePaidRefundIds) {
   // 5) Eliminar las devoluciones pendientes de esta venta y avisar en #caja
   await cancelPendingRefundsForSale(sale.id, `Venta anulada${reason ? ` — ${reason}` : ''}`);
 

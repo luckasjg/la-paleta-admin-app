@@ -64,12 +64,14 @@ export function deductToppings(item, products = [], supplies = []) {
   const unit_toppings = getUnitToppings(item).map(u => u.map(t => {
     if (t.none || t.deducted) return t;
     const p = products.find(x => x.id === t.product_id);
+    const own = [];
     for (const ls of (p?.linked_supplies || [])) {
       if (!ls.supply_id || !(ls.quantity > 0)) continue;
-      lines.push({ supply_id: ls.supply_id, quantity: ls.quantity });
+      own.push({ supply_id: ls.supply_id, quantity: ls.quantity });
       cost += (supplies.find(s => s.id === ls.supply_id)?.cost_per_unit || 0) * ls.quantity;
     }
-    return { ...t, deducted: true };
+    lines.push(...own);
+    return { ...t, deducted: true, deducted_location: 'production', deducted_supplies: own };
   }));
   return { item: { ...item, unit_toppings, toppings_cost: +((item.toppings_cost || 0) + cost).toFixed(4) }, lines };
 }

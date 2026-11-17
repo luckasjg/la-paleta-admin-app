@@ -13,6 +13,8 @@ import { Ban } from 'lucide-react';
 import { toast } from 'sonner';
 import { useRole } from '@/lib/useRole';
 import { voidSale } from '@/lib/voidSale';
+import { wasDispatched } from '@/lib/restoreSaleToppings';
+import { Checkbox } from '@/components/ui/checkbox';
 
 /**
  * Botón de Anular Venta — visible SOLO para ADMIN.
@@ -23,6 +25,8 @@ export default function VoidSaleButton({ sale, size = 'sm', variant = 'destructi
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState('');
   const [reverseIds, setReverseIds] = useState([]);
+  const [restore, setRestore] = useState(true);
+  const dispatched = wasDispatched(sale);
   const qc = useQueryClient();
 
   const { data: paidRefunds = [] } = useQuery({
@@ -40,6 +44,7 @@ export default function VoidSaleButton({ sale, size = 'sm', variant = 'destructi
       reason,
       operatorEmail: user?.email || '',
       reversePaidRefundIds: reverseIds,
+      restoreInventory: !dispatched || restore,
     }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['sales'] });
@@ -48,10 +53,13 @@ export default function VoidSaleButton({ sale, size = 'sm', variant = 'destructi
       qc.invalidateQueries({ queryKey: ['refund_requests'] });
       qc.invalidateQueries({ queryKey: ['wallets'] });
       qc.invalidateQueries({ queryKey: ['wallet_transactions'] });
-      toast.success('Venta anulada: inventario repuesto y billeteras reversadas');
+      toast.success(!dispatched || restore
+        ? 'Venta anulada: inventario repuesto y billeteras reversadas'
+        : 'Venta anulada: billeteras reversadas, consumo registrado como merma');
       setOpen(false);
       setReason('');
       setReverseIds([]);
+      setRestore(true);
     },
     onError: (err) => toast.error(err.message || 'Error al anular la venta'),
   });
@@ -77,12 +85,23 @@ export default function VoidSaleButton({ sale, size = 'sm', variant = 'destructi
             <AlertDialogTitle>¿Anular esta venta?</AlertDialogTitle>
             <AlertDialogDescription>
               Esta acción <strong>repondrá el inventario</strong>: gramos a las bandejas, insumos de
-              recetas y utensilios vinculados, y <strong>reversará los movimientos de billetera</strong>{' '}
+              recetas, toppings y utensilios vinculados, y <strong>reversará los movimientos de billetera</strong>{' '}
               de esta venta. La venta quedará marcada como <strong>Anulada</strong>{' '}
               y se excluirá del cierre de caja y reportes. El registro se conserva como respaldo.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="space-y-3">
+            {dispatched && (
+              <label className="flex items-start gap-2.5 rounded-lg border p-3 cursor-pointer">
+                <Checkbox checked={restore} onCheckedChange={(v) => setRestore(v === true)} className="mt-0.5" />
+                <span className="text-sm">
+                  <span className="font-medium">Reintegrar insumos y toppings al inventario</span>
+                  <span className="block text-xs text-muted-foreground">
+                    Esta orden ya fue despachada. Desmárcalo si el producto se preparó y debe quedar como merma.
+                  </span>
+                </span>
+              </label>
+            )}
             <PaidRefundsReversalList
               refunds={paidRefunds}
               selectedIds={reverseIds}

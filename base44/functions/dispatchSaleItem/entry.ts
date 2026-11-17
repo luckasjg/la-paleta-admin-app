@@ -74,7 +74,11 @@ export default async function (req) {
     // Marcar la venta primero evita doble descuento si se reintenta.
     items.splice(item_index, 1, ...newItems);
     const stillPending = items.some((i) => i.pending_dispatch === true || i.pending_toppings === true);
-    await db.Sale.update(sale.id, { items, dispatch_status: stillPending ? 'pendiente' : 'despachado' });
+    await db.Sale.update(sale.id, {
+      items,
+      dispatch_status: stillPending ? 'pendiente' : 'despachado',
+      ...(stillPending ? {} : { dispatched_at: new Date().toISOString() }),
+    });
 
     await Promise.all(list.map((tray) => {
       const newRemaining = (tray.remaining_grams || 0) - demand[tray.id];
