@@ -34,6 +34,8 @@ import PremiumChargesPanel from '@/components/pos/PremiumChargesPanel';
 import { printComanda, usePrintRelay } from '@/lib/printRelay';
 import { getActiveSession, setActiveSession, clearActiveSession } from '@/lib/cashSession';
 import { getPendingOrder, clearPendingOrder, buildCartFromOrder } from '@/lib/posHandoff';
+import { getUnitFlavors, unitsLabel } from '@/lib/unitFlavors';
+import CartUnitFlavors from '@/components/pos/CartUnitFlavors';
 import { usePosDraft, clearPosDraft } from '@/lib/usePosDraft';
 import { useHeldOrders } from '@/lib/useHeldOrders';
 import HoldOrderDialog from '@/components/pos/HoldOrderDialog';
@@ -61,6 +63,7 @@ export default function POS() {
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [flavorDialog, setFlavorDialog] = useState(null);
   const [editingIndex, setEditingIndex] = useState(null);
+  const [editingUnit, setEditingUnit] = useState(0);
   const [selectedFlavors, setSelectedFlavors] = useState([]);
   const [payDialog, setPayDialog] = useState(false);
   // Pestañas del POS: cobro de ventas y cola de devoluciones por pago móvil.
@@ -278,16 +281,18 @@ export default function POS() {
   };
 
   // Abre el selector de sabores para un ítem pendiente ya en el carrito.
-  const openFlavorsForItem = (index) => {
+  const openFlavorsForItem = (index, unit = 0) => {
     const item = cart[index];
     const product = products.find(p => p.id === item?.product_id);
     if (!product) return;
     const totalGrams = product.grams_per_serving || 80;
     const portions = splitGramsEqually(totalGrams, productMaxFlavors(product));
     setEditingIndex(index);
+    setEditingUnit(unit);
     setFlavorDialog(product);
-    if (item.flavors?.length) {
-      const chosen = item.flavors.map(f => ({ tray_id: f.tray_id, grams: f.grams }));
+    const current = getUnitFlavors(item)[unit] || [];
+    if (current.length) {
+      const chosen = current.map(f => ({ tray_id: f.tray_id, grams: f.grams }));
       const rest = totalGrams - chosen.reduce((s, f) => s + (parseFloat(f.grams) || 0), 0);
       setSelectedFlavors(rest > 0 ? [...chosen, { tray_id: '', grams: rest }] : chosen);
     } else {
@@ -364,6 +369,39 @@ export default function POS() {
 
   const previewSurcharge = flavorDialog ? computeFlavorSurcharge(selectedFlavors) : 0;
 
+  // Recalcula un helado a partir de sus sabores por unidad: cada unidad lleva
+  // su propio recargo; el precio unitario es el promedio para que
+  // cantidad × precio siga dando el total exacto.
+  const applyUnits = (item, units, incomplete = false) => {
+    const qty = units.length;
+    const base = item.base_price ?? item.unit_price;
+    const surcharges = units.map(u => +computeFlavorSurcharge(u).toFixed(2));
+    const totalSurcharge = surcharges.reduce((s, x) => s + x, 0);
+    const full = qty * base + totalSurcharge;
+    const label = unitsLabel(units);
+    const pendingUnit = qty === 1 && incomplete;
+    return {
+      ...item,
+      quantity: qty,
+      unit_flavors: units,
+      unit_surcharges: surcharges,
+      flavors: units[0],
+      flavor: label ? label + (pendingUnit ? ' + por elegir en vitrina' : '') : undefined,
+      tray_id: units[0][0]?.tray_id,
+      flavor_surcharge: +(totalSurcharge / qty).toFixed(4),
+      unit_price: +(full / qty).toFixed(4),
+      subtotal: item.is_courtesy ? 0 : +full.toFixed(2),
+    };
+  };
+
+  const copyFirstUnit = (index) => {
+    setCart(prev => prev.map((it, i) => {
+      if (i !== index) return it;
+      const units = getUnitFlavors(it);
+      return applyUnits(it, units.map(() => units[0].map(f => ({ ...f }))));
+    }));
+  };
+
   const addIceCreamToCart = () => {
     if (!flavorDialog || !allFlavorsFilled) return;
     const product = flavorDialog;
@@ -398,29 +436,32 @@ export default function POS() {
       subtotal: finalPrice,
       is_courtesy: false,
     };
-    setCart(prev => editingIndex != null && prev[editingIndex]
-      ? prev.map((it, i) => i === editingIndex
-          ? { ...newItem, quantity: it.quantity, is_courtesy: it.is_courtesy, subtotal: it.is_courtesy ? 0 : it.quantity * finalPrice }
-          : it)
-      : [...prev, newItem]);
+    setCart(prev => {
+      if (editingIndex != null && prev[editingIndex]) {
+        return prev.map((it, i) => {
+          if (i !== editingIndex) return it;
+          const units = getUnitFlavors(it);
+          units[editingUnit] = newItem.flavors;
+          return applyUnits({ ...it, base_price: product.price }, units, chosen.length < selectedFlavors.length);
+        });
+      }
+      return [...prev, { ...newItem, unit_flavors: [newItem.flavors], unit_surcharges: [newItem.flavor_surcharge] }];
+    });
 
     setEditingIndex(null);
+    setEditingUnit(0);
     setFlavorDialog(null);
     setSelectedFlavors([]);
   };
 
   const updateQty = (index, delta) => {
-    // Helados: cada unidad es un renglón propio para asignarle sus sabores.
+    // Helados: cada unidad conserva sus sabores; + añade una unidad vacía al final, − quita la última.
     const target = cart[index];
-    if (delta > 0 && target?.pending_dispatch) {
-      setCart(prev => {
-        const copy = { ...target, quantity: 1, flavors: [], flavor: undefined, tray_id: undefined,
-          flavor_surcharge: 0, unit_price: target.base_price ?? target.unit_price };
-        copy.subtotal = copy.is_courtesy ? 0 : copy.unit_price;
-        const n = [...prev];
-        n.splice(index + 1, 0, ...Array.from({ length: delta }, () => ({ ...copy })));
-        return n;
-      });
+    if (target?.pending_dispatch) {
+      const newQty = (target.quantity || 1) + delta;
+      setCart(prev => newQty <= 0
+        ? prev.filter((_, i) => i !== index)
+        : prev.map((it, i) => (i === index ? applyUnits(it, getUnitFlavors(it, newQty)) : it)));
       return;
     }
     setCart(prev => prev.map((item, i) => {
@@ -884,7 +925,9 @@ export default function POS() {
                   <p className="text-sm font-medium leading-snug break-words">{item.product_name}</p>
                   {item.is_courtesy && <Gift className="h-3.5 w-3.5 text-amber-500 flex-shrink-0" />}
                 </div>
-                {item.pending_dispatch ? (
+                {item.pending_dispatch && item.quantity > 1 ? (
+                  <CartUnitFlavors item={item} onEditUnit={(u) => openFlavorsForItem(idx, u)} onCopyFirst={() => copyFirstUnit(idx)} />
+                ) : item.pending_dispatch ? (
                   <button type="button" onClick={() => openFlavorsForItem(idx)} className="text-xs text-left underline-offset-2 hover:underline">
                     {item.flavor
                       ? <span className="text-muted-foreground">{item.flavor} · {item.grams}g</span>
@@ -1008,6 +1051,7 @@ export default function POS() {
           <DialogHeader>
             <DialogTitle className="pr-6 break-words">
               Seleccionar Sabor — {flavorDialog?.name}
+              {editingIndex != null && (cart[editingIndex]?.quantity || 1) > 1 && ` · Unidad ${editingUnit + 1}`}
               <p className="text-sm font-normal text-muted-foreground mt-0.5">{targetGrams}g en total</p>
             </DialogTitle>
           </DialogHeader>

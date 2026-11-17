@@ -35,6 +35,7 @@ export function buildCartFromOrder(order, products) {
       linked_supplies: Array.isArray(p.linked_supplies) ? p.linked_supplies : [],
       flavor: it.flavor || flavors.map((f) => f.recipe_name).join(' + '),
       flavors,
+      ...(Array.isArray(it.unit_flavors) ? { unit_flavors: it.unit_flavors } : {}),
       tray_id: flavors[0]?.tray_id || '',
       grams: it.grams || p.grams_per_serving || 0,
       quantity: qty,

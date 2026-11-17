@@ -5,6 +5,7 @@ import { Copy } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { traySurchargePerGram } from '@/lib/flavorSurcharge';
+import { getUnitFlavors } from '@/lib/unitFlavors';
 
 export default function ServeFlavorsDialog({ order, item, maxFlavors, trays, recipes = [], isPending, onConfirm, onClose }) {
   const qty = item?.quantity || 1;
@@ -12,12 +13,11 @@ export default function ServeFlavorsDialog({ order, item, maxFlavors, trays, rec
   const [units, setUnits] = useState([]);
   const selected = units[unit] || [];
 
-  // Precarga los sabores que el cajero ya anotó, si siguen en vitrina.
+  // Precarga los sabores que el cajero anotó para CADA unidad, si siguen en vitrina.
   useEffect(() => {
     setUnit(0);
     if (!item) return setUnits([]);
-    const pre = (item.flavors || []).map(f => f.tray_id).filter(id => trays.some(t => t.id === id));
-    setUnits([pre]);
+    setUnits(getUnitFlavors(item).map(u => u.map(f => f.tray_id).filter(id => trays.some(t => t.id === id))));
   }, [item]);
 
   const setSelected = (fn) => setUnits(prev => { const n = [...prev]; n[unit] = fn(prev[unit] || []); return n; });
@@ -29,19 +29,30 @@ export default function ServeFlavorsDialog({ order, item, maxFlavors, trays, rec
   };
 
   const isLast = unit >= qty - 1;
-  const next = () => { setUnit(u => u + 1); };
-  const confirm = (list) => onConfirm(list.slice(0, qty));
-  const allSame = () => confirm(Array.from({ length: qty }, (_, i) => (i < unit ? units[i] : selected)));
+  const full = Array.from({ length: qty }, (_, i) => units[i] || []);
+  const missing = full.findIndex(u => u.length === 0);
+  const confirm = () => {
+    if (missing !== -1) { setUnit(missing); return toast.warning(`Falta elegir los sabores de la unidad ${missing + 1}/${qty}`); }
+    onConfirm(full);
+  };
+  const copyToAll = () => setUnits(Array.from({ length: qty }, () => [...selected]));
 
   return (
     <Dialog open={!!item} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="text-xl">
-            Ticket #{order?.ticket_number || order?.id?.slice(-4)} — {item?.product_name}
+            Ticket #{order?.ticket_number || order?.id?.slice(-4)} — {item?.product_name}{qty > 1 ? ` (${unit + 1}/${qty})` : ''}
           </DialogTitle>
           {qty > 1 && (
-            <p className="text-base font-semibold text-primary">Sirviendo unidad {unit + 1} de {qty}</p>
+            <div className="flex flex-wrap gap-1.5 pt-1">
+              {full.map((u, i) => (
+                <button key={i} type="button" onClick={() => setUnit(i)}
+                  className={`rounded-md border px-2.5 py-1 text-xs font-semibold transition-colors ${i === unit ? 'border-primary bg-primary text-primary-foreground' : u.length ? 'border-emerald-300 bg-emerald-50 text-emerald-800' : 'border-amber-300 bg-amber-50 text-amber-800'}`}>
+                  {item?.product_name} ({i + 1}/{qty})
+                </button>
+              ))}
+            </div>
           )}
           <p className="text-sm text-muted-foreground">
             Elige hasta <strong>{maxFlavors}</strong> sabor(es) · {selected.length}/{maxFlavors} · {item?.grams}g por unidad
@@ -75,15 +86,15 @@ export default function ServeFlavorsDialog({ order, item, maxFlavors, trays, rec
         <DialogFooter className="border-t pt-3 gap-2 flex-wrap">
           <Button variant="outline" className="h-12" onClick={onClose}>Cancelar</Button>
           {unit > 0 && <Button variant="outline" className="h-12" onClick={() => setUnit(u => u - 1)}>Anterior</Button>}
-          {!isLast && (
-            <Button variant="secondary" className="h-12" disabled={selected.length === 0 || isPending} onClick={allSame}>
-              <Copy className="h-4 w-4" /> ¿Todas iguales?
+          {qty > 1 && (
+            <Button variant="secondary" className="h-12" disabled={selected.length === 0 || isPending} onClick={copyToAll}>
+              <Copy className="h-4 w-4" /> Copiar a todas
             </Button>
           )}
           <Button
             className="h-12 px-6 text-base font-bold"
             disabled={selected.length === 0 || isPending}
-            onClick={() => (isLast ? confirm(units) : next())}
+            onClick={() => (isLast ? confirm() : setUnit(u => u + 1))}
           >
             {isPending ? 'Descontando...' : isLast ? 'Confirmar y despachar' : 'Siguiente unidad'}
           </Button>

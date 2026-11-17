@@ -39,7 +39,10 @@ export default async function (req) {
 
     const gramsPerUnit = item.grams || 80;
     const demand = {};
-    const newItems = unitList.map((ids) => {
+    // Recargo ya cobrado en caja por cada unidad (por unidad si existe, si no el promedio legado).
+    const paidFor = (i) => (Array.isArray(item.unit_surcharges) && item.unit_surcharges[i] != null
+      ? item.unit_surcharges[i] : (item.flavor_surcharge || 0));
+    const newItems = unitList.map((ids, idx) => {
       const g = +(gramsPerUnit / ids.length).toFixed(2);
       const ordered = ids.map((id) => list.find((t) => t.id === id));
       ordered.forEach((t) => { demand[t.id] = (demand[t.id] || 0) + g; });
@@ -51,6 +54,8 @@ export default async function (req) {
         ...(item.bonus_free_qty ? { bonus_free_qty: +(item.bonus_free_qty / qty).toFixed(4) } : {}),
         pending_dispatch: false,
         flavors: ordered.map((t) => ({ tray_id: t.id, recipe_name: t.recipe_name, grams: g })),
+        unit_flavors: [ordered.map((t) => ({ tray_id: t.id, recipe_name: t.recipe_name, grams: g }))],
+        unit_surcharges: [paidFor(idx)],
         tray_id: ordered[0].id,
         flavor: ordered.map((t) => t.recipe_name).join(' + '),
       };
@@ -80,8 +85,8 @@ export default async function (req) {
         if (!r || (r.flavor_tag || 'Regular') === 'Regular') return 0;
         return r.surcharge_per_gram || 0;
       };
-      const paidPerUnit = item.flavor_surcharge || 0;
-      newItems.forEach((ni) => {
+      newItems.forEach((ni, idx) => {
+        const paidPerUnit = paidFor(idx);
         const due = ni.flavors.reduce((s, f) => {
           const t = list.find((x) => x.id === f.tray_id);
           const rate = rateOf(t);

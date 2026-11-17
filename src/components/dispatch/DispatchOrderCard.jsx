@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Clock } from 'lucide-react';
 import ItemTags from './ItemTags';
+import { getUnitFlavors, unitNames } from '@/lib/unitFlavors';
 
 export default function DispatchOrderCard({ order, onServe }) {
   const waitTime = moment().diff(moment(order.sale_date), 'minutes');
@@ -37,11 +38,22 @@ export default function DispatchOrderCard({ order, onServe }) {
               <div className="min-w-0">
                 <p className="font-semibold leading-tight">{item.quantity}x {item.product_name}</p>
                 <ItemTags item={item} />
-                <p className="text-xs text-muted-foreground">
-                  {item.pending_dispatch
-                    ? (item.flavor ? `Pidió: ${item.flavor}` : 'Sabores por servir')
-                    : `Servido: ${item.flavor}`}
-                </p>
+                {item.pending_dispatch && item.quantity > 1 ? (
+                  <ul className="mt-1 space-y-0.5">
+                    {getUnitFlavors(item).map((u, i) => (
+                      <li key={i} className="text-xs text-muted-foreground">
+                        <span className="font-semibold text-foreground">{item.product_name} ({i + 1}/{item.quantity})</span>
+                        {' · '}{unitNames(u) || 'por servir'}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    {item.pending_dispatch
+                      ? (item.flavor ? `Pidió: ${item.flavor}` : 'Sabores por servir')
+                      : `Servido: ${item.flavor}`}
+                  </p>
+                )}
               </div>
               {item.pending_dispatch ? (
                 <Button onClick={() => onServe(order, idx)} className="h-12 px-5 text-base font-bold shrink-0">
