@@ -59,6 +59,27 @@
               }
             }
           },
+          "unit_flavors": {
+            "type": "array",
+            "description": "Sabores por unidad f\u00edsica (longitud = quantity); cada posici\u00f3n es la lista de sabores de esa unidad",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "tray_id": {
+                    "type": "string"
+                  },
+                  "recipe_name": {
+                    "type": "string"
+                  },
+                  "grams": {
+                    "type": "number"
+                  }
+                }
+              }
+            }
+          },
           "base_price": {
             "type": "number"
           },

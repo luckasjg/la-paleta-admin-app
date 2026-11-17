@@ -60,6 +60,34 @@
               }
             }
           },
+          "unit_flavors": {
+            "type": "array",
+            "description": "Sabores por unidad f\u00edsica (longitud = quantity); cada posici\u00f3n es la lista de sabores de esa unidad. Vac\u00eda = se elige en Despacho",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "tray_id": {
+                    "type": "string"
+                  },
+                  "recipe_name": {
+                    "type": "string"
+                  },
+                  "grams": {
+                    "type": "number"
+                  }
+                }
+              }
+            }
+          },
+          "unit_surcharges": {
+            "type": "array",
+            "description": "Recargo premium cobrado en caja por cada unidad (USD base)",
+            "items": {
+              "type": "number"
+            }
+          },
           "tray_id": {
             "type": "string"
           },
