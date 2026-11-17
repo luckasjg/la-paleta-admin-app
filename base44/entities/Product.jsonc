@@ -67,6 +67,18 @@
       "default": false,
       "description": "Si es true, el producto se muestra en el men\u00fa m\u00f3vil cuando el cliente elige delivery."
     },
+    "included_toppings_count": {
+      "type": "number",
+      "default": 0,
+      "description": "Toppings incluidos gratis por unidad dentro del precio"
+    },
+    "allowed_topping_ids": {
+      "type": "array",
+      "description": "Toppings permitidos para los cupos incluidos. Vac\u00edo = cualquier topping disponible",
+      "items": {
+        "type": "string"
+      }
+    },
     "price": {
       "type": "number"
     },

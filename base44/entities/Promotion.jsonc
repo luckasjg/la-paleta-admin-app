@@ -1,0 +1,132 @@
+{
+  "name": "Promotion",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Nombre visible de la promoci\u00f3n"
+    },
+    "active": {
+      "type": "boolean",
+      "default": true
+    },
+    "days_of_week": {
+      "type": "array",
+      "description": "D\u00edas en que aplica (0=domingo \u2026 6=s\u00e1bado). Vac\u00edo = todos los d\u00edas",
+      "items": {
+        "type": "number"
+      }
+    },
+    "applicable_product_ids": {
+      "type": "array",
+      "description": "Productos que activan / reciben la promoci\u00f3n",
+      "items": {
+        "type": "string"
+      }
+    },
+    "rule_type": {
+      "type": "string",
+      "enum": [
+        "direct_discount",
+        "quantity_bundle",
+        "buy_x_get_y"
+      ],
+      "enumColors": [
+        "green",
+        "blue",
+        "purple"
+      ]
+    },
+    "discount_mode": {
+      "type": "string",
+      "enum": [
+        "percent",
+        "amount"
+      ],
+      "default": "percent",
+      "description": "Descuento directo: porcentaje o monto fijo por unidad (USD base)"
+    },
+    "discount_value": {
+      "type": "number",
+      "default": 0
+    },
+    "min_quantity": {
+      "type": "number",
+      "default": 2,
+      "description": "Unidades para formar el paquete / activar la recompensa"
+    },
+    "bundle_percent": {
+      "type": "number",
+      "description": "Paquete: % de descuento sobre el conjunto"
+    },
+    "extra_unit_percent": {
+      "type": "number",
+      "description": "Paquete: % de descuento sobre la unidad adicional (la de menor precio)"
+    },
+    "bundle_price": {
+      "type": "number",
+      "description": "Paquete: precio fijo promocional por paquete (USD base)"
+    },
+    "reward_product_ids": {
+      "type": "array",
+      "description": "Compra X lleva Y: productos que reciben la recompensa",
+      "items": {
+        "type": "string"
+      }
+    },
+    "reward_percent": {
+      "type": "number",
+      "default": 100,
+      "description": "Compra X lleva Y: % de descuento de la recompensa"
+    }
+  },
+  "required": [
+    "name",
+    "rule_type"
+  ],
+  "rls": {
+    "read": {},
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "gerente"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "gerente"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "gerente"
+          }
+        }
+      ]
+    }
+  }
+}
