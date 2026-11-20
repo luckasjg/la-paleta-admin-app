@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import VoidSaleButton from '@/components/cashregister/VoidSaleButton';
 import EditPaymentMethodDialog from '@/components/cashregister/EditPaymentMethodDialog';
 import { useRole } from '@/lib/useRole';
+import SaleCustomerInfo from '@/components/cashregister/SaleCustomerInfo';
 
 const PAYMENT_LABELS = {
   efectivo: 'Efectivo',
@@ -58,6 +59,8 @@ export default function SaleDetailDialog({ sale, supplies = [], open, onOpenChan
               <VoidSaleButton sale={sale} />
             </div>
           )}
+
+          <SaleCustomerInfo sale={sale} />
 
           {/* Summary row */}
           <div className={`flex flex-wrap gap-3 text-sm ${isVoided ? 'line-through text-muted-foreground' : ''}`}>
