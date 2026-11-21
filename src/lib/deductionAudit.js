@@ -85,6 +85,10 @@ export function expectedForMaster(item, trays, recipes, suppliesById) {
   return finalize(map, suppliesById);
 }
 
+/** Lote independiente: lo esperado es el descuento consolidado registrado. */
+export const expectedFromLog = (log = [], suppliesById) =>
+  finalize(Object.fromEntries(log.map(d => [d.supply_id, { ...d }])), suppliesById);
+
 // Omite insumos infinitos (nunca se descuentan)
 function finalize(map, suppliesById) {
   return Object.values(map).filter(e => !suppliesById[e.supply_id]?.is_infinite && e.quantity > 0.0001);

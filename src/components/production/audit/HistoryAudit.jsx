@@ -1,6 +1,6 @@
 import React from 'react';
 import DeductionAudit from '@/components/production/audit/DeductionAudit';
-import { expectedForMaster, expectedForSingle } from '@/lib/deductionAudit';
+import { expectedForMaster, expectedForSingle, expectedFromLog } from '@/lib/deductionAudit';
 
 /** Verificación de descuento de inventario para una tarjeta del historial. */
 export default function HistoryAudit({ item, ctx }) {
@@ -9,6 +9,13 @@ export default function HistoryAudit({ item, ctx }) {
     return (
       <DeductionAudit refKey={item.id} label={`Lote Maestro: ${item.base_name}`}
         expected={expectedForMaster(item, trays, recipes, suppliesById)}
+        movements={movementsByRef[item.id] || []} />
+    );
+  }
+  if (item.kind === 'independent') {
+    return (
+      <DeductionAudit refKey={item.id} label={`Lote Independiente: ${item.recipe_name}`}
+        expected={expectedFromLog(item.deduction_log, suppliesById)}
         movements={movementsByRef[item.id] || []} />
     );
   }

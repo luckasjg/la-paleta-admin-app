@@ -44,6 +44,10 @@
     "master_base_name": {
       "type": "string"
     },
+    "independent_batch_id": {
+      "type": "string",
+      "description": "Lote independiente agrupado de origen, si aplica"
+    },
     "operator": {
       "type": "string"
     },

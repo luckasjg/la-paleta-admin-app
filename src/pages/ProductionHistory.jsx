@@ -9,6 +9,7 @@ import PageHeader from '@/components/shared/PageHeader';
 import HistoryFilters from '@/components/production/history/HistoryFilters';
 import MasterBatchHistoryCard from '@/components/production/history/MasterBatchHistoryCard';
 import SingleProductionCard from '@/components/production/history/SingleProductionCard';
+import IndependentBatchHistoryCard from '@/components/production/history/IndependentBatchHistoryCard';
 import WeeklyCsvExport from '@/components/production/history/WeeklyCsvExport';
 import HistoryAudit from '@/components/production/audit/HistoryAudit';
 import { buildHistory, filterHistory } from '@/lib/productionHistory';
@@ -25,11 +26,12 @@ export default function ProductionHistory() {
     queryKey: ['consumption_adjustments'],
     queryFn: () => base44.entities.InventoryAdjustment.filter({ reason: CONSUMPTION_REASON }, 'created_date', 5000),
   });
-  const isLoading = events.isLoading || batches.isLoading || trays.isLoading;
+  const independents = useQuery({ queryKey: ['independent_batches'], queryFn: () => base44.entities.IndependentBatch.list('-created_date', 200) });
+  const isLoading = events.isLoading || batches.isLoading || trays.isLoading || independents.isLoading;
 
   const items = useMemo(
-    () => buildHistory({ events: events.data || [], trays: trays.data || [], batches: batches.data || [] }),
-    [events.data, trays.data, batches.data]
+    () => buildHistory({ events: events.data || [], trays: trays.data || [], batches: batches.data || [], independents: independents.data || [] }),
+    [events.data, trays.data, batches.data, independents.data]
   );
   const ctx = useMemo(() => {
     const movementsByRef = {};
@@ -58,7 +60,9 @@ export default function ProductionHistory() {
       <div className="space-y-3">
         {visible.map(it => (it.kind === 'master'
           ? <MasterBatchHistoryCard key={it.id} item={it} audit={audit(it)} />
-          : <SingleProductionCard key={it.id} item={it} audit={audit(it)} />))}
+          : it.kind === 'independent'
+            ? <IndependentBatchHistoryCard key={it.id} item={it} audit={audit(it)} />
+            : <SingleProductionCard key={it.id} item={it} audit={audit(it)} />))}
       </div>
     </div>
   );

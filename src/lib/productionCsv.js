@@ -27,6 +27,9 @@ export function buildProductionCsv(items, weekKeys) {
       if (it.kind === 'master') {
         (it.branches.length ? it.branches : [{}]).forEach(b => rows.push([wk, it.date, 'Lote maestro', it.id, it.base_name, b.recipe_name, b.mode,
           n(b.base_grams), n(b.variegatos_grams), n(b.net_grams), n(b.loss_grams), n(b.cost_total), n(b.cost_per_gram)]));
+      } else if (it.kind === 'independent') {
+        it.outputs.forEach(o => rows.push([wk, it.date, 'Lote independiente', it.id, '', it.recipe_name, o.mode,
+          '', n(o.variegatos_grams), n(o.net_grams), n(o.loss_grams), n(o.cost_total), n(o.cost_per_gram)]));
       } else {
         const e = it.event, t = it.tray;
         rows.push([wk, it.date, 'Independiente', '', '', e.recipe_name, e.type === 'transferencia' ? `transferencia desde ${e.source_recipe_name || ''}` : e.type,

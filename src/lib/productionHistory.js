@@ -2,13 +2,15 @@
 const sum = (list, key) => list.reduce((s, x) => s + (Number(x[key]) || 0), 0);
 export const gramsOf = (lines = []) => lines.filter(l => l.unit === 'g').reduce((s, l) => s + (l.quantity || 0), 0);
 
-export function buildHistory({ events, trays, batches }) {
+export function buildHistory({ events, trays, batches, independents = [] }) {
   const trayById = Object.fromEntries(trays.map(t => [t.id, t]));
   const batchByCode = Object.fromEntries(batches.map(b => [b.batch_code, b]));
+  const indCodes = new Set(independents.map(b => b.batch_code));
   const groups = {};
   const singles = [];
 
   events.forEach(e => {
+    if (e.independent_batch_id && indCodes.has(e.independent_batch_id)) return; // lo cubre el registro del lote
     const tray = trayById[e.tray_id];
     // Lotes antiguos sin registro dedicado: se reconocen por la bandeja nacida de ellos
     const legacyCode = e.type === 'nueva' && tray?.master_batch_id && !batchByCode[tray.master_batch_id] ? tray.master_batch_id : null;
@@ -42,7 +44,15 @@ export function buildHistory({ events, trays, batches }) {
     };
   });
 
-  return [...masters, ...singles].sort((a, b) => String(b.at || b.date || '').localeCompare(String(a.at || a.date || '')));
+  const indItems = independents.map(b => ({
+    kind: 'independent', id: b.batch_code, date: b.date, at: b.produced_at || b.created_date,
+    recipe_name: b.recipe_name, multiplier: b.multiplier, outputs: b.outputs || [], operator: b.operator,
+    theoretical: b.theoretical_grams, physical: b.physical_grams, leftover: b.machine_leftover_grams || 0,
+    leftover_destination: b.leftover_destination, loss: b.process_loss_grams, loss_pct: b.process_loss_pct,
+    total_cost: b.total_cost, cost_per_gram: b.cost_per_gram, deduction_log: b.deduction_log || [],
+  }));
+
+  return [...masters, ...indItems, ...singles].sort((a, b) => String(b.at || b.date || '').localeCompare(String(a.at || a.date || '')));
 }
 
 export function filterHistory(items, { date, type, search }) {
@@ -50,11 +60,11 @@ export function filterHistory(items, { date, type, search }) {
   return items.filter(it => {
     if (date && it.date !== date) return false;
     if (type === 'maestros' && it.kind !== 'master') return false;
-    if (type === 'independientes' && it.kind !== 'single') return false;
+    if (type === 'independientes' && it.kind === 'master') return false;
     if (!q) return true;
     const names = it.kind === 'master'
       ? [it.base_name, ...it.branches.map(b => b.recipe_name)]
-      : [it.event.recipe_name, it.event.source_recipe_name];
+      : it.kind === 'independent' ? [it.recipe_name] : [it.event.recipe_name, it.event.source_recipe_name];
     return names.some(n => (n || '').toLowerCase().includes(q));
   });
 }

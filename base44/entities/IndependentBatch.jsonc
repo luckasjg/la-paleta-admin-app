@@ -1,0 +1,228 @@
+{
+  "name": "IndependentBatch",
+  "type": "object",
+  "properties": {
+    "batch_code": {
+      "type": "string",
+      "description": "Identificador del lote (igual a independent_batch_id en bandejas y eventos)"
+    },
+    "recipe_id": {
+      "type": "string"
+    },
+    "recipe_name": {
+      "type": "string"
+    },
+    "multiplier": {
+      "type": "number",
+      "description": "Multiplicador del mix"
+    },
+    "source_location": {
+      "type": "string",
+      "enum": [
+        "production",
+        "warehouse"
+      ]
+    },
+    "mix_weight_grams": {
+      "type": "number",
+      "description": "Peso real de la mezcla base"
+    },
+    "variegatos_grams": {
+      "type": "number"
+    },
+    "theoretical_grams": {
+      "type": "number",
+      "description": "Mix + variegados"
+    },
+    "physical_grams": {
+      "type": "number",
+      "description": "Peso \u00fatil total en bandejas"
+    },
+    "machine_leftover_grams": {
+      "type": "number",
+      "default": 0
+    },
+    "leftover_destination": {
+      "type": "string",
+      "enum": [
+        "merma",
+        "tarrina"
+      ],
+      "enumColors": [
+        "red",
+        "blue"
+      ],
+      "default": "merma"
+    },
+    "process_loss_grams": {
+      "type": "number",
+      "description": "Te\u00f3rico \u2212 \u00fatil \u2212 sobrante (negativo = excedente)"
+    },
+    "process_loss_pct": {
+      "type": "number"
+    },
+    "total_cost": {
+      "type": "number"
+    },
+    "cost_per_gram": {
+      "type": "number",
+      "description": "Costo total / peso \u00fatil"
+    },
+    "date": {
+      "type": "string",
+      "format": "date"
+    },
+    "produced_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "operator": {
+      "type": "string"
+    },
+    "deduction_log": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "supply_id": {
+            "type": "string"
+          },
+          "supply_name": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "number"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "location": {
+            "type": "string"
+          },
+          "stock_before": {
+            "type": "number"
+          },
+          "stock_after": {
+            "type": "number"
+          },
+          "verified": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "outputs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "tray_id": {
+            "type": "string"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "nueva",
+              "relleno"
+            ]
+          },
+          "net_grams": {
+            "type": "number"
+          },
+          "variegatos_grams": {
+            "type": "number"
+          },
+          "loss_grams": {
+            "type": "number"
+          },
+          "cost_total": {
+            "type": "number"
+          },
+          "cost_per_gram": {
+            "type": "number"
+          },
+          "remaining_before": {
+            "type": "number"
+          },
+          "remaining_after": {
+            "type": "number"
+          },
+          "variegatos_used": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "supply_id": {
+                  "type": "string"
+                },
+                "supply_name": {
+                  "type": "string"
+                },
+                "quantity": {
+                  "type": "number"
+                },
+                "unit": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "required": [
+    "batch_code",
+    "recipe_name"
+  ],
+  "rls": {
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "gerente"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "user"
+          }
+        }
+      ]
+    },
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "gerente"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "user"
+          }
+        }
+      ]
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}
