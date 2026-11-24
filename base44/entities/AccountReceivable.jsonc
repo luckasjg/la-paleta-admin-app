@@ -11,6 +11,9 @@
     "customer_phone": {
       "type": "string"
     },
+    "customer_cedula": {
+      "type": "string"
+    },
     "sale_id": {
       "type": "string",
       "description": "Venta a cr\u00e9dito que origin\u00f3 la deuda"
@@ -64,6 +67,43 @@
     },
     "notes": {
       "type": "string"
+    },
+    "reassignment_history": {
+      "type": "array",
+      "description": "Cambios de cliente aplicados a esta deuda",
+      "items": {
+        "type": "object",
+        "properties": {
+          "from_customer_id": {
+            "type": "string"
+          },
+          "from_customer_name": {
+            "type": "string"
+          },
+          "from_customer_cedula": {
+            "type": "string"
+          },
+          "to_customer_id": {
+            "type": "string"
+          },
+          "to_customer_name": {
+            "type": "string"
+          },
+          "to_customer_cedula": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "reassigned_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "reassigned_by": {
+            "type": "string"
+          }
+        }
+      }
     }
   },
   "required": [

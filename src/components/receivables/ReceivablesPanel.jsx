@@ -2,9 +2,11 @@ import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { HandCoins, FileText, CheckCheck, Search } from 'lucide-react';
+import { Search } from 'lucide-react';
+import { useRole } from '@/lib/useRole';
+import CustomerDebtRow from '@/components/receivables/CustomerDebtRow';
+import ReassignCustomerDialog from '@/components/receivables/ReassignCustomerDialog';
 import { toast } from 'sonner';
 import { useExchangeRate, formatEUR, EUR_PER_USD } from '@/lib/useExchangeRate';
 import { settleCustomer } from '@/lib/receivables';
@@ -21,6 +23,9 @@ export default function ReceivablesPanel({ canSettle = false }) {
   const [to, setTo] = useState('');
   const [abonoFor, setAbonoFor] = useState(null);
   const [statementFor, setStatementFor] = useState(null);
+  const [reassignFor, setReassignFor] = useState(null);
+  const { isAdmin, isGerente } = useRole();
+  const canReassign = isAdmin || isGerente;
 
   const query = { status: 'pendiente' };
   if (search.trim()) query.customer_name = { $regex: search.trim(), $options: 'i' };
@@ -70,23 +75,18 @@ export default function ReceivablesPanel({ canSettle = false }) {
         {isLoading && <p className="p-6 text-center text-sm text-muted-foreground">Cargando…</p>}
         {!isLoading && rows.length === 0 && <p className="p-8 text-center text-sm text-muted-foreground">No hay cuentas pendientes</p>}
         {rows.map(r => (
-          <div key={r.customer_id} className="p-4 flex flex-wrap items-center gap-3">
-            <div className="flex-1 min-w-40">
-              <p className="font-semibold">{r.customer_name}</p>
-              <p className="text-xs text-muted-foreground">{r.count} venta(s) pendiente(s)</p>
-            </div>
-            <p className="font-mono font-bold text-lg w-28 text-right">{eur(r.sum_balance_usd)}</p>
-            <div className="flex gap-1.5">
-              <Button size="sm" variant="outline" onClick={() => setStatementFor(r)}><FileText className="h-4 w-4" /> Estado</Button>
-              <Button size="sm" onClick={() => setAbonoFor(r)}><HandCoins className="h-4 w-4" /> Abonar</Button>
-              {canSettle && (
-                <Button size="sm" variant="ghost" disabled={settle.isPending}
-                  onClick={() => window.confirm(`¿Marcar como liquidada la deuda de ${r.customer_name}? No se registra ingreso de dinero.`) && settle.mutate(r)}>
-                  <CheckCheck className="h-4 w-4" />
-                </Button>
-              )}
-            </div>
-          </div>
+          <CustomerDebtRow
+            key={r.customer_id}
+            row={r}
+            dateQuery={query.sale_date}
+            canSettle={canSettle}
+            canReassign={canReassign}
+            settling={settle.isPending}
+            onStatement={() => setStatementFor(r)}
+            onAbono={() => setAbonoFor(r)}
+            onSettle={() => window.confirm(`¿Marcar como liquidada la deuda de ${r.customer_name}? No se registra ingreso de dinero.`) && settle.mutate(r)}
+            onReassign={setReassignFor}
+          />
         ))}
       </Card>
 
@@ -100,6 +100,7 @@ export default function ReceivablesPanel({ canSettle = false }) {
         wallets={wallets}
       />
       <StatementDialog customer={statementFor} open={!!statementFor} onOpenChange={(o) => !o && setStatementFor(null)} />
+      <ReassignCustomerDialog receivable={reassignFor} open={!!reassignFor} onOpenChange={(o) => !o && setReassignFor(null)} />
     </div>
   );
 }

@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
 export default function NewCustomerForm({ existing = [], onCreated, onCancel }) {
-  const [form, setForm] = useState({ full_name: '', phone: '', address: '' });
+  const [form, setForm] = useState({ full_name: '', phone: '', address: '', cedula: '' });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const set = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }));
@@ -21,6 +21,7 @@ export default function NewCustomerForm({ existing = [], onCreated, onCancel }) 
       const c = await base44.entities.Customer.create({
         full_name: form.full_name.trim(), phone: form.phone.trim(),
         address: form.address.trim(), is_registered: true, credit_limit: 0,
+        ...(form.cedula.trim() ? { cedula: form.cedula.trim() } : {}),
       });
       onCreated(c, true);
     } catch (e) {
@@ -34,6 +35,7 @@ export default function NewCustomerForm({ existing = [], onCreated, onCancel }) 
     <div className="space-y-3 rounded-lg border border-border p-3">
       <div><Label className="text-xs">Nombre *</Label><Input value={form.full_name} onChange={set('full_name')} autoFocus /></div>
       <div><Label className="text-xs">Teléfono *</Label><Input value={form.phone} onChange={set('phone')} inputMode="tel" /></div>
+      <div><Label className="text-xs">Cédula / RIF</Label><Input value={form.cedula} onChange={set('cedula')} /></div>
       <div><Label className="text-xs">Dirección</Label><Input value={form.address} onChange={set('address')} /></div>
       {error && <p className="text-xs text-destructive">{error}</p>}
       <div className="flex gap-2 justify-end">
