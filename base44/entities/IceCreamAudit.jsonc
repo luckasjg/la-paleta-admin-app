@@ -18,6 +18,10 @@
       "type": "string",
       "description": "Sesi\u00f3n de caja auditada. Permite auditor\u00edas tard\u00edas correlacionadas al turno."
     },
+    "operator_name": {
+      "type": "string",
+      "description": "Nombre de quien registr\u00f3 la auditor\u00eda"
+    },
     "entries": {
       "type": "array",
       "items": {

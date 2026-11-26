@@ -168,7 +168,7 @@ export default function AuditHistory() {
                           {v > 0 ? '+' : ''}{v.toFixed(0)}g
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{a.created_by || '—'}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{a.operator_name || '—'}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1" onClick={e => e.stopPropagation()}>
                           <Button size="sm" variant="ghost" onClick={() => setSelected(a)} title="Ver detalle">

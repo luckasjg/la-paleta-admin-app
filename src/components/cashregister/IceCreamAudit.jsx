@@ -93,8 +93,10 @@ export default function IceCreamAudit({ activeTrays = [], todaySales = [], shift
       const dup = await base44.entities.IceCreamAudit.filter(auditQuery, '-created_date', 1);
       if (dup.length > 0) throw new Error('Esta sesión ya tiene una auditoría registrada.');
       // Save audit record
+      const me = await base44.auth.me();
       await base44.entities.IceCreamAudit.create({
         audit_date: today,
+        operator_name: me?.full_name || '',
         shift,
         cash_register_id: cashRegisterId || undefined,
         entries: rows.map(r => ({

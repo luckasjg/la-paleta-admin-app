@@ -8,7 +8,19 @@
     },
     "password_hash": {
       "type": "string",
-      "description": "SHA-256 de la clave"
+      "description": "Hash PBKDF2 con sal de la clave (o SHA-256 legado)"
+    },
+    "password_salt": {
+      "type": "string",
+      "description": "Sal aleatoria del hash PBKDF2"
+    },
+    "failed_attempts": {
+      "type": "number",
+      "default": 0
+    },
+    "locked_until": {
+      "type": "string",
+      "format": "date-time"
     },
     "updated_by": {
       "type": "string"

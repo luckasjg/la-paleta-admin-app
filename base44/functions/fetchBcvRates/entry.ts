@@ -30,6 +30,9 @@ async function readFromFallback() {
 export default async function (req: Request): Promise<Response> {
   try {
     const base44 = createClientFromRequest(req);
+    const user = await base44.auth.me().catch((e) => (e.status === 401 ? null : Promise.reject(e)));
+    if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
+    if (user.role !== 'admin') return Response.json({ error: 'Forbidden' }, { status: 403 });
     const settings = base44.asServiceRole.entities.ShopSetting;
 
     const existing = await settings.list();
@@ -39,6 +42,7 @@ export default async function (req: Request): Promise<Response> {
     const upsert = async (key: string, value: unknown) => {
       const clean = String(value);
       const row = byKey[key];
+      if (row && row.value === clean) return;
       if (row) await settings.update(row.id, { value: clean });
       else await settings.create({ key, value: clean });
     };

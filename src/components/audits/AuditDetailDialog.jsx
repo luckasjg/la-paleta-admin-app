@@ -24,7 +24,7 @@ export default function AuditDetailDialog({ audit, open, onOpenChange }) {
 
         <Card className="p-4 bg-secondary/50">
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
-            <div><span className="text-muted-foreground">Operario:</span> <span className="font-semibold">{audit.created_by || '—'}</span></div>
+            <div><span className="text-muted-foreground">Operario:</span> <span className="font-semibold">{audit.operator_name || '—'}</span></div>
             <div><span className="text-muted-foreground">Bandejas:</span> <span className="font-semibold">{entries.length}</span></div>
             <div>
               <span className="text-muted-foreground">Varianza total:</span>{' '}

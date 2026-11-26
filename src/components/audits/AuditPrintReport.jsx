@@ -17,7 +17,7 @@ export default function AuditPrintReport({ audit }) {
       <p style={{ textAlign: 'center', margin: '4px 0 16px' }}>
         Fecha: {moment(audit.audit_date).format('DD/MM/YYYY')} — Turno: {shiftLabel(audit.shift)}
       </p>
-      <p style={{ margin: '4px 0' }}>Operario: {audit.created_by || '—'}</p>
+      <p style={{ margin: '4px 0' }}>Operario: {audit.operator_name || '—'}</p>
       <p style={{ margin: '4px 0' }}>Registrado: {audit.created_date ? moment(audit.created_date).format('DD/MM/YYYY HH:mm') : '—'}</p>
 
       <hr style={{ margin: '12px 0' }} />

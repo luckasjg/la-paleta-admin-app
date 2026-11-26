@@ -1,14 +1,19 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.52';
 
-// Invocada por el agente «gastos» (Telegram, acceso anónimo). Crea un gasto
-// variable no recurrente con rol de servicio, validando estrictamente la entrada.
+// Invocada por el agente «gastos» (Telegram). Solo personal con cuenta vinculada
+// puede registrar gastos; se valida estrictamente la entrada.
+const STAFF_ROLES = ['admin', 'gerente', 'user'];
+
 export default async function (req: Request): Promise<Response> {
   try {
     const base44 = createClientFromRequest(req);
+    const user = await base44.auth.me().catch((e) => (e.status === 401 ? null : Promise.reject(e)));
+    if (!user) return Response.json({ error: 'Debes vincular tu Telegram con tu cuenta de La Paleta para registrar gastos.' }, { status: 401 });
+    if (!STAFF_ROLES.includes(user.role)) return Response.json({ error: 'Forbidden' }, { status: 403 });
     const body = await req.json().catch(() => ({}));
     const description = String(body.description || '').trim().slice(0, 200);
     const category = String(body.category || '').trim();
-    const reportedBy = String(body.reported_by || '').trim().slice(0, 80);
+    const reportedBy = String(user.full_name || body.reported_by || '').trim().slice(0, 80);
     const amountNative = Number(body.amount_native);
     const currency = String(body.currency || '').trim().toUpperCase() === 'USD' ? 'USD'
       : ['BS', 'VES'].includes(String(body.currency || '').trim().toUpperCase()) ? 'Bs' : null;

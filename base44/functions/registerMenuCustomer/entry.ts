@@ -24,18 +24,18 @@ export default async function (req: Request): Promise<Response> {
     const db = base44.asServiceRole.entities.Customer;
     let customer = null;
 
+    // Solo se vincula a un cliente existente si coinciden cédula Y teléfono.
     if (cedula.length >= 5) {
-      const byCedula = await db.filter({ cedula });
-      customer = (byCedula || [])[0] || null;
+      const match = await db.filter({ cedula, phone });
+      customer = (match || [])[0] || null;
     }
 
     if (!customer && wantsRegister) {
+      // Si el teléfono o la cédula ya pertenecen a otro cliente, el pedido sigue
+      // como invitado: nunca se modifica ni se entrega un perfil ajeno.
       const byPhone = await db.filter({ phone });
-      customer = (byPhone || [])[0] || null;
-      if (customer && cedula.length >= 5 && !customer.cedula) {
-        await db.update(customer.id, { cedula });
-      }
-      if (!customer) {
+      const byCedula = cedula.length >= 5 ? await db.filter({ cedula }) : [];
+      if ((byPhone || []).length === 0 && (byCedula || []).length === 0) {
         customer = await db.create({
           full_name: fullName,
           phone,

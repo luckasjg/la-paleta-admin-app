@@ -14,10 +14,38 @@
       "type": "string"
     },
     "customer_phone": {
-      "type": "string"
+      "type": "string",
+      "rls": {
+        "read": {
+          "$or": [
+            {
+              "created_by_id": "{{user.id}}"
+            },
+            {
+              "user_condition": {
+                "role": "admin"
+              }
+            }
+          ]
+        }
+      }
     },
     "customer_address": {
-      "type": "string"
+      "type": "string",
+      "rls": {
+        "read": {
+          "$or": [
+            {
+              "created_by_id": "{{user.id}}"
+            },
+            {
+              "user_condition": {
+                "role": "admin"
+              }
+            }
+          ]
+        }
+      }
     },
     "items": {
       "type": "array",
@@ -126,7 +154,21 @@
     },
     "payment_method_agreed": {
       "type": "string",
-      "description": "M\u00e9todo de pago acordado con el cliente por WhatsApp"
+      "description": "M\u00e9todo de pago acordado con el cliente por WhatsApp",
+      "rls": {
+        "read": {
+          "$or": [
+            {
+              "created_by_id": "{{user.id}}"
+            },
+            {
+              "user_condition": {
+                "role": "admin"
+              }
+            }
+          ]
+        }
+      }
     },
     "linked_sale_id": {
       "type": "string",
@@ -134,7 +176,21 @@
     },
     "whatsapp_message": {
       "type": "string",
-      "description": "Mensaje enviado por el cliente, tal como se gener\u00f3"
+      "description": "Mensaje enviado por el cliente, tal como se gener\u00f3",
+      "rls": {
+        "read": {
+          "$or": [
+            {
+              "created_by_id": "{{user.id}}"
+            },
+            {
+              "user_condition": {
+                "role": "admin"
+              }
+            }
+          ]
+        }
+      }
     },
     "notes": {
       "type": "string"

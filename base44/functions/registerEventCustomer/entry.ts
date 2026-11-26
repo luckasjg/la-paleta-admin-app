@@ -24,15 +24,19 @@ export default async function (req: Request): Promise<Response> {
     const now = new Date().toISOString();
 
     if (current) {
-      if (current.category === 'Evento') {
-        await db.update(current.id, { cedula });
+      // Flujo anónimo: nunca se sobrescriben datos de un cliente existente. Solo se
+      // marca el evento si la cédula coincide con la ya registrada.
+      if (current.category === 'Evento' || current.cedula !== cedula) {
         return Response.json({ ok: true, already: true });
       }
       await db.update(current.id, {
-        cedula, category: 'Evento', event_status: 'pendiente', event_registered_at: now,
+        category: 'Evento', event_status: 'pendiente', event_registered_at: now,
         ...(current.instagram ? {} : { instagram }),
       });
     } else {
+      if (((await db.filter({ cedula })) || []).length > 0) {
+        return Response.json({ ok: true, already: true });
+      }
       await db.create({
         full_name: fullName, phone, cedula, instagram, is_registered: true,
         category: 'Evento', event_status: 'pendiente', event_registered_at: now,

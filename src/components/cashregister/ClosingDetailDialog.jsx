@@ -76,7 +76,7 @@ export default function ClosingDetailDialog({ register, sales = [], open, onOpen
               </div>
               <div>
                 <div className="text-xs text-muted-foreground">Cajero</div>
-                <div className="font-semibold truncate">{register.operator || register.created_by || '—'}</div>
+                <div className="font-semibold truncate">{register.operator || '—'}</div>
               </div>
               {credit.count > 0 && (
                 <div>

@@ -30,7 +30,9 @@ export default function OrderCard({ order, onAdvance, onCancel, onCharge, isUpda
         </div>
 
         <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-          <span className="flex items-center gap-1"><Phone className="h-3 w-3" />{order.customer_phone}</span>
+          {order.customer_phone && (
+            <span className="flex items-center gap-1"><Phone className="h-3 w-3" />{order.customer_phone}</span>
+          )}
           {order.customer_address && (
             <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{order.customer_address}</span>
           )}
