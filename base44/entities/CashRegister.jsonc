@@ -126,9 +126,63 @@
     "status"
   ],
   "rls": {
-    "create": {},
-    "read": {},
-    "update": {},
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "gerente"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "user"
+          }
+        }
+      ]
+    },
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "gerente"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "user"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "gerente"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "user"
+          }
+        }
+      ]
+    },
     "delete": {
       "user_condition": {
         "role": "admin"

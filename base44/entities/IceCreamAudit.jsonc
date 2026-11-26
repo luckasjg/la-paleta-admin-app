@@ -67,8 +67,26 @@
     "audit_date"
   ],
   "rls": {
-    "create": {},
-    "read": {},
+    "create": null,
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "gerente"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "user"
+          }
+        }
+      ]
+    },
     "update": {
       "user_condition": {
         "role": "admin"
