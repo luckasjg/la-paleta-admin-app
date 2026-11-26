@@ -65,7 +65,10 @@ export default function UsersManagerCard() {
                   const activeCount = countActivePermissions(u);
                   return (
                     <tr key={u.id} className="border-t">
-                      <td className="p-3 font-medium">{u.full_name || "—"}</td>
+                      <td className="p-3 font-medium">
+                        {u.alias || u.full_name || "—"}
+                        {u.alias && u.full_name && <span className="block text-xs font-normal text-muted-foreground">{u.full_name}</span>}
+                      </td>
                       <td className="p-3 text-muted-foreground">{u.email}</td>
                       <td className="p-3">
                         {isAdmin ? (

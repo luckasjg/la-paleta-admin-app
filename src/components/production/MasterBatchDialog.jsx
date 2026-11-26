@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { displayName } from '@/lib/displayName';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import moment from 'moment';
@@ -179,7 +180,7 @@ export default function MasterBatchDialog({ open, onOpenChange, recipes, supplie
 
       // 3. Eventos de producción + registro dedicado del lote
       const me = await base44.auth.me().catch(() => null);
-      const operator = me?.full_name || me?.email || '';
+      const operator = displayName(me);
       await base44.entities.TrayEvent.bulkCreate(details.map(d => ({
         ...master, type: d.tray.mode === 'relleno' ? 'relleno' : 'nueva', date: today, tray_id: d.trayId, recipe_name: d.recipe.name,
         grams: d.tray.net, remaining_before: d.before, remaining_after: d.after, operator,

@@ -6,6 +6,7 @@ import ReceivablesPinGate from '@/components/receivables/ReceivablesPinGate';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { usePermission } from '@/lib/usePermission';
 import { useRole } from '@/lib/useRole';
+import { displayName } from '@/lib/displayName';
 
 export default function Receivables() {
   const { can } = usePermission();
@@ -25,7 +26,7 @@ export default function Receivables() {
       </Tabs>
       {tab === 'deudas' && <ReceivablesPanel canSettle={can('cobranza', 'delete')} />}
       {tab === 'gestion' && (bypass || operator
-        ? <ReceivablesManager operatorName={bypass ? user?.full_name : operator.full_name} onLock={bypass ? null : () => setOperator(null)} />
+        ? <ReceivablesManager operatorName={bypass ? displayName(user) : operator.full_name} onLock={bypass ? null : () => setOperator(null)} />
         : <ReceivablesPinGate onUnlock={setOperator} />)}
     </div>
   );

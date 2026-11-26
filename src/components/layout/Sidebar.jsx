@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { usePermission } from '@/lib/usePermission';
 import LogoutButton from '@/components/layout/LogoutButton';
+import ProfileAliasCard from '@/components/layout/ProfileAliasCard';
 import { usePendingOrdersCount } from '@/lib/usePendingOrdersCount';
 import { useUnsavedChangesStore } from '@/lib/UnsavedChangesContext';
 import LeaveConfirmDialog from '@/components/layout/LeaveConfirmDialog';
@@ -125,6 +126,7 @@ export default function Sidebar() {
         </nav>
 
         <div className="p-4 border-t border-border space-y-3">
+          <ProfileAliasCard />
           <LogoutButton />
           <p className="text-xs text-muted-foreground text-center">Gelato & Café v1.0</p>
         </div>

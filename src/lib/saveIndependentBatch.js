@@ -1,5 +1,6 @@
 // Persistencia del lote independiente: bandejas, descuento consolidado, eventos y registro del lote.
 import moment from 'moment';
+import { displayName } from '@/lib/displayName';
 import { base44 } from '@/api/base44Client';
 import { SUBSTITUTION_REASON, toVariationRecord } from '@/lib/productionSubstitutes';
 import { deductWithLog } from '@/lib/deductionLog';
@@ -45,7 +46,7 @@ export async function saveIndependentBatch({
 }) {
   const today = moment().format('YYYY-MM-DD');
   const me = await base44.auth.me().catch(() => null);
-  const operator = me?.full_name || me?.email || '';
+  const operator = displayName(me);
 
   // Carga inicial / ajuste de saldo: bandejas sin descuento de materia prima
   if (bypass) {

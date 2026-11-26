@@ -9,6 +9,7 @@ import RefundQueueCard from '@/components/pos/RefundQueueCard';
 import RefundCompletedSection from '@/components/pos/RefundCompletedSection';
 import RefundHistory from '@/components/pos/RefundHistory';
 import { cancelRefund } from '@/lib/cancelRefund';
+import { displayName } from '@/lib/displayName';
 
 /**
  * Cola de devoluciones por pago móvil / transferencia.
@@ -49,7 +50,7 @@ export default function RefundQueue() {
         status: 'pagada',
         confirmed_at: new Date().toISOString(),
         confirmed_by_id: currentUser?.id,
-        confirmed_by_name: currentUser?.full_name || '',
+        confirmed_by_name: displayName(currentUser),
         ...(confirmationReference ? { confirmation_reference: confirmationReference } : {}),
       }),
     onSuccess: () => {

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { displayName } from '@/lib/displayName';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -30,7 +31,7 @@ export default function MergeTraysDialog({ open, onOpenChange, trays }) {
         tray_id: target.id, recipe_name: target.recipe_name, grams: moved,
         remaining_before: before, remaining_after: before + moved,
         source_tray_id: source.id, source_recipe_name: source.recipe_name,
-        operator: me?.full_name || me?.email || '',
+        operator: displayName(me),
       });
     },
     onSuccess: () => {

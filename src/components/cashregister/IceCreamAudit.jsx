@@ -10,6 +10,7 @@ import { ClipboardCheck, AlertTriangle, CheckCircle2, TrendingDown, DollarSign }
 import { toast } from 'sonner';
 import moment from 'moment';
 import { formatVET } from '@/lib/vetTime';
+import { displayName } from '@/lib/displayName';
 
 // Cost per gram of a recipe = (sum of ingredient_qty * supply.cost_per_unit) / yield_amount
 const computeRecipeCostPerGram = (recipe, supplies) => {
@@ -96,7 +97,7 @@ export default function IceCreamAudit({ activeTrays = [], todaySales = [], shift
       const me = await base44.auth.me();
       await base44.entities.IceCreamAudit.create({
         audit_date: today,
-        operator_name: me?.full_name || '',
+        operator_name: displayName(me),
         shift,
         cash_register_id: cashRegisterId || undefined,
         entries: rows.map(r => ({

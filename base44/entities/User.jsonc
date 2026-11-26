@@ -33,6 +33,10 @@
         }
       },
       "default": {}
+    },
+    "alias": {
+      "type": "string",
+      "description": "Nombre visible elegido por el usuario (identificaci\u00f3n cuando se comparte un correo)"
     }
   }
 }
