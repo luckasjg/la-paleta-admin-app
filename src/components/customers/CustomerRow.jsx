@@ -2,8 +2,9 @@ import React, { useState } from 'react';
 import { format } from 'date-fns';
 import { Pencil, Trash2, IceCream, Instagram, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import LoyaltyMiniBar from '@/components/customers/loyalty/LoyaltyMiniBar';
 
-export default function CustomerRow({ c, onOpen, onEdit, onDelete, onRedeem }) {
+export default function CustomerRow({ c, standing, onOpen, onEdit, onDelete, onRedeem }) {
   const [busy, setBusy] = useState(false);
   const stop = (fn) => (e) => { e.stopPropagation(); fn(); };
   const redeem = async () => { setBusy(true); await onRedeem(c); setBusy(false); };
@@ -18,6 +19,7 @@ export default function CustomerRow({ c, onOpen, onEdit, onDelete, onRedeem }) {
           {c.instagram && <><span>·</span><Instagram className="h-3 w-3" />@{c.instagram}</>}
         </p>
       </div>
+      <LoyaltyMiniBar standing={standing} className="hidden sm:block" />
       {c.is_registered === false && <span className="text-[10px] uppercase text-muted-foreground">Express</span>}
       {c.event_status === 'pendiente' && (
         <Button size="sm" onClick={stop(redeem)} disabled={busy}><IceCream className="h-4 w-4" /> {busy ? 'Guardando…' : 'Canjear Helado'}</Button>

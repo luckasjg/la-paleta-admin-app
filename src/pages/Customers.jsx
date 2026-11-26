@@ -1,6 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Plus, Search } from 'lucide-react';
+import { Plus, Search, Gift } from 'lucide-react';
+import { useLoyaltyStandings } from '@/lib/useLoyaltyStandings';
+import LoyaltyKpis from '@/components/customers/loyalty/LoyaltyKpis';
+import LoyaltyRanking from '@/components/customers/loyalty/LoyaltyRanking';
 import { base44 } from '@/api/base44Client';
 import { useAuth } from '@/lib/AuthContext';
 import PageHeader from '@/components/shared/PageHeader';
@@ -24,10 +27,18 @@ export default function Customers() {
   const [formOpen, setFormOpen] = useState(false);
   const [detail, setDetail] = useState(null);
 
+  const [nearOnly, setNearOnly] = useState(false);
+  const loyalty = useLoyaltyStandings();
+  const standings = loyalty.data?.standings || {};
+  const ranked = Object.entries(standings).map(([id, st]) => ({ c: loyalty.data.customers[id], st })).filter(x => x.c);
+  const nearIds = ranked.filter(x => x.st.pct >= 75).map(x => x.c.id);
+
   const s = search.trim();
-  const q = { ...TAB_QUERY[tab], ...(s ? { $or: [{ full_name: { $regex: esc(s), $options: 'i' } }, { phone: { $regex: esc(s) } }, { instagram: { $regex: esc(s.replace(/^@/, '')), $options: 'i' } }] } : {}) };
+  const q = { ...TAB_QUERY[tab], ...(s ? { $or: [{ full_name: { $regex: esc(s), $options: 'i' } }, { phone: { $regex: esc(s) } }, { instagram: { $regex: esc(s.replace(/^@/, '')), $options: 'i' } }] } : {}),
+    ...(nearOnly ? { id: { $in: nearIds.length ? nearIds : ['__ninguno__'] } } : {}) };
   const { data, fetchNextPage, hasNextPage, isLoading, isFetchingNextPage } = useInfiniteQuery({
-    queryKey: ['customers', tab, search],
+    queryKey: ['customers', tab, search, nearOnly, nearOnly ? nearIds.join(',') : ''],
+    enabled: !nearOnly || !loyalty.isLoading,
     queryFn: ({ pageParam }) => base44.entities.Customer.filter(q, { sort: tab === 'todos' ? 'full_name' : '-event_registered_at', limit: 50, cursor: pageParam }),
     initialPageParam: undefined,
     getNextPageParam: (p) => (p.has_more ? p.next_cursor : undefined),
@@ -58,6 +69,8 @@ export default function Customers() {
     <div className="space-y-6">
       <PageHeader title="Clientes" description={`${counts?.todos ?? 0} clientes en la base de datos`}
         actions={<div className="flex gap-2"><LoyaltyRulesDialog /><Button onClick={() => { setEditing(null); setFormOpen(true); }}><Plus className="h-4 w-4" /> Nuevo cliente</Button></div>} />
+      <LoyaltyKpis list={ranked} loading={loyalty.isLoading} />
+      <LoyaltyRanking list={ranked} loading={loyalty.isLoading} onOpen={setDetail} />
       <div className="flex flex-wrap items-center gap-3 justify-between">
         <Tabs value={tab} onValueChange={setTab}>
           <TabsList>
@@ -66,15 +79,20 @@ export default function Customers() {
             <TabsTrigger value="canjeados">Evento: Canjeados · {counts?.canjeados ?? 0}</TabsTrigger>
           </TabsList>
         </Tabs>
-        <div className="relative w-full max-w-sm">
-          <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-          <Input className="pl-9" placeholder="Buscar por nombre, teléfono o Instagram..." value={search} onChange={e => setSearch(e.target.value)} />
+        <div className="flex w-full max-w-lg items-center gap-2">
+          <Button variant={nearOnly ? 'default' : 'outline'} className="shrink-0" onClick={() => setNearOnly(!nearOnly)}>
+            <Gift className="h-4 w-4" /> Cerca de beneficio{nearOnly ? ` · ${nearIds.length}` : ''}
+          </Button>
+          <div className="relative flex-1">
+            <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <Input className="pl-9" placeholder="Buscar por nombre, teléfono o Instagram..." value={search} onChange={e => setSearch(e.target.value)} />
+          </div>
         </div>
       </div>
       <div className="rounded-xl border bg-card divide-y">
         {isLoading ? <p className="p-8 text-center text-sm text-muted-foreground">Cargando...</p> :
           rows.length === 0 ? <p className="p-8 text-center text-sm text-muted-foreground">No hay clientes.</p> :
-          rows.map(c => <CustomerRow key={c.id} c={c} onOpen={setDetail} onEdit={(x) => { setEditing(x); setFormOpen(true); }} onDelete={remove} onRedeem={redeem} />)}
+          rows.map(c => <CustomerRow key={c.id} c={c} standing={standings[c.id]} onOpen={setDetail} onEdit={(x) => { setEditing(x); setFormOpen(true); }} onDelete={remove} onRedeem={redeem} />)}
       </div>
       {hasNextPage && <div className="text-center"><Button variant="outline" onClick={() => fetchNextPage()} disabled={isFetchingNextPage}>{isFetchingNextPage ? 'Cargando...' : 'Cargar más'}</Button></div>}
       <CustomerForm open={formOpen} onOpenChange={setFormOpen} customer={editing} onSaved={refresh} />
