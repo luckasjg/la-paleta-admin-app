@@ -15,6 +15,7 @@ import VitrineTrayCard from '@/components/production/VitrineTrayCard';
 import ReserveTrayCard from '@/components/production/ReserveTrayCard';
 import { Switch } from '@/components/ui/switch';
 import PageHeader from '@/components/shared/PageHeader';
+import ResidualWatcher from '@/components/auditor/ResidualWatcher';
 import { toast } from 'sonner';
 import moment from 'moment';
 import StockLocationSelector from '@/components/shared/StockLocationSelector';
@@ -163,6 +164,7 @@ export default function Production() {
 
   return (
     <div className="space-y-6">
+      <ResidualWatcher />
       <PageHeader
         title="Producción"
         description="Registro de bandejas y control de producción"

@@ -177,7 +177,7 @@ export default function Adjustments() {
                         <Badge className="bg-amber-100 text-amber-700 text-xs mt-0.5">Editado</Badge>
                       )}
                     </TableCell>
-                    <TableCell><Badge variant="secondary">{a.type === 'supply' ? 'Insumo' : 'Bandeja'}</Badge></TableCell>
+                    <TableCell><Badge variant="secondary">{a.type === 'supply' ? 'Insumo' : a.type === 'audit_correction' ? 'Auditor' : 'Bandeja'}</Badge></TableCell>
                     <TableCell className="font-medium">{a.reference_name}</TableCell>
                     <TableCell><Badge variant="secondary">{reasonLabel(a.reason, reasons)}</Badge></TableCell>
                     <TableCell className={`text-right font-mono font-semibold ${a.quantity_change > 0 ? 'text-green-600' : 'text-destructive'}`}>

@@ -22,6 +22,10 @@ import { Warehouse as WarehouseIcon, FlaskConical, BarChart3 } from 'lucide-reac
 import { Link } from 'react-router-dom';
 import { useRole } from '@/lib/useRole';
 import UnsavedFlag from '@/components/shared/UnsavedFlag';
+import { ScanSearch } from 'lucide-react';
+import SupplyAuditFields from '@/components/inventory/SupplyAuditFields';
+import AuditorDrawer from '@/components/auditor/AuditorDrawer';
+import { useInventoryAudit, notifyAudit, defaultResidualThreshold } from '@/lib/inventoryAudit';
 
 const SECTORS = [
   { value: 'materia_prima', label: 'Materia Prima', description: 'Ingredientes para producción de helados' },
@@ -54,7 +58,7 @@ const loadCategoriesFromStorage = () => {
   }
 };
 
-const emptySupply = { name: '', sector: 'materia_prima', category: '', unit: 'g', stock_warehouse: 0, stock_production: 0, stock_minimum: 0, cost_per_unit: 0, supplier: '', is_infinite: false };
+const emptySupply = { name: '', sector: 'materia_prima', category: '', unit: 'g', stock_warehouse: 0, stock_production: 0, stock_minimum: 0, cost_per_unit: 0, supplier: '', is_infinite: false, residual_threshold: '', ignore_overstock_alert: false };
 const emptyCalc = { purchase_price: '', yield_amount: '' };
 const emptyPurchase = { presentation: '', purchase_price: '', net_content: '', package_unit: 'kg' };
 
@@ -83,7 +87,11 @@ export default function Inventory() {
   const [catManagerOpen, setCatManagerOpen] = useState(false);
   const [customCategories, setCustomCategories] = useState(loadCategoriesFromStorage);
   const qc = useQueryClient();
-  const { isAdmin } = useRole();
+  const { isAdmin, isGerente } = useRole();
+  const canAudit = isAdmin || isGerente;
+  const [auditOpen, setAuditOpen] = useState(false);
+  const audit = useInventoryAudit(canAudit);
+  useEffect(() => { if (canAudit) notifyAudit(); }, [canAudit]);
 
   // Persist customCategories to localStorage whenever they change
   useEffect(() => {
@@ -142,7 +150,9 @@ export default function Inventory() {
       name: s.name, sector: s.sector || 'materia_prima', category: s.category || '',
       unit: s.unit, stock_warehouse: wh, stock_production: pr, stock_minimum: s.stock_minimum,
       cost_per_unit: s.cost_per_unit, supplier: s.supplier || '', is_infinite: s.is_infinite || false,
-      package_type: s.package_type || 'Paquete', units_per_package: s.units_per_package ?? ''
+      package_type: s.package_type || 'Paquete', units_per_package: s.units_per_package ?? '',
+      residual_threshold: Number.isFinite(s.residual_threshold) ? s.residual_threshold : '',
+      ignore_overstock_alert: !!s.ignore_overstock_alert,
     });
     setCalc(emptyCalc);
 
@@ -239,6 +249,10 @@ export default function Inventory() {
       stock_current: finalStockWarehouse + finalStockProduction, // espejo
       stock_minimum: finalStockMinimum,
       cost_per_unit, supplier, is_infinite,
+      residual_threshold: form.residual_threshold === '' || !Number.isFinite(parseFloat(form.residual_threshold))
+        ? defaultResidualThreshold({ name, category, unit: finalUnit })
+        : parseFloat(form.residual_threshold),
+      ignore_overstock_alert: !!form.ignore_overstock_alert,
       ...(packageFormatPayload ? { package_format: packageFormatPayload } : {}),
       ...(sector === 'utensilio' ? {
         package_type: form.package_type || 'Paquete',
@@ -323,7 +337,15 @@ export default function Inventory() {
         title="Inventario"
         description="Gestión de insumos, productos de venta directa y utensilios"
         actions={
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            {canAudit && (
+              <Button variant="outline" onClick={() => setAuditOpen(true)} className="relative">
+                <ScanSearch className="h-4 w-4 mr-2" /> Auditor de Inventario
+                {(audit.data?.findings?.length || 0) > 0 && (
+                  <span className="ml-2 rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-semibold text-primary-foreground">{audit.data.findings.length}</span>
+                )}
+              </Button>
+            )}
             {isAdmin && (
               <Button variant="outline" asChild>
                 <Link to="/produccion?tab=consumo"><BarChart3 className="h-4 w-4 mr-2" /> Consumo de Insumos</Link>
@@ -451,6 +473,8 @@ export default function Inventory() {
         supplies={supplies}
         onSuppliesRefresh={() => qc.invalidateQueries({ queryKey: ['supplies'] })}
       />
+
+      {canAudit && <AuditorDrawer open={auditOpen} onOpenChange={setAuditOpen} audit={audit} />}
 
       {/* Create / Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -715,6 +739,11 @@ export default function Inventory() {
               setForm={setForm}
               lockUnit={form.sector !== 'materia_prima'}
             />
+
+            {canAudit && (
+              <SupplyAuditFields form={form} setForm={setForm}
+                unit={form.sector === 'materia_prima' ? getPackageUnit(purchase.package_unit).baseUnit : form.unit} />
+            )}
 
             {/* Costo por Unidad ya se calcula automáticamente desde el Formato de Compra
                 para todos los sectores; la calculadora manual antigua se reemplazó por el panel. */}

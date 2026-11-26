@@ -56,6 +56,7 @@ import CreditSaleDialog from '@/components/receivables/CreditSaleDialog';
 import ReceivablesPanel from '@/components/receivables/ReceivablesPanel';
 import { aggregateTrayDemand } from '@/lib/trayDeduction';
 import StaffBenefitSelector from '@/components/pos/StaffBenefitSelector';
+import ResidualWatcher from '@/components/auditor/ResidualWatcher';
 import { getStaffBonusBalance, applyStaffBonus, recordStaffBonusConsumption } from '@/lib/staffBonus';
 import {
   splitGramsEqually,
@@ -886,6 +887,7 @@ export default function POS() {
 
   return (
     <>
+    <ResidualWatcher />
     <PosTabs value={posTab} onChange={setPosTab} pendingRefunds={pendingRefundsCount} />
     <PremiumChargesPanel session={activeSession} wallets={wallets} eurVes={eurVes} />
     <div className="mt-3 flex items-center gap-2 text-sm">

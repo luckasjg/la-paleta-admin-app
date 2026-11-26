@@ -49,6 +49,15 @@
       "type": "boolean",
       "default": false
     },
+    "residual_threshold": {
+      "type": "number",
+      "description": "Umbral m\u00ednimo utilizable. Por defecto 20 en g/ml y 0 en unidades o microdosificaci\u00f3n"
+    },
+    "ignore_overstock_alert": {
+      "type": "boolean",
+      "default": false,
+      "description": "Silencia alertas de inactividad / sobreexistencia del Auditor"
+    },
     "low_stock_alerted": {
       "type": "boolean",
       "default": false,

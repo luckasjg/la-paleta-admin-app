@@ -1,0 +1,64 @@
+{
+  "name": "AuditAlertLog",
+  "type": "object",
+  "properties": {
+    "finding_key": {
+      "type": "string",
+      "description": "Clave estable del hallazgo del Auditor"
+    },
+    "finding_type": {
+      "type": "string",
+      "enum": [
+        "residual_stock",
+        "unlinked_catalog_items",
+        "stagnant_overstock",
+        "orphan_supply_in_stock",
+        "negative_or_kardex_mismatch"
+      ],
+      "enumColors": [
+        "yellow",
+        "red",
+        "blue",
+        "purple",
+        "red"
+      ]
+    },
+    "title": {
+      "type": "string"
+    },
+    "last_notified_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "notify_count": {
+      "type": "number",
+      "default": 1
+    }
+  },
+  "required": [
+    "finding_key",
+    "last_notified_at"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

@@ -8,7 +8,8 @@
         "supply",
         "tray",
         "production_consumption",
-        "sale_cancellation"
+        "sale_cancellation",
+        "audit_correction"
       ]
     },
     "reference_id": {
@@ -69,7 +70,7 @@
     },
     "reference_label": {
       "type": "string",
-      "description": "Origen legible: Bandeja, Relleno, Lote Maestro, Preparado, Anulaci\u00f3n de venta"
+      "description": "Origen legible: Bandeja, Relleno, Lote Maestro, Preparado, Anulaci\u00f3n de venta, Auditor de Inventario"
     },
     "unit_cost": {
       "type": "number"
@@ -80,6 +81,17 @@
     "is_correction": {
       "type": "boolean",
       "default": false
+    },
+    "approved_by": {
+      "type": "string",
+      "description": "Usuario que aprob\u00f3 la correcci\u00f3n (Auditor)"
+    },
+    "approved_by_email": {
+      "type": "string"
+    },
+    "audit_finding_key": {
+      "type": "string",
+      "description": "Hallazgo del Auditor que origin\u00f3 la correcci\u00f3n"
     }
   },
   "required": [
