@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { auditAction } from '@/lib/inventoryAudit';
 import FindingsList from '@/components/auditor/FindingsList';
 import AuditorChat from '@/components/auditor/AuditorChat';
+import SupplySearchPanel from '@/components/auditor/SupplySearchPanel';
 
 export default function AuditorDrawer({ open, onOpenChange, audit }) {
   const [tab, setTab] = useState('findings');
@@ -44,17 +45,17 @@ export default function AuditorDrawer({ open, onOpenChange, audit }) {
               <Send className="h-4 w-4" /> {sending ? 'Enviando...' : 'Enviar resumen a Slack'}
             </Button>
           </div>
-          <div className="grid grid-cols-2 rounded-lg bg-muted p-1 text-sm">
-            {[['findings', `Hallazgos (${findings.length})`], ['chat', 'Consultar al Auditor']].map(([id, label]) => (
+          <div className="grid grid-cols-3 rounded-lg bg-muted p-1 text-sm">
+            {[['findings', `Hallazgos (${findings.length})`], ['search', 'Buscar'], ['chat', 'Consultar']].map(([id, label]) => (
               <button key={id} type="button" onClick={() => setTab(id)}
                 className={`rounded-md py-1.5 font-medium transition-all ${tab === id ? 'bg-background shadow-sm' : 'text-muted-foreground'}`}>{label}</button>
             ))}
           </div>
         </SheetHeader>
         <div className="flex-1 min-h-0 overflow-y-auto px-5 py-4">
-          {tab === 'findings'
-            ? <FindingsList findings={findings} loading={audit.isLoading} />
-            : <AuditorChat />}
+          {tab === 'findings' && <FindingsList findings={findings} loading={audit.isLoading} />}
+          {tab === 'search' && <SupplySearchPanel findings={findings} />}
+          {tab === 'chat' && <AuditorChat />}
         </div>
       </SheetContent>
     </Sheet>
