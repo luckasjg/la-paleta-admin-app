@@ -28,7 +28,7 @@ import PosTabs from '@/components/pos/PosTabs';
 import RefundQueue from '@/components/pos/RefundQueue';
 import OrderTicket from '@/components/pos/OrderTicket';
 import CustomerIdentifyGate from '@/components/pos/CustomerIdentifyGate';
-import CustomerPickerDialog from '@/components/pos/CustomerPickerDialog';
+import SaleCustomerBar from '@/components/pos/SaleCustomerBar';
 import { touchRecentCustomer } from '@/lib/recentCustomers';
 import LoyaltyBenefitAlert from '@/components/pos/LoyaltyBenefitAlert';
 import PrintRelayBadge from '@/components/pos/PrintRelayBadge';
@@ -67,7 +67,6 @@ import {
 export default function POS() {
   const [cart, setCart] = useState([]);
   const [saleCustomer, setSaleCustomer] = useState(null);
-  const [customerPicker, setCustomerPicker] = useState(false);
   const [bonusStaff, setBonusStaff] = useState(null);
   const { data: bonusBalance } = useQuery({
     queryKey: ['staff_bonus_balance', bonusStaff?.id],
@@ -890,16 +889,7 @@ export default function POS() {
     <ResidualWatcher />
     <PosTabs value={posTab} onChange={setPosTab} pendingRefunds={pendingRefundsCount} />
     <PremiumChargesPanel session={activeSession} wallets={wallets} eurVes={eurVes} />
-    <div className="mt-3 flex items-center gap-2 text-sm">
-      <Badge variant={saleCustomer?.none ? 'outline' : 'secondary'}>
-        {saleCustomer && !saleCustomer.none ? `Cliente: ${saleCustomer.full_name} · V-${saleCustomer.cedula}` : 'Venta sin datos de cliente'}
-      </Badge>
-      <button type="button" className="text-xs underline text-muted-foreground" onClick={() => setCustomerPicker(true)}>
-        {saleCustomer && !saleCustomer.none ? 'Cambiar cliente' : 'Asignar cliente'}
-      </button>
-    </div>
-    <CustomerPickerDialog open={customerPicker} onOpenChange={setCustomerPicker}
-      sessionId={activeSession?.id} onDone={setSaleCustomer} />
+    <SaleCustomerBar saleCustomer={saleCustomer} setSaleCustomer={setSaleCustomer} sessionId={activeSession?.id} />
     {saleCustomer && !saleCustomer.none && <LoyaltyBenefitAlert key={saleCustomer.id} customer={saleCustomer} />}
     <div className="flex flex-col md:flex-row gap-3 lg:gap-4 h-[calc(100vh-8rem)] mt-3">
       {/* Product Grid */}

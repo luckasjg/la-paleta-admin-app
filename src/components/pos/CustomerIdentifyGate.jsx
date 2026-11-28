@@ -41,8 +41,14 @@ export default function CustomerIdentifyGate({ onDone: done, sessionId, bare = f
     try {
       if (!existing) {
         customer = await base44.entities.Customer.create({ ...data, is_registered: true, category: 'POS' });
-      } else if (data.full_name !== existing.full_name || data.phone !== existing.phone || data.email !== (existing.email || '')) {
-        customer = await base44.entities.Customer.update(existing.id, data);
+      } else {
+        if (data.full_name !== existing.full_name) {
+          const { data: r } = await base44.functions.invoke('updateCustomerName', { customer_id: existing.id, full_name: data.full_name });
+          customer = { ...customer, full_name: r.full_name };
+        }
+        if (data.phone !== existing.phone || data.email !== (existing.email || '')) {
+          customer = await base44.entities.Customer.update(existing.id, { phone: data.phone, email: data.email });
+        }
       }
     } catch (e) {
       if (!existing) { setBusy(false); return toast.error(e.message); }
